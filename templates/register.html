@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Open an Account{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card" style="max-width: 480px;">
+    <div class="auth-logo">
+      <span class="logo-icon">📝</span>
+      <h1>Open an Account</h1>
+      <p>Fill in your details to get started</p>
+    </div>
+    <form method="POST">
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" class="form-control"
+               placeholder="Enter your full name" required autofocus
+               value="{{ form.name if form else '' }}">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="age">Age</label>
+          <input type="number" id="age" name="age" class="form-control"
+                 placeholder="18-120" required min="18" max="120"
+                 value="{{ form.age if form else '' }}">
+        </div>
+        <div class="form-group">
+          <label for="gender">Gender</label>
+          <select id="gender" name="gender" class="form-control" required>
+            <option value="">Select...</option>
+            <option value="Male" {% if form and form.gender == 'Male' %}selected{% endif %}>Male</option>
+            <option value="Female" {% if form and form.gender == 'Female' %}selected{% endif %}>Female</option>
+            <option value="Other" {% if form and form.gender == 'Other' %}selected{% endif %}>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="mobile">Mobile Number</label>
+        <input type="tel" id="mobile" name="mobile" class="form-control"
+               placeholder="10-digit number starting with 6-9" required
+               value="{{ form.mobile if form else '' }}">
+      </div>
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" class="form-control"
+               placeholder="your@email.com" required
+               value="{{ form.email if form else '' }}">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" class="form-control"
+               placeholder="Min 8 chars, upper + lower + digit" required>
+        <div class="form-hint">At least 8 characters with uppercase, lowercase, and a digit.</div>
+      </div>
+      <div class="form-group">
+        <label for="confirm_password">Confirm Password</label>
+        <input type="password" id="confirm_password" name="confirm_password" class="form-control"
+               placeholder="Re-enter your password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Create Account</button>
+    </form>
+    <div class="auth-footer">
+      Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Union Bank{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  {# ── Theme: apply saved preference before render ── #}
+  <script>
+    (function() {
+      const saved = localStorage.getItem('union-bank-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  {# ── Navigation Bar ───────────────────────────── #}
+  <nav class="navbar">
+    <a href="{{ url_for('index') }}" class="navbar-brand">
+      <span class="logo-icon">🏦</span>
+      <span>Union Bank</span>
+    </a>
+    <div class="navbar-links">
+      {% if session.get('account_number') %}
+        {% set acc_no = session.get('account_number') %}
+        <span class="nav-user">👤 {{ acc_no }}</span>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('statement') }}">Statement</a>
+        <a href="{{ url_for('profile') }}">Profile</a>
+        <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+      {% elif session.get('is_admin') %}
+        <span class="nav-user">🛡️ Admin</span>
+        <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('admin_accounts') }}">Accounts</a>
+        <a href="{{ url_for('admin_statistics') }}">Statistics</a>
+        <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Customer Login</a>
+        <a href="{{ url_for('register') }}">Register</a>
+        <a href="{{ url_for('admin_login') }}">Admin</a>
+      {% endif %}
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
+    </div>
+  </nav>
+
+  {# ── Main Content ─────────────────────────────── #}
+  <main class="container">
+    {% block flash %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">
+                <span class="flash-icon">
+                  {% if category == 'success' %}✅
+                  {% elif category == 'error' %}❌
+                  {% elif category == 'warning' %}⚠️
+                  {% else %}ℹ️{% endif %}
+                </span>
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+    {% endblock %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  {# ── Theme Toggle Script ─────────────────── #}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const btn = document.getElementById('themeToggle');
+      if (!btn) return;
+
+      const html = document.documentElement;
+
+      function setTheme(theme) {
+        if (theme === 'dark') {
+          html.setAttribute('data-theme', 'dark');
+          btn.textContent = '☀️';
+          btn.setAttribute('aria-label', 'Switch to light mode');
+        } else {
+          html.removeAttribute('data-theme');
+          btn.textContent = '🌙';
+          btn.setAttribute('aria-label', 'Switch to dark mode');
+        }
+        localStorage.setItem('union-bank-theme', theme);
+      }
+
+      // Sync button with current state
+      if (html.getAttribute('data-theme') === 'dark') {
+        btn.textContent = '☀️';
+        btn.setAttribute('aria-label', 'Switch to light mode');
+      }
+
+      btn.addEventListener('click', function() {
+        const isDark = html.getAttribute('data-theme') === 'dark';
+        setTheme(isDark ? 'light' : 'dark');
+      });
+
+      // Listen for system preference changes
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!localStorage.getItem('union-bank-theme')) {
+          setTheme(e.matches ? 'dark' : 'light');
+        }
+      });
+    });
+  </script>
+
+  {# ── Footer ─────────────────────────────────── #}
+  <div class="footer">
+    Union Bank Management System &mdash; Web Interface
+  </div>
+</body>
+</html>

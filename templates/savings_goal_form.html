@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{% if goal %}Edit Goal{% else %}New Goal{% endif %}{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 520px; margin: 0 auto;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">{% if goal %}✏️ Edit Goal{% else %}🎯 New Savings Goal{% endif %}</div>
+      <div class="card-subtitle">
+        {% if goal %}
+          Currently saved: {{ fmt_currency(goal.current_amount) }} of {{ fmt_currency(goal.target_amount) }}
+        {% else %}
+          Define what you're saving for
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <form method="POST">
+    <div class="form-group">
+      <label for="name">Goal Name</label>
+      <input type="text" id="name" name="name" class="form-control"
+             placeholder="e.g., New Laptop, Vacation, Emergency Fund"
+             value="{{ goal.name if goal else '' }}" required autofocus>
+    </div>
+    <div class="form-group">
+      <label for="target_amount">Target Amount (₹)</label>
+      <input type="number" id="target_amount" name="target_amount" class="form-control"
+             placeholder="Enter your savings target"
+             value="{{ goal.target_amount if goal else '' }}" required min="1" step="0.01">
+    </div>
+    <div class="form-group">
+      <label for="target_date">Target Date (optional)</label>
+      <input type="date" id="target_date" name="target_date" class="form-control"
+             value="{{ goal.target_date if goal else '' }}">
+      <div class="form-hint">When would you like to achieve this goal by?</div>
+    </div>
+    <div class="btn-group">
+      <button type="submit" class="btn btn-success">
+        {% if goal %}💾 Save Changes{% else %}🎯 Create Goal{% endif %}
+      </button>
+      <a href="{{ url_for('savings_goals') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

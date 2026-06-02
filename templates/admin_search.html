@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Search Accounts{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">🔍 Search Accounts</div>
+      <div class="card-subtitle">Find accounts by account number or name</div>
+    </div>
+  </div>
+  <form method="POST">
+    <div class="form-group">
+      <label for="query">Search Query</label>
+      <input type="text" id="query" name="query" class="form-control"
+             placeholder="Enter account number or name..." value="{{ query }}" autofocus required>
+    </div>
+    <button type="submit" class="btn btn-primary">Search</button>
+  </form>
+</div>
+
+{% if results is defined and query %}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Search Results</div>
+        <div class="card-subtitle">{{ results|length }} match(es) for "{{ query }}"</div>
+      </div>
+    </div>
+    {% if results %}
+      {% for a in results %}
+        <div style="background: var(--gray-50); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; border: 1px solid var(--gray-200);">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px;">
+            <div><strong>Account:</strong> <a href="{{ url_for('admin_account_detail', acc_no=a.account_number) }}" style="color: var(--accent); text-decoration: none;">{{ a.account_number }} ↗️</a></div>
+            <div><strong>Name:</strong> {{ a.name }}</div>
+            <div><strong>Balance:</strong> {{ fmt_currency(a.balance) }}</div>
+            <div>
+              <strong>Status:</strong>
+              {% if a.get('is_frozen') %}
+                <span class="status-badge status-frozen">FROZEN</span>
+              {% elif a.get('is_active', True) %}
+                <span class="status-badge status-active">ACTIVE</span>
+              {% else %}
+                <span class="status-badge status-closed">CLOSED</span>
+              {% endif %}
+            </div>
+            <div><strong>Mobile:</strong> {{ a.mobile }}</div>
+            <div><strong>Email:</strong> {{ a.email }}</div>
+            <div><strong>Created:</strong> {{ a.get('created_at', 'N/A') }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <span class="empty-icon">🔍</span>
+        <h3>No Results</h3>
+        <p>No accounts matched your search query.</p>
+      </div>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

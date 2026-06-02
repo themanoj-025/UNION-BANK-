@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Freeze / Unfreeze Account{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">❄️ Freeze / Unfreeze Account</div>
+      <div class="card-subtitle">Manage account restrictions</div>
+    </div>
+  </div>
+
+  {% if preview_acc %}
+    {# ── Confirmation Step ──────────────────── #}
+    {% set currently_frozen = preview_acc.get('is_frozen', False) %}
+    <div class="confirm-box">
+      <div class="confirm-title">
+        {% if currently_frozen %}
+          ✅ Unfreeze this account?
+        {% else %}
+          ❄️ Freeze this account?
+        {% endif %}
+      </div>
+      <div class="confirm-detail"><strong>Account:</strong> {{ acc_no }} &mdash; {{ preview_acc.name }}</div>
+      <div class="confirm-detail"><strong>Current Status:</strong>
+        {% if currently_frozen %}
+          <span class="status-badge status-frozen">FROZEN</span>
+        {% else %}
+          <span class="status-badge status-active">ACTIVE</span>
+        {% endif %}
+      </div>
+      <div class="confirm-detail"><strong>Balance:</strong> {{ fmt_currency(preview_acc.balance) }}</div>
+    </div>
+    <form method="POST">
+      <input type="hidden" name="account_number" value="{{ acc_no }}">
+      <input type="hidden" name="confirm" value="yes">
+      <div class="btn-group">
+        <button type="submit" class="btn btn-{{ 'success' if currently_frozen else 'warning' }}">
+          {% if currently_frozen %}✅ Confirm Unfreeze{% else %}❄️ Confirm Freeze{% endif %}
+        </button>
+        <a href="{{ url_for('admin_freeze') }}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  {% elif result %}
+    <div class="empty-state">
+      <span class="empty-icon">✅</span>
+      <h3>Action Completed</h3>
+      <p>{{ result }}</p>
+      <div class="btn-group" style="justify-content: center; margin-top: 16px;">
+        <a href="{{ url_for('admin_freeze') }}" class="btn btn-primary">Manage Another</a>
+      </div>
+    </div>
+  {% else %}
+    {# ── Search Form ────────────────────────── #}
+    <form method="POST">
+      <div class="form-group">
+        <label for="account_number">Account Number</label>
+        <input type="text" id="account_number" name="account_number" class="form-control"
+               placeholder="Enter the account number" required autofocus>
+      </div>
+      <button type="submit" class="btn btn-primary">Look Up Account</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

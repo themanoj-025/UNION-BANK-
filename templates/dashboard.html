@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{# ── Balance Hero Card ─────────────────────────── #}
+<div class="balance-card">
+  <div class="balance-label">Account Balance</div>
+  <div class="balance-amount">{{ fmt_currency(acc.balance) }}</div>
+  <div class="account-info">
+    {{ acc.name }} &middot; Account #{{ acc.account_number }} &middot;
+    {% if acc.is_frozen %}
+      <span style="color: #ffcdd2;">🔴 FROZEN</span>
+    {% elif acc.is_active %}
+      <span style="color: #c8e6c9;">🟢 ACTIVE</span>
+    {% else %}
+      <span style="color: #fff9c4;">🟡 CLOSED</span>
+    {% endif %}
+    &middot; {{ total_txns }} transaction(s)
+  </div>
+</div>
+
+{# ── Quick Actions ─────────────────────────────── #}
+<h2 style="font-size: 18px; color: var(--gray-700); margin-bottom: 8px;">Quick Actions</h2>
+<div class="dashboard-grid">
+  <a href="{{ url_for('deposit') }}" class="dashboard-card">
+    <span class="card-icon">💰</span>
+    <div class="card-label">Deposit</div>
+    <div class="card-desc">Add money to your account</div>
+  </a>
+  <a href="{{ url_for('withdraw') }}" class="dashboard-card">
+    <span class="card-icon">🏧</span>
+    <div class="card-label">Withdraw</div>
+    <div class="card-desc">Withdraw cash from your account</div>
+  </a>
+  <a href="{{ url_for('transfer') }}" class="dashboard-card">
+    <span class="card-icon">🔄</span>
+    <div class="card-label">Transfer</div>
+    <div class="card-desc">Send money to another account</div>
+  </a>
+  <a href="{{ url_for('statement') }}" class="dashboard-card">
+    <span class="card-icon">📋</span>
+    <div class="card-label">Statement</div>
+    <div class="card-desc">View transaction history</div>
+  </a>
+  <a href="{{ url_for('export_csv') }}" class="dashboard-card">
+    <span class="card-icon">📁</span>
+    <div class="card-label">Export CSV</div>
+    <div class="card-desc">Download statement as CSV</div>
+  </a>
+  <a href="{{ url_for('apply_interest') }}" class="dashboard-card">
+    <span class="card-icon">📈</span>
+    <div class="card-label">Apply Interest</div>
+    <div class="card-desc">Credit monthly interest (3.5% p.a.)</div>
+  </a>
+  <a href="{{ url_for('savings_goals') }}" class="dashboard-card">
+    <span class="card-icon">🎯</span>
+    <div class="card-label">Savings Goals</div>
+    <div class="card-desc">Set and track your savings targets</div>
+  </a>
+  <a href="{{ url_for('profile') }}" class="dashboard-card">
+    <span class="card-icon">👤</span>
+    <div class="card-label">Profile</div>
+    <div class="card-desc">View and update your details</div>
+  </a>
+  <a href="{{ url_for('change_password') }}" class="dashboard-card">
+    <span class="card-icon">🔑</span>
+    <div class="card-label">Change Password</div>
+    <div class="card-desc">Update your account password</div>
+  </a>
+</div>
+
+{# ── Charts Section ────────────────────────────── #}
+{% if chart_data and chart_data.category_labels|length > 0 %}
+<h2 style="font-size: 18px; color: var(--gray-700); margin: 24px 0 12px;">📊 Spending Insights</h2>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  {# ── Category Pie Chart ──────────────────────── #}
+  <div class="card" style="margin-bottom: 0;">
+    <div class="card-header" style="border: none; padding-bottom: 0; margin-bottom: 8px;">
+      <div class="card-title" style="font-size: 16px;">By Category</div>
+    </div>
+    <canvas id="categoryChart" height="250"></canvas>
+  </div>
+
+  {# ── Transaction Type Bar Chart ──────────────── #}
+  <div class="card" style="margin-bottom: 0;">
+    <div class="card-header" style="border: none; padding-bottom: 0; margin-bottom: 8px;">
+      <div class="card-title" style="font-size: 16px;">Transaction Types</div>
+    </div>
+    <canvas id="typeChart" height="250"></canvas>
+  </div>
+</div>
+
+{# ── Balance Trend Line Chart ──────────────────── #}
+{% if chart_data.balance_dates|length > 1 %}
+<div class="card" style="margin-top: 20px;">
+  <div class="card-header" style="border: none; padding-bottom: 0; margin-bottom: 8px;">
+    <div class="card-title" style="font-size: 16px;">📈 Balance Trend</div>
+    <div class="card-subtitle">Your balance over time</div>
+  </div>
+  <canvas id="balanceChart" height="200"></canvas>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Color palette
+  const colors = [
+    '#4caf50', '#2196f3', '#ff9800', '#e91e63', '#9c27b0',
+    '#00bcd4', '#ff5722', '#607d8b', '#cddc39', '#795548',
+    '#3f51b5', '#009688', '#f44336', '#673ab7', '#ff6f00',
+    '#00695c', '#37474f'
+  ];
+
+  // ── Category Pie Chart ───────────────────────
+  const catCtx = document.getElementById('categoryChart')?.getContext('2d');
+  if (catCtx) {
+    new Chart(catCtx, {
+      type: 'doughnut',
+      data: {
+        labels: {{ chart_data.category_labels | tojson }},
+        datasets: [{
+          data: {{ chart_data.category_amounts | tojson }},
+          backgroundColor: colors.slice(0, {{ chart_data.category_labels | length }}),
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                return ` {{ "₹" }}${ctx.parsed.toLocaleString()} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // ── Transaction Type Bar Chart ──────────────
+  const typeCtx = document.getElementById('typeChart')?.getContext('2d');
+  if (typeCtx) {
+    const typeLabels = {{ chart_data.type_labels | tojson }};
+    const typeColors = typeLabels.map(function(l) {
+      if (l === 'DEPOSIT' || l === 'TRANSFER_IN' || l === 'INTEREST') return '#4caf50';
+      if (l === 'WITHDRAW') return '#e53935';
+      return '#1976d2';
+    });
+    new Chart(typeCtx, {
+      type: 'bar',
+      data: {
+        labels: {{ chart_data.type_labels | tojson }},
+        datasets: [{
+          label: 'Count',
+          data: {{ chart_data.type_counts | tojson }},
+          backgroundColor: typeColors,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // ── Balance Trend Line Chart ────────────────
+  const balCtx = document.getElementById('balanceChart')?.getContext('2d');
+  if (balCtx) {
+    const balDates = {{ chart_data.balance_dates | tojson }};
+    new Chart(balCtx, {
+      type: 'line',
+      data: {
+        labels: balDates,
+        datasets: [{
+          label: 'Balance',
+          data: {{ chart_data.balance_values | tojson }},
+          borderColor: '#1a237e',
+          backgroundColor: 'rgba(26, 35, 126, 0.08)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ` {{ "₹" }}${ctx.parsed.y.toLocaleString()}`; }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            ticks: { callback: function(v) { return '{{ "₹" }}' + v.toLocaleString(); } }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { maxTicksLimit: 10, font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

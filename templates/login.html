@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Customer Login{% endblock %}
+{% block flash %}{{ super() }}{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <span class="logo-icon">🏦</span>
+      <h1>Customer Login</h1>
+      <p>Enter your account details</p>
+    </div>
+    <form method="POST">
+      <div class="form-group">
+        <label for="account_number">Account Number</label>
+        <input type="text" id="account_number" name="account_number" class="form-control"
+               placeholder="Enter your 10-digit account number" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" class="form-control"
+               placeholder="Enter your password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+    <div class="auth-footer">
+      Don't have an account? <a href="{{ url_for('register') }}">Register here</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

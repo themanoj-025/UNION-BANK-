@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Apply Interest{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 480px; margin: 0 auto;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">📈 Apply Monthly Interest</div>
+      <div class="card-subtitle">Credit 3.5% p.a. interest on your savings</div>
+    </div>
+  </div>
+  <div class="confirm-box">
+    <div class="confirm-title">📊 Interest Preview</div>
+    <div class="confirm-detail"><strong>Current Balance:</strong> {{ fmt_currency(acc.balance) }}</div>
+    <div class="confirm-detail"><strong>Interest Rate:</strong> 3.5% per annum</div>
+    <div class="confirm-detail"><strong>Monthly Interest:</strong> <span style="color: var(--success); font-weight: 700;">{{ fmt_currency(interest) }}</span></div>
+    <div class="confirm-detail" style="margin-top: 8px; border-top: 1px solid var(--gray-300); padding-top: 8px;">
+      <strong>Estimated New Balance:</strong> {{ fmt_currency(acc.balance + interest) }}
+    </div>
+  </div>
+  <form method="POST">
+    <div class="btn-group">
+      <button type="submit" class="btn btn-success">✅ Confirm & Apply</button>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

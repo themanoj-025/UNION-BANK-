@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Account Detail – {{ acc_no }}{% endblock %}
+{% block content %}
+{# ── Navigation breadcrumb ─────────────────────── #}
+<div style="margin-bottom: 16px; font-size: 14px; color: var(--gray-600);">
+  <a href="{{ url_for('admin_dashboard') }}" style="color: var(--accent); text-decoration: none;">Admin Dashboard</a>
+  &rsaquo;
+  <a href="{{ url_for('admin_accounts') }}" style="color: var(--accent); text-decoration: none;">All Accounts</a>
+  &rsaquo;
+  <strong>{{ acc_no }}</strong>
+</div>
+
+{# ── Profile Card ──────────────────────────────── #}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">👤 Customer Profile</div>
+      <div class="card-subtitle">Detailed account information</div>
+    </div>
+    <div>
+      {% if status == 'active' %}
+        <span class="status-badge status-active" style="font-size: 14px; padding: 5px 14px;">🟢 ACTIVE</span>
+      {% elif status == 'frozen' %}
+        <span class="status-badge status-frozen" style="font-size: 14px; padding: 5px 14px;">🔴 FROZEN</span>
+      {% else %}
+        <span class="status-badge status-closed" style="font-size: 14px; padding: 5px 14px;">🟡 CLOSED</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+    <div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;">Account Number</div>
+        <div style="font-size: 18px; font-weight: 700; color: var(--primary);">{{ acc_no }}</div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;">Full Name</div>
+        <div style="font-size: 16px; font-weight: 600;">{{ acc.name }}</div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;">Age / Gender</div>
+        <div style="font-size: 16px;">{{ acc.age }} years / {{ acc.gender }}</div>
+      </div>
+    </div>
+    <div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;">Mobile Number</div>
+        <div style="font-size: 16px;">{{ acc.mobile }}</div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;">Email Address</div>
+        <div style="font-size: 16px; word-break: break-all;">{{ acc.email }}</div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;">Member Since</div>
+        <div style="font-size: 16px;">{{ acc.get('created_at', 'N/A') }}</div>
+      </div>
+    </div>
+    <div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;">Current Balance</div>
+        <div style="font-size: 24px; font-weight: 700; color: var(--primary);">{{ fmt_currency(acc.balance) }}</div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;">Total Transactions</div>
+        <div style="font-size: 20px; font-weight: 600;">{{ summary.total_txns }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Quick Action Buttons ──────────────────────── #}
+<div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+  {% if status == 'active' %}
+    <form method="POST" action="{{ url_for('admin_freeze') }}" style="display: inline;">
+      <input type="hidden" name="account_number" value="{{ acc_no }}">
+      <input type="hidden" name="confirm" value="yes">
+      <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Freeze account {{ acc_no }}?')">❄️ Freeze Account</button>
+    </form>
+  {% elif status == 'frozen' %}
+    <form method="POST" action="{{ url_for('admin_freeze') }}" style="display: inline;">
+      <input type="hidden" name="account_number" value="{{ acc_no }}">
+      <input type="hidden" name="confirm" value="yes">
+      <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Unfreeze account {{ acc_no }}?')">✅ Unfreeze Account</button>
+    </form>
+  {% endif %}
+  <a href="{{ url_for('admin_delete') }}" class="btn btn-danger btn-sm">🗑️ Delete Account</a>
+  <a href="{{ url_for('admin_transactions') }}" class="btn btn-outline btn-sm">📋 View Transactions</a>
+  <a href="{{ url_for('admin_search') }}" class="btn btn-outline btn-sm">🔍 Search Accounts</a>
+</div>
+
+{# ── Financial Summary Stats ───────────────────── #}
+<div class="stats-grid" style="margin-bottom: 20px;">
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 20px; color: var(--success);">{{ fmt_currency(summary.total_credits) }}</div>
+    <div class="stat-label">Total Credits</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 20px; color: var(--danger);">{{ fmt_currency(summary.total_debits) }}</div>
+    <div class="stat-label">Total Debits</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 20px;">{{ summary.deposit_count }}</div>
+    <div class="stat-label">Deposits</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 20px;">{{ summary.withdraw_count }}</div>
+    <div class="stat-label">Withdrawals</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 20px;">{{ summary.transfer_out_count }}</div>
+    <div class="stat-label">Transfers Out</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 20px;">{{ summary.transfer_in_count }}</div>
+    <div class="stat-label">Transfers In</div>
+  </div>
+</div>
+
+{# ── Charts Row ────────────────────────────────── #}
+{% if chart_data and chart_data.category_labels|length > 0 %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+  <div class="card" style="margin-bottom: 0;">
+    <div class="card-header" style="border: none; padding-bottom: 0; margin-bottom: 8px;">
+      <div class="card-title" style="font-size: 16px;">🏷️ Category Breakdown</div>
+    </div>
+    <canvas id="detailCategoryChart" height="220"></canvas>
+  </div>
+  <div class="card" style="margin-bottom: 0;">
+    <div class="card-header" style="border: none; padding-bottom: 0; margin-bottom: 8px;">
+      <div class="card-title" style="font-size: 16px;">📈 Balance Trend</div>
+    </div>
+    <canvas id="detailBalanceChart" height="220"></canvas>
+  </div>
+</div>
+{% endif %}
+
+{# ── Recent Transactions ───────────────────────── #}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">📋 Recent Transactions</div>
+      <div class="card-subtitle">Last {{ recent|length }} of {{ summary.total_txns }} total transaction(s)</div>
+    </div>
+  </div>
+
+  {% if recent %}
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Date/Time</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Amount</th>
+            <th>Balance</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in recent %}
+            {% set is_credit = t.type in ('DEPOSIT', 'TRANSFER_IN', 'INTEREST') %}
+            <tr>
+              <td style="font-size: 13px;">{{ t.timestamp }}</td>
+              <td>
+                {% if t.type == 'DEPOSIT' %}💰 Deposit
+                {% elif t.type == 'WITHDRAW' %}🏧 Withdraw
+                {% elif t.type == 'TRANSFER_OUT' %}↗️ Transfer Out
+                {% elif t.type == 'TRANSFER_IN' %}↙️ Transfer In
+                {% elif t.type == 'INTEREST' %}📈 Interest
+                {% else %}{{ t.type }}{% endif %}
+              </td>
+              <td><span class="status-badge status-active">{{ t.get('category', 'General') }}</span></td>
+              <td class="{% if is_credit %}amount-credit{% else %}amount-debit{% endif %}">
+                {% if is_credit %}+{% else %}-{% endif %}{{ "%.2f"|format(t.amount) }}
+              </td>
+              <td>{{ "%.2f"|format(t.balance) }}</td>
+              <td style="font-size: 13px; color: var(--gray-600);">{{ t.get('description', '') }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <span class="empty-icon">📭</span>
+      <h3>No Transactions</h3>
+      <p>This customer has no transaction history.</p>
+    </div>
+  {% endif %}
+</div>
+
+{# ── Charts Script ──────────────────────────────── #}
+{% if chart_data and chart_data.category_labels|length > 0 %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const catColors = [
+    '#4caf50', '#2196f3', '#ff9800', '#e91e63', '#9c27b0',
+    '#00bcd4', '#ff5722', '#607d8b', '#cddc39', '#795548',
+    '#3f51b5', '#009688', '#f44336', '#673ab7', '#ff6f00',
+  ];
+
+  // ── Category Pie Chart ──────────────────────────
+  const catCtx = document.getElementById('detailCategoryChart')?.getContext('2d');
+  if (catCtx) {
+    new Chart(catCtx, {
+      type: 'doughnut',
+      data: {
+        labels: {{ chart_data.category_labels | tojson }},
+        datasets: [{
+          data: {{ chart_data.category_amounts | tojson }},
+          backgroundColor: catColors.slice(0, {{ chart_data.category_labels | length }}),
+          borderWidth: 2,
+          borderColor: '#fff',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                return ' ₹' + ctx.parsed.toLocaleString() + ' (' + pct + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // ── Balance Trend Line Chart ────────────────────
+  const balCtx = document.getElementById('detailBalanceChart')?.getContext('2d');
+  if (balCtx) {
+    new Chart(balCtx, {
+      type: 'line',
+      data: {
+        labels: {{ chart_data.balance_dates | tojson }},
+        datasets: [{
+          label: 'Balance',
+          data: {{ chart_data.balance_values | tojson }},
+          borderColor: '#1a237e',
+          backgroundColor: function(context) {
+            const chart = context.chart;
+            const { ctx: canvasCtx, chartArea } = chart;
+            if (!chartArea) return 'rgba(26, 35, 126, 0.08)';
+            const gradient = canvasCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            gradient.addColorStop(0, 'rgba(26, 35, 126, 0.2)');
+            gradient.addColorStop(1, 'rgba(26, 35, 126, 0.02)');
+            return gradient;
+          },
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ' ₹' + ctx.parsed.y.toLocaleString(); }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            ticks: {
+              callback: function(v) { return '₹' + (v / 1000).toFixed(0) + 'K'; },
+              maxTicksLimit: 6
+            }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { maxTicksLimit: 10, font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Savings Goals{% endblock %}
+{% block content %}
+{# ── Header ───────────────────────────────────── #}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+  <div>
+    <h2 style="font-size: 22px; font-weight: 800; color: var(--primary); margin: 0;">🎯 Savings Goals</h2>
+    <p style="color: var(--gray-600); font-size: 14px; margin: 4px 0 0 0;">
+      {% if goals %}
+        {{ completed }}/{{ goals|length }} completed &middot;
+        {{ fmt_currency(total_saved) }} saved of {{ fmt_currency(total_target) }}
+      {% endif %}
+    </p>
+  </div>
+  <a href="{{ url_for('savings_goal_new') }}" class="btn btn-success">➕ New Goal</a>
+</div>
+
+{# ── Summary Stats ────────────────────────────── #}
+{% if goals %}
+<div class="stats-grid" style="margin-bottom: 20px;">
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 24px;">{{ goals|length }}</div>
+    <div class="stat-label">Total Goals</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 24px; color: var(--success);">{{ completed }}</div>
+    <div class="stat-label">Completed 🎉</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 22px; color: var(--primary);">{{ fmt_currency(total_saved) }}</div>
+    <div class="stat-label">Total Saved</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="font-size: 22px;">{{ fmt_currency(total_target) }}</div>
+    <div class="stat-label">Total Target</div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Overall Progress Chart ───────────────────── #}
+{% if goals|length > 1 %}
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-header" style="border: none; padding-bottom: 0; margin-bottom: 8px;">
+    <div class="card-title" style="font-size: 16px;">📊 Goal Distribution</div>
+  </div>
+  <div style="max-width: 400px; margin: 0 auto;">
+    <canvas id="goalsChart" height="250"></canvas>
+  </div>
+</div>
+{% endif %}
+
+{# ── Goal Cards ───────────────────────────────── #}
+{% if goals %}
+  {% for goal in goals %}
+    {% set pct = (goal.current_amount / goal.target_amount * 100)|round(1) if goal.target_amount > 0 else 0 %}
+    {% set is_completed = goal.is_completed %}
+    <div class="card" style="{% if is_completed %}border-color: var(--success); background: #f1f8e9;{% endif %}">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <h3 style="font-size: 18px; font-weight: 700; margin: 0;">
+              {% if is_completed %}✅{% else %}🎯{% endif %}
+              {{ goal.name }}
+            </h3>
+            {% if is_completed %}
+              <span class="status-badge status-active">COMPLETED</span>
+            {% endif %}
+          </div>
+          <p style="color: var(--gray-600); font-size: 13px; margin: 0 0 12px 0;">
+            Target: {{ fmt_currency(goal.target_amount) }}
+            {% if goal.target_date %} &middot; Target date: {{ goal.target_date }}{% endif %}
+            &middot; Created: {{ goal.created_at[:10] }}
+          </p>
+
+          {# Progress bar #}
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px;">
+              <span style="font-weight: 600;">{{ fmt_currency(goal.current_amount) }}</span>
+              <span style="color: var(--gray-600);">{{ pct }}%</span>
+            </div>
+            <div style="height: 12px; background: var(--gray-200); border-radius: 6px; overflow: hidden;">
+              <div style="height: 100%; width: {{ pct }}%; 
+                {% if is_completed %}
+                  background: linear-gradient(90deg, #4caf50, #66bb6a);
+                {% elif pct > 75 %}
+                  background: linear-gradient(90deg, #f57f17, #ffb300);
+                {% elif pct > 50 %}
+                  background: linear-gradient(90deg, #1565c0, #42a5f5);
+                {% else %}
+                  background: linear-gradient(90deg, var(--primary), var(--accent-light));
+                {% endif %}
+                border-radius: 6px; transition: width 0.5s ease;">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# Actions #}
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          {% if not is_completed %}
+            <form method="POST" action="{{ url_for('savings_goal_contribute', goal_id=goal.goal_id) }}" style="display: flex; gap: 6px; align-items: center;">
+              <input type="number" name="amount" class="form-control" placeholder="Amount" required
+                     min="1" step="0.01" style="width: 120px; padding: 6px 10px; font-size: 14px;">
+              <button type="submit" class="btn btn-success btn-sm">Add Funds</button>
+            </form>
+          {% endif %}
+          <a href="{{ url_for('savings_goal_edit', goal_id=goal.goal_id) }}" class="btn btn-outline btn-sm">✏️ Edit</a>
+          <form method="POST" action="{{ url_for('savings_goal_delete', goal_id=goal.goal_id) }}"
+                onsubmit="return confirm('Delete goal &quot;{{ goal.name }}&quot;? Amount will be refunded to your balance.');"
+                style="display: inline;">
+            <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  {# ── Empty State ───────────────────────────── #}
+  <div class="card">
+    <div class="empty-state">
+      <span class="empty-icon">🎯</span>
+      <h3>No Savings Goals Yet</h3>
+      <p>Set your first savings goal and start tracking your progress today!</p>
+      <div class="btn-group" style="justify-content: center; margin-top: 16px;">
+        <a href="{{ url_for('savings_goal_new') }}" class="btn btn-success">🎯 Create a Goal</a>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{# ── Chart Script ─────────────────────────────── #}
+{% if goals|length > 1 %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ctx = document.getElementById('goalsChart')?.getContext('2d');
+  if (!ctx) return;
+
+  const goalNames = {{ goals | map(attribute='name') | list | tojson }};
+  const currentAmounts = {{ goals | map(attribute='current_amount') | list | tojson }};
+  const targetAmounts = {{ goals | map(attribute='target_amount') | list | tojson }};
+  const remaining = targetAmounts.map((t, i) => Math.max(0, t - currentAmounts[i]));
+
+  const colors = [
+    '#4caf50', '#2196f3', '#ff9800', '#e91e63', '#9c27b0',
+    '#00bcd4', '#ff5722', '#607d8b', '#3f51b5', '#009688'
+  ];
+
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: goalNames,
+      datasets: [{
+        data: currentAmounts,
+        backgroundColor: colors.slice(0, goalNames.length),
+        borderWidth: 2,
+        borderColor: '#fff',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const target = targetAmounts[ctx.dataIndex];
+              const pct = ((ctx.parsed / target) * 100).toFixed(1);
+              return ' ' + ctx.label + ': ₹' + ctx.parsed.toLocaleString() + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+});
+</script>
+{% endif %}
+{% endblock %}

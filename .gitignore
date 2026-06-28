@@ -12,7 +12,11 @@ build/
 venv/
 .venv/
 env/
-.env/
+
+# Environment & secrets (NEVER COMMIT)
+.env
+.env.*
+!.env.example
 
 # IDE
 .vscode/

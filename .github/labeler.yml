@@ -1,0 +1,25 @@
+# Auto-label PRs based on changed paths
+
+python:
+  - changed-files:
+      - any-glob-to-any-file: ['*.py']
+
+web:
+  - changed-files:
+      - any-glob-to-any-file: ['templates/**', 'static/**']
+
+api:
+  - changed-files:
+      - any-glob-to-any-file: ['api.py', 'webapp.py']
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file: ['ui.py', 'main.py']
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**']
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['*.md', 'docs/**']

@@ -3,8 +3,10 @@
   <img src="https://img.shields.io/badge/Flask-3.1%2B-000?logo=flask&logoColor=white" alt="Flask">
   <img src="https://img.shields.io/badge/FastAPI-0.135%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI">
   <img src="https://img.shields.io/badge/Chart.js-4.4%2B-FF6384?logo=chartdotjs&logoColor=white" alt="Chart.js">
+  <a href="https://github.com/themanoj-025/UNION-BANK-/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/themanoj-025/UNION-BANK-/ci.yml?branch=main&label=CI&logo=github" alt="CI"></a>
   <img src="https://img.shields.io/badge/tests-58%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
+  <a href="https://github.com/themanoj-025/UNION-BANK-/security/dependabot"><img src="https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot" alt="Dependabot"></a>
   <img src="https://img.shields.io/badge/database-JSON-orange" alt="JSON Storage">
   <img src="https://img.shields.io/badge/seed_data-5,000%20accounts-success" alt="Seed Data">
 </p>
@@ -42,8 +44,8 @@
 
 ```bash
 # 1. Clone
-git clone https://github.com/yourusername/union-bank.git
-cd union-bank
+git clone https://github.com/themanoj-025/UNION-BANK-.git
+cd UNION-BANK-
 
 # 2. Virtual environment (recommended)
 python -m venv venv

@@ -38,3 +38,26 @@ jobs:
       - name: Check coverage
         run: |
           python -m pytest tests/ --cov --cov-report=term --cov-fail-under=80
+
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for broken links in docs
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --config /dev/null
+            --no-progress
+            --exclude 'https?://localhost'
+            --exclude 'https?://127\.0\.0\.1'
+            --exclude 'https?://.*shields\.io'
+            --exclude 'https?://.*example\.com'
+            --exclude 'https?://.*test\.org'
+            --exclude 'https?://.*yourusername.*'
+            --exclude 'https?://.*your-username.*'
+            --exclude 'https?://.*static\.streamlit\.io'
+            --exclude 'https?://.*\{.*\}.*'
+            '**/*.md'
+        continue-on-error: true

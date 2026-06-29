@@ -330,7 +330,7 @@ def seed_data(fast_mode: bool = True):
     print(f"     Avg txns/acct : {total_txns / len(accounts):>8.1f}")
     print(f"     Total balance : Rs.{total_balance:>12,.2f}")
     print(f"     Time taken    : {elapsed:>8.1f}s")
-    print(f"     Default pwd   : {DEFAULT_PASSWORD}")
+    # print(f"     Default pwd   : {DEFAULT_PASSWORD}")  # Redacted for security
     print(f"  {'=' * 50}\n")
 
 

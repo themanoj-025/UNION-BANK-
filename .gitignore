@@ -12,6 +12,7 @@ build/
 venv/
 .venv/
 env/
+ENV/
 
 # Environment & secrets (NEVER COMMIT)
 .env
@@ -48,3 +49,5 @@ Thumbs.db
 
 # Logs
 *.log
+
+CLAUDE.md

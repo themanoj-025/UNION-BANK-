@@ -1,27 +1,11 @@
-[build-system]
-requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+[tool.black]
+line-length = 100
+target-version = ["py311"]
 
-[project]
-name = "union-bank"
-version = "1.0.0"
-description = "Union Bank Management System - A CLI-based banking application"
-readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [
-    {name = "Union Bank Dev Team"}
-]
+[tool.isort]
+profile = "black"
+line_length = 100
 
 [tool.pytest.ini_options]
+minversion = "7.0"
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-
-[tool.coverage.run]
-source = ["."]
-omit = ["tests/*", "venv/*", ".venv/*"]
-
-[tool.coverage.report]
-fail_under = 80

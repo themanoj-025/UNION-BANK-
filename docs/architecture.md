@@ -19,7 +19,7 @@ User/Admin (Browser or CLI)
        │         └── utils.py ─── Shared utilities
        │
        ├── CLI / TUI (ui.py) ────────────── Terminal Interface
-       │         └── Rich library for terminal UI
+       │         └── colorama for colored terminal output
        │
        └── Storage Layer
                  └── JSON files (accounts, transactions, users)
@@ -40,7 +40,7 @@ User/Admin (Browser or CLI)
 | Account Mgmt | account.py | Account CRUD operations |
 | Admin | admin.py | Administrative controls |
 | API | api.py | REST API endpoints |
-| CLI UI | ui.py | Rich terminal UI |
+| CLI UI | ui.py | Terminal UI (colorama) |
 | Utilities | utils.py | Helper functions |
 | Logging | logger.py | Application logging |
 | Seeding | seed_data.py | Demo data generation |
@@ -48,6 +48,6 @@ User/Admin (Browser or CLI)
 ## Design Decisions
 - JSON storage for simplicity (no database setup)
 - Flask for web framework (lightweight, well-known)
-- Rich for CLI (modern terminal UI)
+- Colorama for CLI (cross-platform colored terminal output)
 - Template-based rendering for web
 - Separate admin module for privileged operations

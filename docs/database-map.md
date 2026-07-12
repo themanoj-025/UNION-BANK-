@@ -6,66 +6,53 @@
 ## Storage Files
 | File | Type | Purpose |
 |------|------|---------|
-| `accounts.json` | JSON | User account data |
-| `transactions.json` | JSON | Transaction records |
-| `users.json` | JSON | User profiles and auth data |
-| `admins.json` | JSON | Admin accounts |
+| `accounts.json` | JSON | Customer account data (name, balance, hashed password, status) |
+| `transactions.json` | JSON | Transaction records per account |
+| `login_attempts.json` | JSON | Rate-limiting tracker (failed attempts, lockout timestamps) |
+| `savings_goals.json` | JSON | Per-account savings goal data |
+| `admin.json` | JSON | Admin credentials (bcrypt-hashed password) |
 
-## Entity: User
+## Entity: Account (stored in accounts.json keys)
 | Field | Type | Description |
 |-------|------|-------------|
-| id | string | Unique user ID |
-| username | string | Login username |
-| password_hash | string | Hashed password |
+| account_number | string (10-digit) | Unique account number (key) |
 | name | string | Full name |
+| age | int | Age (18-120) |
+| gender | string | Gender |
+| mobile | string | 10-digit Indian mobile |
 | email | string | Email address |
-| phone | string | Phone number |
-| created_at | datetime | Account creation date |
-
-## Entity: Account
-| Field | Type | Description |
-|-------|------|-------------|
-| account_id | string | Unique account number |
-| user_id | string | Owner user ID (FK → User) |
+| password | string | bcrypt-hashed password |
 | balance | float | Current balance |
-| account_type | string | savings / checking |
-| status | string | active / frozen / closed |
-| interest_rate | float | Interest rate (savings) |
-| created_at | datetime | Account opened date |
+| is_active | bool | Whether account is active |
+| is_frozen | bool | Whether account is frozen by admin |
+| created_at | string (ISO datetime) | Account creation date |
 
-## Entity: Transaction
+## Entity: Transaction (stored in transactions.json, keyed by account_number)
 | Field | Type | Description |
 |-------|------|-------------|
-| transaction_id | string | Unique transaction ID |
-| from_account | string | Source account (FK → Account) |
-| to_account | string | Destination account (FK → Account) |
+| txn_id | string (TXN-XXXXXXXX) | Unique transaction ID |
+| type | string | DEPOSIT / WITHDRAW / TRANSFER_OUT / TRANSFER_IN / INTEREST |
 | amount | float | Transaction amount |
-| type | string | deposit / withdraw / transfer / interest |
-| timestamp | datetime | Transaction time |
-| description | string | Optional note |
+| description | string | Human-readable note |
+| balance | float | Running balance after this transaction |
+| timestamp | string (ISO datetime) | Transaction time |
+| category | string | Transaction category (from 13 predefined) |
+| target_account | string (optional) | For transfers, the other account involved |
 
-## Entity: Savings Goal
+## Entity: Savings Goal (stored in savings_goals.json, keyed by account_number)
 | Field | Type | Description |
 |-------|------|-------------|
-| goal_id | string | Unique goal ID |
-| account_id | string | Linked account (FK → Account) |
+| goal_id | string (GOAL-XXXXXXXX) | Unique goal ID |
 | name | string | Goal name |
 | target_amount | float | Savings target |
 | current_amount | float | Current savings |
-| deadline | date | Target date |
-| status | string | active / completed / cancelled |
-
-## Entity: Admin
-| Field | Type | Description |
-|-------|------|-------------|
-| admin_id | string | Unique admin ID |
-| username | string | Admin login |
-| password_hash | string | Hashed password |
+| target_date | string (optional) | Target date (YYYY-MM-DD) |
+| created_at | string (ISO datetime) | When the goal was created |
+| is_completed | bool | Whether goal has been achieved |
 
 ## Relationships
 ```
-User (1) ──── has ──── Account (1..N)
-Account (1) ──── has ──── Transaction (0..N)
-Account (1) ──── has ──── Savings Goal (0..N)
-Admin (1) ──── manages ──── Account (0..N)
+[Account] 1 ──── has ──── N [Transaction]    (via transactions.json[account_number])
+[Account] 1 ──── has ──── N [SavingsGoal]     (via savings_goals.json[account_number])
+[Account] 1 ──── references via transfer ──── [Account]  (via target_account in TRANSFER_OUT/TRANSFER_IN)
 ```

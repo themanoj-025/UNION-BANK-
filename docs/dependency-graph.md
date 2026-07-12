@@ -46,9 +46,11 @@ tests/
 | Package | Used By | Purpose |
 |---------|---------|---------|
 | flask | webapp.py | Web framework |
-| rich | ui.py | Terminal UI / CLI |
+| colorama | ui.py | Terminal colors / CLI |
+| bcrypt | utils.py | Password hashing |
+| PyJWT | api.py | JWT token auth |
+| fastapi + uvicorn | api.py | REST API framework |
 | pytest | tests/ | Testing |
-| werkzeug | webapp.py | Password hashing |
 
 ## Critical / High-Impact Files
 - **bank.py**: Core banking logic — highest impact, most dependencies

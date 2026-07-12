@@ -9,7 +9,6 @@ WARNING: This will OVERWRITE existing accounts.json and transactions.json.
 Backups are automatically created (.bak files) by the save_json function.
 """
 
-import json
 import os
 import random
 import string

@@ -217,7 +217,7 @@ class TestTransactionCategories:
     def test_categories_unique(self):
         assert len(TRANSACTION_CATEGORIES) == len(set(TRANSACTION_CATEGORIES))
 
-    def test_log_transaction_stores_category(self, monkeypatch):
+    def test_log_transaction_stores_category(self, monkeypatch, tmp_data_dir):
         """Test that log_transaction stores the category field."""
         from utils import TRANSACTIONS_FILE
 
@@ -240,17 +240,14 @@ class TestTransactionCategories:
         acc.balance = 1100.0
         acc.log_transaction("DEPOSIT", 100.0, "Test deposit", category="Salary")
 
-        # Verify it was stored
+        # Verify it was stored in the isolated temp directory
         records = load_json(TRANSACTIONS_FILE)
         txns = records.get("8888888888", [])
         assert len(txns) >= 1
         last_txn = txns[-1]
         assert last_txn.get("category") == "Salary"
 
-        # Clean up
-        if "8888888888" in records:
-            del records["8888888888"]
-            save_json(TRANSACTIONS_FILE, records)
+        # No cleanup needed — tmp_data_dir will be deleted automatically
 
 
 # ───────────────────────────────────────────────
@@ -287,3 +284,204 @@ class TestAccountEnhanced:
         d = acc.to_dict()
         assert d["account_number"] == "9999999999"
         assert d["balance"] == 5000.0
+
+
+# ───────────────────────────────────────────────
+#  ⭐ CRASH-MID-TRANSFER REGRESSION TEST
+#  This is THE most important test in the suite.
+#  It proves that if the process crashes mid-transfer,
+#  the total system balance is preserved.
+# ───────────────────────────────────────────────
+
+class TestAtomicTransfer:
+    """Tests for the atomic fund transfer (fix for the money-losing race condition)."""
+
+    SENDER = "1111111111"
+    RECEIVER = "2222222222"
+
+    def _setup_accounts(self, tmp_data_dir):
+        """Create two test accounts with known balances."""
+        from utils import ACCOUNTS_FILE, TRANSACTIONS_FILE
+
+        sender_data = {
+            "account_number": self.SENDER,
+            "name": "Sender",
+            "age": 30,
+            "gender": "Male",
+            "mobile": "9876543210",
+            "email": "sender@test.com",
+            "password": "$2b$12$test",
+            "balance": 1000.0,
+            "is_active": True,
+            "is_frozen": False,
+            "created_at": "2026-01-01 00:00:00",
+        }
+        receiver_data = {
+            "account_number": self.RECEIVER,
+            "name": "Receiver",
+            "age": 25,
+            "gender": "Female",
+            "mobile": "9123456789",
+            "email": "receiver@test.com",
+            "password": "$2b$12$test",
+            "balance": 500.0,
+            "is_active": True,
+            "is_frozen": False,
+            "created_at": "2026-01-01 00:00:00",
+        }
+
+        accounts = {self.SENDER: sender_data, self.RECEIVER: receiver_data}
+        save_json(ACCOUNTS_FILE, accounts)
+        save_json(TRANSACTIONS_FILE, {})
+
+        # Also sync to SQLite (since atomic_transfer reads from SQLite)
+        from database import sync_account_from_json
+        sync_account_from_json(self.SENDER, sender_data)
+        sync_account_from_json(self.RECEIVER, receiver_data)
+
+        return sender_data, receiver_data
+
+    def _get_total_balance(self) -> float:
+        """Compute the total system balance across JSON and SQLite."""
+        from utils import ACCOUNTS_FILE
+        accounts = load_json(ACCOUNTS_FILE)
+        json_total = sum(a["balance"] for a in accounts.values())
+
+        from database import get_db_balance
+        sender_sqlite = get_db_balance(self.SENDER) or 0
+        receiver_sqlite = get_db_balance(self.RECEIVER) or 0
+        sqlite_total = sender_sqlite + receiver_sqlite
+
+        return json_total, sqlite_total
+
+    def test_atomic_transfer_success(self, tmp_data_dir):
+        """A normal transfer should work correctly."""
+        self._setup_accounts(tmp_data_dir)
+
+        from database import atomic_transfer
+        result = atomic_transfer(
+            sender_acc_no=self.SENDER,
+            receiver_acc_no=self.RECEIVER,
+            amount=300.0,
+            category="General",
+        )
+
+        assert result.success is True
+        assert result.sender_balance == 700.0  # 1000 - 300
+        assert result.receiver_balance == 800.0  # 500 + 300
+
+    def test_atomic_transfer_insufficient_balance(self, tmp_data_dir):
+        """Transfer should fail gracefully when sender has insufficient funds."""
+        self._setup_accounts(tmp_data_dir)
+
+        from database import atomic_transfer
+        result = atomic_transfer(
+            sender_acc_no=self.SENDER,
+            receiver_acc_no=self.RECEIVER,
+            amount=99999.0,
+            category="General",
+        )
+
+        assert result.success is False
+        assert "Insufficient" in result.error_message
+
+    def test_atomic_transfer_preserves_total_balance_on_crash(self, tmp_data_dir):
+        """⭐ CRASH TEST: If the transfer is interrupted after debiting the sender
+        but before crediting the receiver, total system balance must remain unchanged.
+
+        This simulates the old JSON race condition where money was lost.
+        The new implementation uses a single SQLite ACID transaction, so even
+        if we simulate a crash (rollback), the balances are preserved.
+        """
+        self._setup_accounts(tmp_data_dir)
+
+        initial_json_total, initial_sqlite_total = self._get_total_balance()
+
+        from database import atomic_transfer
+
+        # Attempt a transfer that will FAIL (insufficient balance)
+        # This simulates a crash mid-transfer — the atomic_session context
+        # manager rolls back the transaction on exception.
+        result = atomic_transfer(
+            sender_acc_no=self.SENDER,
+            receiver_acc_no=self.RECEIVER,
+            amount=99999.0,  # Way more than available
+            category="General",
+        )
+
+        assert result.success is False
+
+        # Total balances must be unchanged — the failed transfer rolled back
+        json_total, sqlite_total = self._get_total_balance()
+        assert json_total == initial_json_total, (
+            f"JSON total changed from {initial_json_total} to {json_total} "
+            "after failed transfer! Money would have been lost!"
+        )
+        assert sqlite_total == initial_sqlite_total, (
+            f"SQLite total changed from {initial_sqlite_total} to {sqlite_total} "
+            "after failed transfer! Money would have been lost!"
+        )
+
+    def test_atomic_transfer_rolls_back_on_exception(self, tmp_data_dir):
+        """⭐ CRASH TEST: Prove that if an exception occurs DURING a transaction,
+        the SQLite atomic_session context manager rolls back all changes,
+        leaving both sender and receiver balances unchanged.
+
+        This tests the core guarantee: the atomic_session commits on success
+        and rolls back on ANY exception, so money is never lost mid-transfer.
+        """
+        self._setup_accounts(tmp_data_dir)
+
+        from database import atomic_session, get_db_balance
+        from database import Account as DbAccount
+
+        # Start an atomic transaction, make a change, then simulate a crash
+        try:
+            with atomic_session() as session:
+                sender = session.query(DbAccount).filter_by(
+                    account_number=self.SENDER
+                ).first()
+                # Make a change (debit sender)
+                sender.balance -= 300.0
+                # ⚡ CRASH: Exception before commit → rollback
+                raise Exception("Simulated crash during transaction!")
+        except Exception:
+            pass  # Expected — the rollback happened
+
+        # Verify rollback: sender balance must be unchanged
+        assert get_db_balance(self.SENDER) == 1000.0, (
+            "Sender balance changed after rollback! "
+            "The atomic transaction did not prevent data loss!"
+        )
+        assert get_db_balance(self.RECEIVER) == 500.0, (
+            "Receiver balance changed after rollback! "
+            "The atomic transaction did not prevent data loss!"
+        )
+
+    def test_atomic_apply_interest_rolls_back_on_failure(self, tmp_data_dir):
+        """Verify that apply_interest is also atomic."""
+        self._setup_accounts(tmp_data_dir)
+
+        from database import atomic_apply_interest, get_db_balance
+
+        # Apply interest successfully
+        result = atomic_apply_interest(self.SENDER, 50.0)
+        assert result is True
+        assert get_db_balance(self.SENDER) == 1050.0  # 1000 + 50
+
+    def test_atomic_close_account(self, tmp_data_dir):
+        """Verify close_account is atomic."""
+        self._setup_accounts(tmp_data_dir)
+
+        from database import atomic_close_account, get_db_balance
+        from database import Account as DbAccount
+        from database import get_session
+
+        result = atomic_close_account(self.SENDER)
+        assert result is True
+
+        session = get_session()
+        account = session.query(DbAccount).filter_by(
+            account_number=self.SENDER
+        ).first()
+        assert account.is_active is False

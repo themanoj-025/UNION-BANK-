@@ -14,10 +14,16 @@ import bcrypt
 
 from logger import logger
 
-ACCOUNTS_FILE = os.path.join(os.path.dirname(__file__), "data", "accounts.json")
-TRANSACTIONS_FILE = os.path.join(os.path.dirname(__file__), "data", "transactions.json")
-LOGIN_ATTEMPTS_FILE = os.path.join(os.path.dirname(__file__), "data", "login_attempts.json")
-SAVINGS_GOALS_FILE = os.path.join(os.path.dirname(__file__), "data", "savings_goals.json")
+# ── Data directory: respect env override for test isolation ───────────────────
+_data_dir = os.environ.get(
+    "UNION_BANK_DATA_DIR",
+    os.path.join(os.path.dirname(__file__), "data"),
+)
+ACCOUNTS_FILE = os.path.join(_data_dir, "accounts.json")
+TRANSACTIONS_FILE = os.path.join(_data_dir, "transactions.json")
+LOGIN_ATTEMPTS_FILE = os.path.join(_data_dir, "login_attempts.json")
+SAVINGS_GOALS_FILE = os.path.join(_data_dir, "savings_goals.json")
+ADMIN_FILE = os.path.join(_data_dir, "admin.json")
 
 # ── Constants ────────────────────────────────────────────────────────────────
 MAX_LOGIN_ATTEMPTS = 5

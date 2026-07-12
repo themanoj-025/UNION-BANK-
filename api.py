@@ -44,14 +44,21 @@ from utils import (
 )
 from account import Account
 from admin import ADMIN_FILE
+from database import (
+    atomic_transfer, atomic_apply_interest, atomic_close_account,
+    sync_account_from_json, close_session as db_close_session, init_db,
+)
+
+init_db()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  JWT Configuration
+#  JWT Configuration — loaded from centralized config
 # ═══════════════════════════════════════════════════════════════════════════════
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "union-bank-dev-secret-change-in-prod")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_HOURS = 24
+from config import settings
+JWT_SECRET = settings.JWT_SECRET
+JWT_ALGORITHM = settings.JWT_ALGORITHM
+JWT_EXPIRY_HOURS = settings.JWT_EXPIRY_HOURS
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  FastAPI Application
@@ -68,10 +75,10 @@ app = FastAPI(
     contact={"name": "Union Bank Dev Team"},
 )
 
-# ── CORS ─────────────────────────────────────────────────────────────────────
+# ── CORS — restricted to configured origins ──────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -578,6 +585,11 @@ def close_account(
     accounts[acc_no]["is_active"] = False
     save_json(ACCOUNTS_FILE, accounts)
 
+    # Atomic closure in SQLite
+    sync_account_from_json(acc_no, accounts[acc_no])
+    atomic_close_account(acc_no)
+    db_close_session()
+
     return MessageResponse(message="Account closed successfully.")
 
 
@@ -696,28 +708,52 @@ def transfer_funds(
 
     category = req.category if req.category in TRANSACTION_CATEGORIES else "General"
 
-    # Execute transfer
-    sender = Account(data)
-    sender.balance -= req.amount
-    sender.save()
-    sender.log_transaction(
-        "TRANSFER_OUT", req.amount,
-        f"Transfer to {target_acc_no}",
-        target_acc=target_acc_no, category=category,
+    # ═══════════════════════════════════════════════════════════════════
+    #  ATOMIC TRANSFER — single ACID SQLite transaction
+    # ═══════════════════════════════════════════════════════════════════
+    sync_account_from_json(acc_no, data)
+    sync_account_from_json(target_acc_no, target_data)
+
+    result = atomic_transfer(
+        sender_acc_no=acc_no,
+        receiver_acc_no=target_acc_no,
+        amount=req.amount,
+        category=category,
     )
 
+    if not result.success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.error_message,
+        )
+
+    # ── Sync back to JSON for backward compatibility ───────────────────
+    accounts = load_json(ACCOUNTS_FILE)
+    if acc_no in accounts:
+        accounts[acc_no]["balance"] = result.sender_balance
+    if target_acc_no in accounts:
+        accounts[target_acc_no]["balance"] = result.receiver_balance
+    save_json(ACCOUNTS_FILE, accounts)
+
+    # ── Log to JSON transactions ───────────────────────────────────────
+    sender = Account(data)
+    sender.balance = result.sender_balance
+    sender.log_transaction(
+        "TRANSFER_OUT", req.amount,
+        f"Transfer to {target_acc_no} (atomic)",
+        target_acc=target_acc_no, category=category,
+    )
     receiver = Account(target_data)
-    receiver.balance += req.amount
-    receiver.save()
+    receiver.balance = result.receiver_balance
     receiver.log_transaction(
         "TRANSFER_IN", req.amount,
-        f"Transfer from {acc_no}",
+        f"Transfer from {acc_no} (atomic)",
         target_acc=acc_no, category=category,
     )
 
     return MessageResponse(
         message=f"{fmt_currency(req.amount)} transferred to {target_data['name']} "
-                f"({target_acc_no}). New balance: {fmt_currency(sender.balance)}",
+                f"({target_acc_no}). New balance: {fmt_currency(result.sender_balance)}",
     )
 
 
@@ -1026,7 +1062,7 @@ def delete_savings_goal(
 
 @app.post("/api/account/apply-interest", response_model=MessageResponse)
 def apply_interest(customer: dict = Depends(get_current_customer)):
-    """Apply monthly interest (3.5% p.a.) to the account balance."""
+    """Apply monthly interest (3.5% p.a.) using an atomic SQLite transaction."""
     acc_no = customer["account_number"]
     accounts = load_json(ACCOUNTS_FILE)
     data = accounts[acc_no]
@@ -1036,6 +1072,13 @@ def apply_interest(customer: dict = Depends(get_current_customer)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No interest to apply (balance is zero or negative).",
+        )
+
+    sync_account_from_json(acc_no, data)
+    if not atomic_apply_interest(acc_no, interest):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to apply interest.",
         )
 
     account = Account(data)

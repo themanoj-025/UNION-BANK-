@@ -2,27 +2,42 @@
 pytest fixtures for Union Bank tests.
 
 All tests use temporary directories — never touch real production data/ files.
+Test-safe env vars are set BEFORE any project module is imported.
 """
 
 import os
 import sys
-import json
 import tempfile
 from pathlib import Path
-from typing import Generator
 
-import pytest
+# ═══════════════════════════════════════════════════════════════════════════════
+#  IMPORTANT: Set test-safe env vars BEFORE any project module is imported.
+#  config.py calls _require_env() at module level, so JWT_SECRET must exist.
+#  admin.py runs _init_admin() at import time, so UNION_BANK_DATA_DIR must also
+#  be set to a temp directory BEFORE any module imports happen.
+# ═══════════════════════════════════════════════════════════════════════════════
+_test_data_dir = tempfile.mkdtemp(prefix="union_bank_test_")
+os.environ.setdefault("UNION_BANK_DATA_DIR", _test_data_dir)
+os.environ.setdefault("JWT_SECRET", "test-secret-not-for-prod")
+os.environ.setdefault("FLASK_SECRET_KEY", "test-flask-secret-for-testing")
+os.environ.setdefault("UNION_BANK_TESTING", "1")
 
 # Ensure project root is in path for imports
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import pytest
+
 
 @pytest.fixture(autouse=True)
 def _unset_env_vars_for_safety():
-    """Prevent accidental use of real env secrets during tests."""
-    os.environ.pop("JWT_SECRET", None)
-    os.environ.pop("FLASK_SECRET_KEY", None)
+    """Prevent accidental use of real env secrets during tests.
+
+    This runs after module imports (at test function time), but the module-level
+    os.environ.setdefault() calls above ensure safe defaults exist already.
+    """
+    # We set test defaults at module level already; this fixture exists to
+    # document the pattern and can be extended for per-test env isolation.
     yield
 
 
@@ -30,12 +45,10 @@ def _unset_env_vars_for_safety():
 def tmp_data_dir(tmp_path: Path) -> Path:
     """Provide a temporary data directory for JSON file-based tests.
 
-    Sets the environment variable UNION_BANK_DATA_DIR to the temp path
-    so that utils.py's file resolution picks it up (if it reads from env).
+    Sets UNION_BANK_DATA_DIR so that utils.py's file resolution uses the temp dir.
     """
     data_dir = tmp_path / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    # Future-proof: if the app reads DATA_DIR from env, this will redirect it
     os.environ["UNION_BANK_DATA_DIR"] = str(data_dir)
     return data_dir
 

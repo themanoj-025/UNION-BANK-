@@ -18,6 +18,13 @@ from utils import (
 )
 from ui import header, divider, success, error, warning, info, prompt_password, GREEN, RED, CYAN, WHITE, YELLOW, BOLD, RESET
 from logger import logger
+from database import (
+    atomic_transfer, atomic_apply_interest, atomic_close_account,
+    sync_account_from_json, init_db, close_session,
+)
+
+# Ensure SQLite tables exist
+init_db()
 
 
 class Account:
@@ -178,6 +185,13 @@ class Account:
         divider()
 
     def transfer_funds(self):
+        """Transfer funds using an atomic SQLite transaction.
+
+        This replaces the old JSON-based transfer which had a race condition:
+        if the process crashed between debiting the sender and crediting the
+        receiver, money would be lost forever. Now the entire operation is
+        wrapped in a single ACID transaction.
+        """
         header("TRANSFER FUNDS")
         target_acc_no = input("  Enter recipient account number : ").strip()
         accounts = load_json(ACCOUNTS_FILE)
@@ -218,18 +232,54 @@ class Account:
             warning("Transfer cancelled.")
             divider()
             return
-        self.balance -= amount
-        self.save()
-        self.log_transaction("TRANSFER_OUT", amount,
-                             f"Transfer to {target_acc_no}", target_acc=target_acc_no, category=category)
+
+        # ═══════════════════════════════════════════════════════════════════
+        #  ATOMIC TRANSFER — single ACID transaction
+        # ═══════════════════════════════════════════════════════════════════
+        # Sync both accounts to SQLite first
+        sync_account_from_json(self.account_number, self.to_dict())
+        sync_account_from_json(target_acc_no, target_data)
+
+        result = atomic_transfer(
+            sender_acc_no=self.account_number,
+            receiver_acc_no=target_acc_no,
+            amount=amount,
+            category=category,
+        )
+
+        if not result.success:
+            error(result.error_message)
+            divider()
+            return
+
+        # ── Update in-memory balances ─────────────────────────────────────
+        self.balance = result.sender_balance
+
+        # ── Sync back to JSON for backward compatibility ──────────────────
+        accounts = load_json(ACCOUNTS_FILE)
+        if self.account_number in accounts:
+            accounts[self.account_number]["balance"] = self.balance
+        if target_acc_no in accounts:
+            accounts[target_acc_no]["balance"] = result.receiver_balance
+        save_json(ACCOUNTS_FILE, accounts)
+
+        # ── Log to JSON transactions for backward compatibility ───────────
+        self.log_transaction(
+            "TRANSFER_OUT", amount,
+            f"Transfer to {target_acc_no} (atomic)",
+            target_acc=target_acc_no, category=category,
+        )
+        # Temporarily set balance for receiver's log entry
         receiver = Account(target_data)
-        receiver.balance += amount
-        receiver.save()
-        receiver.log_transaction("TRANSFER_IN", amount,
-                                 f"Transfer from {self.account_number}",
-                                 target_acc=self.account_number, category=category)
+        receiver.balance = result.receiver_balance
+        receiver.log_transaction(
+            "TRANSFER_IN", amount,
+            f"Transfer from {self.account_number} (atomic)",
+            target_acc=self.account_number, category=category,
+        )
+
         logger.info(
-            f"Fund transfer complete -> From:{self.account_number}  "
+            f"Atomic transfer complete -> From:{self.account_number}  "
             f"To:{target_acc_no}  Amt:{fmt_currency(amount)}"
         )
         success(f"{fmt_currency(amount)} transferred to {target_data['name']} successfully!")
@@ -308,6 +358,12 @@ class Account:
             error("Incorrect password.")
             divider()
             return
+
+        # Atomic closure in SQLite
+        sync_account_from_json(self.account_number, self.to_dict())
+        atomic_close_account(self.account_number)
+        close_session()
+
         self.is_active = False
         self.save()
         logger.critical(f"Account CLOSED by customer -> Acc:{self.account_number}  Name:{self.name}")
@@ -532,18 +588,24 @@ class Account:
         divider()
 
     def apply_interest(self):
-        """Apply monthly interest to the account balance."""
+        """Apply monthly interest using an atomic SQLite transaction."""
         header("INTEREST CALCULATION")
         interest = calculate_monthly_interest(self.balance)
         if interest <= 0:
             info("No interest to apply (balance is zero or negative).")
             divider()
             return
-        self.balance += interest
-        self.save()
-        self.log_transaction("INTEREST", interest,
-                             "Monthly interest credit", category="Savings")
-        success(f"Interest of {fmt_currency(interest)} credited!")
-        print(f"  {GREEN}New Balance : {BOLD}{fmt_currency(self.balance)}{RESET}")
-        logger.info(f"Interest applied -> Acc:{self.account_number}  Amt:{fmt_currency(interest)}")
+
+        # Atomic interest application
+        sync_account_from_json(self.account_number, self.to_dict())
+        if atomic_apply_interest(self.account_number, interest):
+            self.balance += interest
+            self.save()
+            self.log_transaction("INTEREST", interest,
+                                 "Monthly interest credit", category="Savings")
+            success(f"Interest of {fmt_currency(interest)} credited!")
+            print(f"  {GREEN}New Balance : {BOLD}{fmt_currency(self.balance)}{RESET}")
+            logger.info(f"Interest applied -> Acc:{self.account_number}  Amt:{fmt_currency(interest)}")
+        else:
+            error("Failed to apply interest.")
         divider()

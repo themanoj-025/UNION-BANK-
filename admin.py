@@ -17,7 +17,8 @@ from utils import (
 from ui import header, divider, success, error, warning, info, prompt_password, GREEN, RED, CYAN, WHITE, YELLOW, BOLD, RESET
 from logger import logger
 
-ADMIN_FILE = os.path.join(os.path.dirname(__file__), "data", "admin.json")
+# Import ADMIN_FILE from utils.py which respects UNION_BANK_DATA_DIR env var
+from utils import ADMIN_FILE
 
 
 # ─────────────────────────────────────────────────────────────────────────────

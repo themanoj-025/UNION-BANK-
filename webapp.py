@@ -40,6 +40,12 @@ from utils import (
 )
 from account import Account
 from admin import Admin, ADMIN_FILE
+from database import (
+    atomic_transfer, atomic_apply_interest, atomic_close_account,
+    sync_account_from_json, close_session as db_close_session, init_db,
+)
+
+init_db()
 
 
 # ── Font path for PDF generation ─────────────────────────────────────────
@@ -49,11 +55,9 @@ PDF_FONT_PATH = os.path.join(
 )
 
 # ── App setup ────────────────────────────────────────────────────────────────
+from config import settings
 app = Flask(__name__)
-app.secret_key = os.environ.get(
-    "FLASK_SECRET_KEY",
-    os.urandom(24).hex(),
-)
+app.secret_key = settings.FLASK_SECRET_KEY
 
 
 # ── Helper functions ─────────────────────────────────────────────────────────
@@ -441,24 +445,45 @@ def transfer():
                 target_acc_no=target_acc_no,
             )
 
-        # Execute transfer
-        acc.balance -= amount
-        acc.save()
-        acc.log_transaction(
-            "TRANSFER_OUT", amount,
-            f"Transfer to {target_acc_no}",
-            target_acc=target_acc_no,
+        # ═══════════════════════════════════════════════════════════════
+        #  ATOMIC TRANSFER — single ACID SQLite transaction
+        # ═══════════════════════════════════════════════════════════════
+        sync_account_from_json(acc.account_number, acc.to_dict())
+        sync_account_from_json(target_acc_no, target_data)
+
+        result = atomic_transfer(
+            sender_acc_no=acc.account_number,
+            receiver_acc_no=target_acc_no,
+            amount=amount,
             category=category,
         )
 
+        if not result.success:
+            flash(result.error_message, "error")
+            return render_template("transfer.html", acc=acc, recipient=None)
+
+        acc.balance = result.sender_balance
+
+        # ── Sync back to JSON for backward compatibility ──────────────
+        accounts = load_json(ACCOUNTS_FILE)
+        if acc.account_number in accounts:
+            accounts[acc.account_number]["balance"] = acc.balance
+        if target_acc_no in accounts:
+            accounts[target_acc_no]["balance"] = result.receiver_balance
+        save_json(ACCOUNTS_FILE, accounts)
+
+        # ── Log to JSON transactions ───────────────────────────────────
+        acc.log_transaction(
+            "TRANSFER_OUT", amount,
+            f"Transfer to {target_acc_no} (atomic)",
+            target_acc=target_acc_no, category=category,
+        )
         receiver = Account(target_data)
-        receiver.balance += amount
-        receiver.save()
+        receiver.balance = result.receiver_balance
         receiver.log_transaction(
             "TRANSFER_IN", amount,
-            f"Transfer from {acc.account_number}",
-            target_acc=acc.account_number,
-            category=category,
+            f"Transfer from {acc.account_number} (atomic)",
+            target_acc=acc.account_number, category=category,
         )
 
         flash(
@@ -572,17 +597,21 @@ def apply_interest():
             fmt_currency=fmt_currency,
         )
 
-    # POST request -> apply interest
+    # POST request -> apply interest (atomic)
     interest = calculate_monthly_interest(acc.balance)
     if interest <= 0:
         flash("No interest to apply (balance is zero or negative).", "info")
         return redirect(url_for("dashboard"))
 
-    acc.balance += interest
-    acc.save()
-    acc.log_transaction("INTEREST", interest,
-                         "Monthly interest credit", category="Savings")
-    flash(f"Interest of {fmt_currency(interest)} credited!", "success")
+    sync_account_from_json(acc.account_number, acc.to_dict())
+    if atomic_apply_interest(acc.account_number, interest):
+        acc.balance += interest
+        acc.save()
+        acc.log_transaction("INTEREST", interest,
+                             "Monthly interest credit", category="Savings")
+        flash(f"Interest of {fmt_currency(interest)} credited!", "success")
+    else:
+        flash("Failed to apply interest.", "error")
     return redirect(url_for("dashboard"))
 
 
@@ -873,6 +902,11 @@ def close_account():
     if not verify_password(password, acc.password):
         flash("Incorrect password.", "error")
         return redirect(url_for("profile"))
+
+    # Atomic closure in SQLite
+    sync_account_from_json(acc.account_number, acc.to_dict())
+    atomic_close_account(acc.account_number)
+    db_close_session()
 
     acc.is_active = False
     acc.save()

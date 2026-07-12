@@ -31,6 +31,7 @@
       <div class="confirm-detail"><strong>Balance:</strong> {{ fmt_currency(preview_acc.balance) }}</div>
     </div>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="account_number" value="{{ acc_no }}">
       <input type="hidden" name="confirm" value="yes">
       <div class="btn-group">
@@ -52,6 +53,7 @@
   {% else %}
     {# ── Search Form ────────────────────────── #}
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="account_number">Account Number</label>
         <input type="text" id="account_number" name="account_number" class="form-control"

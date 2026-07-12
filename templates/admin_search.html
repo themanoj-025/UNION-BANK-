@@ -9,6 +9,7 @@
     </div>
   </div>
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
       <label for="query">Search Query</label>
       <input type="text" id="query" name="query" class="form-control"

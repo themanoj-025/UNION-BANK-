@@ -18,6 +18,7 @@
       <div class="confirm-detail"><strong>Category:</strong> {{ category }}</div>
     </div>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="target_account" value="{{ target_acc_no }}">
       <input type="hidden" name="amount" value="{{ amount }}">
       <input type="hidden" name="category" value="{{ category }}">
@@ -30,6 +31,7 @@
   {% else %}
     {# ── Transfer Form ──────────────────────── #}
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="target_account">Recipient Account Number</label>
         <input type="text" id="target_account" name="target_account" class="form-control"

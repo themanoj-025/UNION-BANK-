@@ -19,6 +19,7 @@
       <div class="confirm-detail"><strong>Mobile:</strong> {{ preview_acc.mobile }}</div>
     </div>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="account_number" value="{{ acc_no }}">
       <div class="form-group">
         <label for="confirm_text">Type <strong>DELETE</strong> to confirm</label>
@@ -33,6 +34,7 @@
   {% else %}
     {# ── Search Form ────────────────────────── #}
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="account_number">Account Number</label>
         <input type="text" id="account_number" name="account_number" class="form-control"

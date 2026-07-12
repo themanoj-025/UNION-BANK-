@@ -10,6 +10,7 @@
       <p>Enter your account details</p>
     </div>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="account_number">Account Number</label>
         <input type="text" id="account_number" name="account_number" class="form-control"

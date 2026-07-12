@@ -18,10 +18,12 @@ from utils import (
 )
 from ui import header, divider, success, error, warning, info, prompt_password, GREEN, RED, CYAN, WHITE, YELLOW, BOLD, RESET
 from logger import logger
-from database import (
-    atomic_transfer, atomic_apply_interest, atomic_close_account,
-    sync_account_from_json, init_db, close_session,
+from services import (
+    process_deposit, process_withdraw, process_transfer,
+    process_close_account, process_apply_interest,
+    create_savings_goal, contribute_to_goal, delete_savings_goal,
 )
+from database import init_db
 
 # Ensure SQLite tables exist
 init_db()
@@ -156,11 +158,13 @@ class Account:
         if amount is None:
             return
         category = get_category_choice()
-        self.balance += amount
-        self.save()
-        self.log_transaction("DEPOSIT", amount, "Cash deposit", category=category)
-        success(f"{fmt_currency(amount)} deposited successfully!")
-        print(f"  {GREEN}New Balance : {BOLD}{fmt_currency(self.balance)}{RESET}")
+
+        result = process_deposit(self.account_number, amount, category)
+        if result.success:
+            self.balance = result.data["balance"]
+            success(result.message)
+        else:
+            error(result.message)
         divider()
 
     def withdraw(self):
@@ -168,35 +172,23 @@ class Account:
         amount = get_float("  Enter amount to withdraw : Rs.")
         if amount is None:
             return
-        if amount > self.balance:
-            logger.warning(
-                f"Insufficient balance -> Acc:{self.account_number}  "
-                f"Requested:{fmt_currency(amount)}  Available:{fmt_currency(self.balance)}"
-            )
-            error("Insufficient balance!")
-            divider()
-            return
         category = get_category_choice()
-        self.balance -= amount
-        self.save()
-        self.log_transaction("WITHDRAW", amount, "Cash withdrawal", category=category)
-        success(f"{fmt_currency(amount)} withdrawn successfully!")
-        print(f"  {RED}Remaining Balance : {BOLD}{fmt_currency(self.balance)}{RESET}")
+
+        result = process_withdraw(self.account_number, amount, category)
+        if result.success:
+            self.balance = result.data["balance"]
+            success(result.message)
+        else:
+            error(result.message)
         divider()
 
     def transfer_funds(self):
-        """Transfer funds using an atomic SQLite transaction.
-
-        This replaces the old JSON-based transfer which had a race condition:
-        if the process crashed between debiting the sender and crediting the
-        receiver, money would be lost forever. Now the entire operation is
-        wrapped in a single ACID transaction.
-        """
+        """Transfer funds using an atomic SQLite transaction (via service layer)."""
         header("TRANSFER FUNDS")
         target_acc_no = input("  Enter recipient account number : ").strip()
+
         accounts = load_json(ACCOUNTS_FILE)
         if target_acc_no not in accounts:
-            logger.warning(f"Transfer failed - recipient not found: {target_acc_no}  (from {self.account_number})")
             error("Recipient account not found.")
             divider()
             return
@@ -204,9 +196,9 @@ class Account:
             error("Cannot transfer to your own account.")
             divider()
             return
+
         target_data = accounts[target_acc_no]
         if target_data.get("is_frozen"):
-            logger.warning(f"Transfer failed - recipient {target_acc_no} is frozen.")
             error("Recipient account is frozen.")
             divider()
             return
@@ -214,18 +206,12 @@ class Account:
             error("Recipient account is closed.")
             divider()
             return
+
         print(f"  {CYAN}Recipient : {BOLD}{target_data['name']}{RESET}")
         amount = get_float("  Enter amount to transfer : Rs.")
         if amount is None:
             return
-        if amount > self.balance:
-            logger.warning(
-                f"Transfer insufficient balance -> Acc:{self.account_number}  "
-                f"Requested:{fmt_currency(amount)}  Available:{fmt_currency(self.balance)}"
-            )
-            error("Insufficient balance!")
-            divider()
-            return
+
         category = get_category_choice()
         confirm = input(f"  Confirm transfer of {YELLOW}{fmt_currency(amount)}{RESET} to {CYAN}{target_data['name']}{RESET}? (y/n): ")
         if confirm.lower() != "y":
@@ -233,57 +219,19 @@ class Account:
             divider()
             return
 
-        # ═══════════════════════════════════════════════════════════════════
-        #  ATOMIC TRANSFER — single ACID transaction
-        # ═══════════════════════════════════════════════════════════════════
-        # Sync both accounts to SQLite first
-        sync_account_from_json(self.account_number, self.to_dict())
-        sync_account_from_json(target_acc_no, target_data)
-
-        result = atomic_transfer(
+        result = process_transfer(
             sender_acc_no=self.account_number,
             receiver_acc_no=target_acc_no,
             amount=amount,
             category=category,
         )
 
-        if not result.success:
+        if result.success:
+            self.balance = result.sender_balance
+            success(f"{fmt_currency(amount)} transferred to {target_data['name']} successfully!")
+            print(f"  {GREEN}Your New Balance : {BOLD}{fmt_currency(self.balance)}{RESET}")
+        else:
             error(result.error_message)
-            divider()
-            return
-
-        # ── Update in-memory balances ─────────────────────────────────────
-        self.balance = result.sender_balance
-
-        # ── Sync back to JSON for backward compatibility ──────────────────
-        accounts = load_json(ACCOUNTS_FILE)
-        if self.account_number in accounts:
-            accounts[self.account_number]["balance"] = self.balance
-        if target_acc_no in accounts:
-            accounts[target_acc_no]["balance"] = result.receiver_balance
-        save_json(ACCOUNTS_FILE, accounts)
-
-        # ── Log to JSON transactions for backward compatibility ───────────
-        self.log_transaction(
-            "TRANSFER_OUT", amount,
-            f"Transfer to {target_acc_no} (atomic)",
-            target_acc=target_acc_no, category=category,
-        )
-        # Temporarily set balance for receiver's log entry
-        receiver = Account(target_data)
-        receiver.balance = result.receiver_balance
-        receiver.log_transaction(
-            "TRANSFER_IN", amount,
-            f"Transfer from {self.account_number} (atomic)",
-            target_acc=self.account_number, category=category,
-        )
-
-        logger.info(
-            f"Atomic transfer complete -> From:{self.account_number}  "
-            f"To:{target_acc_no}  Amt:{fmt_currency(amount)}"
-        )
-        success(f"{fmt_currency(amount)} transferred to {target_data['name']} successfully!")
-        print(f"  {GREEN}Your New Balance : {BOLD}{fmt_currency(self.balance)}{RESET}")
         divider()
 
     def update_profile(self):
@@ -353,21 +301,13 @@ class Account:
             divider()
             return
         pwd = prompt_password("  Enter password to confirm : ")
-        if not verify_password(pwd, self.password):
-            logger.warning(f"Failed account close attempt (wrong password) -> Acc:{self.account_number}")
-            error("Incorrect password.")
-            divider()
-            return
 
-        # Atomic closure in SQLite
-        sync_account_from_json(self.account_number, self.to_dict())
-        atomic_close_account(self.account_number)
-        close_session()
-
-        self.is_active = False
-        self.save()
-        logger.critical(f"Account CLOSED by customer -> Acc:{self.account_number}  Name:{self.name}")
-        print(f"  {RED}{BOLD}Account closed successfully. Goodbye!{RESET}")
+        result = process_close_account(self.account_number, pwd, self.password)
+        if result.success:
+            self.is_active = False
+            print(f"  {RED}{BOLD}{result.message} Goodbye!{RESET}")
+        else:
+            error(result.message)
         divider()
 
     def export_csv(self):
@@ -485,35 +425,18 @@ class Account:
         amount = get_float(f"  Amount to contribute to '{goal['name']}': Rs.")
         if amount is None:
             return
-        if amount > self.balance:
-            error("Insufficient balance!")
-            divider()
-            return
 
         confirm = input(f"  Contribute {YELLOW}{fmt_currency(amount)}{RESET} to '{goal['name']}'? (y/n): ").strip().lower()
         if confirm != "y":
             warning("Cancelled.")
             return
 
-        self.balance -= amount
-        self.save()
-        self.log_transaction("TRANSFER_OUT", amount,
-                             f"Savings goal: {goal['name']}",
-                             category="Savings")
-
-        # Update goal
-        all_goals = load_goals(self.account_number)
-        for g in all_goals:
-            if g["goal_id"] == goal["goal_id"]:
-                g["current_amount"] += amount
-                if g["current_amount"] >= g["target_amount"]:
-                    g["is_completed"] = True
-                    success(f"🎉 Goal '{goal['name']}' completed!")
-                else:
-                    success(f"{fmt_currency(amount)} contributed to '{goal['name']}'!")
-                break
-        save_goals(self.account_number, all_goals)
-        logger.info(f"Goal contribution -> Acc:{self.account_number}  Goal:{goal['name']}  Amt:{fmt_currency(amount)}")
+        result = contribute_to_goal(self.account_number, goal["goal_id"], amount, self.balance)
+        if result.success:
+            self.balance -= amount
+            success(result.message)
+        else:
+            error(result.message)
         print(f"  {GREEN}New Balance: {BOLD}{fmt_currency(self.balance)}{RESET}")
         divider()
 
@@ -573,39 +496,25 @@ class Account:
             warning("Cancelled.")
             return
 
-        # Refund
-        if goal["current_amount"] > 0:
-            self.balance += goal["current_amount"]
-            self.save()
-            self.log_transaction("DEPOSIT", goal["current_amount"],
-                                 f"Refund from deleted goal: {goal['name']}",
-                                 category="Savings")
-
-        goals.remove(goal)
-        save_goals(self.account_number, goals)
-        logger.info(f"Goal deleted -> Acc:{self.account_number}  Goal:{goal['name']}")
-        success(f"Goal '{goal['name']}' deleted. Amount refunded.")
+        result = delete_savings_goal(self.account_number, goal["goal_id"])
+        if result.success:
+            if goal["current_amount"] > 0:
+                self.balance += goal["current_amount"]
+            success(result.message)
+        else:
+            error(result.message)
         divider()
 
     def apply_interest(self):
         """Apply monthly interest using an atomic SQLite transaction."""
         header("INTEREST CALCULATION")
-        interest = calculate_monthly_interest(self.balance)
-        if interest <= 0:
-            info("No interest to apply (balance is zero or negative).")
-            divider()
-            return
-
-        # Atomic interest application
-        sync_account_from_json(self.account_number, self.to_dict())
-        if atomic_apply_interest(self.account_number, interest):
-            self.balance += interest
-            self.save()
-            self.log_transaction("INTEREST", interest,
-                                 "Monthly interest credit", category="Savings")
-            success(f"Interest of {fmt_currency(interest)} credited!")
-            print(f"  {GREEN}New Balance : {BOLD}{fmt_currency(self.balance)}{RESET}")
-            logger.info(f"Interest applied -> Acc:{self.account_number}  Amt:{fmt_currency(interest)}")
+        result = process_apply_interest(self.account_number, self.balance)
+        if result.success:
+            self.balance = result.data["balance"]
+            success(result.message)
         else:
-            error("Failed to apply interest.")
+            if "No interest" in result.message:
+                info(result.message)
+            else:
+                error(result.message)
         divider()

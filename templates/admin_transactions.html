@@ -10,6 +10,7 @@
   </div>
 
   <form method="POST" style="margin-bottom: 20px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-row">
       <div class="form-group" style="margin-bottom: 0;">
         <label for="account_number">Filter by Account Number</label>

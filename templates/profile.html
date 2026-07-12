@@ -10,6 +10,7 @@
   </div>
 
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
       <label for="name">Full Name</label>
       <input type="text" id="name" name="name" class="form-control" value="{{ acc.name }}">
@@ -53,6 +54,7 @@
   </p>
   <form method="POST" action="{{ url_for('close_account') }}"
         onsubmit="return confirm('Are you sure you want to close your account? This cannot be undone.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
       <label for="confirm_text">Type <strong>CLOSE</strong> to confirm</label>
       <input type="text" id="confirm_text" name="confirm_text" class="form-control"

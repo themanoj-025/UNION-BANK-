@@ -15,6 +15,7 @@ from flask import (
     Flask, render_template, request, redirect, url_for,
     flash, session, send_file,
 )
+from flask_wtf.csrf import CSRFProtect
 
 # PDF generation (fpdf2)
 try:
@@ -40,10 +41,14 @@ from utils import (
 )
 from account import Account
 from admin import Admin, ADMIN_FILE
-from database import (
-    atomic_transfer, atomic_apply_interest, atomic_close_account,
-    sync_account_from_json, close_session as db_close_session, init_db,
+from services import (
+    process_deposit, process_withdraw, process_transfer,
+    process_close_account, process_apply_interest,
+    process_freeze_account, process_unfreeze_account,
+    process_delete_account, get_bank_statistics,
+    admin_authenticate,
 )
+from database import init_db
 
 init_db()
 
@@ -58,6 +63,37 @@ PDF_FONT_PATH = os.path.join(
 from config import settings
 app = Flask(__name__)
 app.secret_key = settings.FLASK_SECRET_KEY
+
+# ── CSRF Protection ───────────────────────────────────────────────────────────
+csrf = CSRFProtect(app)
+
+# Disable CSRF in testing mode so tests can POST without tokens
+if settings.TESTING:
+    app.config["WTF_CSRF_ENABLED"] = False
+
+
+# ── Security Headers ──────────────────────────────────────────────────────────
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to every response."""
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    )
+    # Content-Security-Policy allows Chart.js CDN for charts
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        "font-src 'self' https://cdnjs.cloudflare.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'"
+    )
+    return response
 
 
 # ── Helper functions ─────────────────────────────────────────────────────────
@@ -341,10 +377,12 @@ def deposit():
             return render_template("deposit.html", acc=acc)
 
         category = request.form.get("category", "General")
-        acc.balance += amount
-        acc.save()
-        acc.log_transaction("DEPOSIT", amount, "Web deposit", category=category)
-        flash(f"{fmt_currency(amount)} deposited successfully!", "success")
+        result = process_deposit(acc.account_number, amount, category)
+        if result.success:
+            acc.balance = result.data["balance"]
+            flash(result.message, "success")
+        else:
+            flash(result.message, "error")
         return redirect(url_for("dashboard"))
 
     return render_template(
@@ -376,10 +414,12 @@ def withdraw():
             return render_template("withdraw.html", acc=acc)
 
         category = request.form.get("category", "General")
-        acc.balance -= amount
-        acc.save()
-        acc.log_transaction("WITHDRAW", amount, "Web withdrawal", category=category)
-        flash(f"{fmt_currency(amount)} withdrawn successfully!", "success")
+        result = process_withdraw(acc.account_number, amount, category)
+        if result.success:
+            acc.balance = result.data["balance"]
+            flash(result.message, "success")
+        else:
+            flash(result.message, "error")
         return redirect(url_for("dashboard"))
 
     return render_template(
@@ -446,51 +486,26 @@ def transfer():
             )
 
         # ═══════════════════════════════════════════════════════════════
-        #  ATOMIC TRANSFER — single ACID SQLite transaction
+        #  ATOMIC TRANSFER — via service layer
         # ═══════════════════════════════════════════════════════════════
-        sync_account_from_json(acc.account_number, acc.to_dict())
-        sync_account_from_json(target_acc_no, target_data)
-
-        result = atomic_transfer(
+        result = process_transfer(
             sender_acc_no=acc.account_number,
             receiver_acc_no=target_acc_no,
             amount=amount,
             category=category,
         )
 
-        if not result.success:
+        if result.success:
+            acc.balance = result.sender_balance
+            flash(
+                f"{fmt_currency(amount)} transferred to {target_data['name']} "
+                f"({target_acc_no}) successfully!",
+                "success",
+            )
+        else:
             flash(result.error_message, "error")
             return render_template("transfer.html", acc=acc, recipient=None)
 
-        acc.balance = result.sender_balance
-
-        # ── Sync back to JSON for backward compatibility ──────────────
-        accounts = load_json(ACCOUNTS_FILE)
-        if acc.account_number in accounts:
-            accounts[acc.account_number]["balance"] = acc.balance
-        if target_acc_no in accounts:
-            accounts[target_acc_no]["balance"] = result.receiver_balance
-        save_json(ACCOUNTS_FILE, accounts)
-
-        # ── Log to JSON transactions ───────────────────────────────────
-        acc.log_transaction(
-            "TRANSFER_OUT", amount,
-            f"Transfer to {target_acc_no} (atomic)",
-            target_acc=target_acc_no, category=category,
-        )
-        receiver = Account(target_data)
-        receiver.balance = result.receiver_balance
-        receiver.log_transaction(
-            "TRANSFER_IN", amount,
-            f"Transfer from {acc.account_number} (atomic)",
-            target_acc=acc.account_number, category=category,
-        )
-
-        flash(
-            f"{fmt_currency(amount)} transferred to {target_data['name']} "
-            f"({target_acc_no}) successfully!",
-            "success",
-        )
         return redirect(url_for("dashboard"))
 
     return render_template("transfer.html", acc=acc, recipient=None)
@@ -598,20 +613,12 @@ def apply_interest():
         )
 
     # POST request -> apply interest (atomic)
-    interest = calculate_monthly_interest(acc.balance)
-    if interest <= 0:
-        flash("No interest to apply (balance is zero or negative).", "info")
-        return redirect(url_for("dashboard"))
-
-    sync_account_from_json(acc.account_number, acc.to_dict())
-    if atomic_apply_interest(acc.account_number, interest):
-        acc.balance += interest
-        acc.save()
-        acc.log_transaction("INTEREST", interest,
-                             "Monthly interest credit", category="Savings")
-        flash(f"Interest of {fmt_currency(interest)} credited!", "success")
+    result = process_apply_interest(acc.account_number, acc.balance)
+    if result.success:
+        acc.balance = result.data["balance"]
+        flash(result.message, "success")
     else:
-        flash("Failed to apply interest.", "error")
+        flash(result.message, "info" if "No interest" in result.message else "error")
     return redirect(url_for("dashboard"))
 
 
@@ -903,15 +910,14 @@ def close_account():
         flash("Incorrect password.", "error")
         return redirect(url_for("profile"))
 
-    # Atomic closure in SQLite
-    sync_account_from_json(acc.account_number, acc.to_dict())
-    atomic_close_account(acc.account_number)
-    db_close_session()
-
-    acc.is_active = False
-    acc.save()
-    session.pop("account_number", None)
-    flash("Account closed successfully.", "info")
+    # Atomic closure via service layer
+    result = process_close_account(acc.account_number, password, acc.password)
+    if result.success:
+        acc.is_active = False
+        session.pop("account_number", None)
+        flash(result.message, "info")
+    else:
+        flash(result.message, "error")
     return redirect(url_for("index"))
 
 
@@ -937,8 +943,8 @@ def admin_login():
             )
             return render_template("admin_login.html")
 
-        creds = load_json(ADMIN_FILE)
-        if username == creds["username"] and verify_password(password, creds["password"]):
+        result = admin_authenticate(username, password)
+        if result.success:
             reset_login_attempts(lock_key)
             session["is_admin"] = True
             session.permanent = True
@@ -1100,18 +1106,14 @@ def admin_freeze():
             )
 
         if currently_frozen:
-            acc["is_frozen"] = False
-            acc["is_active"] = True
-            msg = f"Account {acc_no} ({acc['name']}) unfrozen."
+            result = process_unfreeze_account(acc_no)
         else:
-            acc["is_frozen"] = True
-            acc["is_active"] = False
-            msg = f"Account {acc_no} ({acc['name']}) frozen."
+            result = process_freeze_account(acc_no)
 
-        accounts[acc_no] = acc
-        save_json(ACCOUNTS_FILE, accounts)
-        flash(msg, "success")
-        return render_template("admin_freeze.html", result=msg)
+        flash(result.message, "success" if result.success else "error")
+        if result.success:
+            return render_template("admin_freeze.html", result=result.message)
+        return redirect(url_for("admin_freeze"))
 
     return render_template("admin_freeze.html", result=None)
 
@@ -1135,15 +1137,8 @@ def admin_delete():
             flash("Please type 'DELETE' to confirm.", "error")
             return render_template("admin_delete.html", preview_acc=acc, acc_no=acc_no)
 
-        del accounts[acc_no]
-        save_json(ACCOUNTS_FILE, accounts)
-
-        txns = load_json(TRANSACTIONS_FILE)
-        if acc_no in txns:
-            del txns[acc_no]
-            save_json(TRANSACTIONS_FILE, txns)
-
-        flash(f"Account {acc_no} ({acc['name']}) deleted.", "success")
+        result = process_delete_account(acc_no)
+        flash(result.message, "success" if result.success else "error")
         return redirect(url_for("admin_delete"))
 
     return render_template("admin_delete.html", preview_acc=None)
@@ -1153,55 +1148,30 @@ def admin_delete():
 @admin_required
 def admin_statistics():
     """Bank statistics dashboard with charts."""
-    accounts = load_json(ACCOUNTS_FILE)
-    txns = load_json(TRANSACTIONS_FILE)
-
-    total_customers = len(accounts)
-    active = sum(1 for a in accounts.values()
-                 if a.get("is_active", True) and not a.get("is_frozen"))
-    frozen = sum(1 for a in accounts.values() if a.get("is_frozen", False))
-    closed = sum(1 for a in accounts.values()
-                 if not a.get("is_active", True) and not a.get("is_frozen", False))
-    total_balance = sum(a["balance"] for a in accounts.values())
-
-    total_txns = sum(len(v) for v in txns.values())
-    total_dep = sum(t["amount"] for v in txns.values()
-                     for t in v if t["type"] == "DEPOSIT")
-    total_with = sum(t["amount"] for v in txns.values()
-                      for t in v if t["type"] == "WITHDRAW")
-    total_trans = sum(t["amount"] for v in txns.values()
-                       for t in v if t["type"] == "TRANSFER_OUT")
-
-    # Compute category popularity across all transactions
-    category_totals = {}
-    for acc_no, records in txns.items():
-        for t in records:
-            cat = t.get("category", "General")
-            category_totals[cat] = category_totals.get(cat, 0) + abs(t["amount"])
-    sorted_cats = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
+    s = get_bank_statistics()
 
     stats = {
-        "total_customers": total_customers,
-        "active": active,
-        "frozen": frozen,
-        "closed": closed,
-        "total_balance": total_balance,
-        "total_dep": total_dep,
-        "total_with": total_with,
-        "total_trans": total_trans,
-        "total_txns": total_txns,
+        "total_customers": s["total_customers"],
+        "active": s["active"],
+        "frozen": s["frozen"],
+        "closed": s["closed"],
+        "total_balance": s["total_balance"],
+        "total_dep": s["total_dep"],
+        "total_with": s["total_with"],
+        "total_trans": s["total_trans"],
+        "total_txns": s["total_txns"],
     }
 
-    # Chart data
+    cats = s["sorted_categories"]
     chart_data = {
         "status_labels": ["Active", "Frozen", "Closed"],
-        "status_counts": [active, frozen, closed],
+        "status_counts": [s["active"], s["frozen"], s["closed"]],
         "status_colors": ["#2e7d32", "#c62828", "#f57f17"],
         "financial_labels": ["Deposits", "Withdrawals", "Transfers"],
-        "financial_values": [round(total_dep, 2), round(total_with, 2), round(total_trans, 2)],
+        "financial_values": [round(s["total_dep"], 2), round(s["total_with"], 2), round(s["total_trans"], 2)],
         "financial_colors": ["#4caf50", "#e53935", "#1976d2"],
-        "category_labels": [c[0] for c in sorted_cats[:8]],
-        "category_amounts": [round(c[1], 2) for c in sorted_cats[:8]],
+        "category_labels": [c["name"] for c in cats],
+        "category_amounts": [round(c["total"], 2) for c in cats],
     }
 
     return render_template(

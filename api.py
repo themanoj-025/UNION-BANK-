@@ -20,12 +20,16 @@ from typing import Optional
 
 import jwt
 from fastapi import (
-    FastAPI, HTTPException, Depends, status, Query,
+    FastAPI, HTTPException, Depends, status, Query, Request,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, field_validator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # ── Project path setup ──────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -37,17 +41,21 @@ from utils import (
     hash_password, verify_password, validate_email, validate_phone,
     validate_password, validate_name,
     check_login_locked, record_failed_login, reset_login_attempts,
-    export_transactions_to_csv, generate_csv_filename,
     calculate_monthly_interest, TRANSACTION_CATEGORIES,
     load_goals, save_goals, generate_goal_id,
     ACCOUNTS_FILE, TRANSACTIONS_FILE, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
 )
 from account import Account
 from admin import ADMIN_FILE
-from database import (
-    atomic_transfer, atomic_apply_interest, atomic_close_account,
-    sync_account_from_json, close_session as db_close_session, init_db,
+from services import (
+    process_deposit, process_withdraw, process_transfer,
+    process_close_account, process_apply_interest,
+    process_freeze_account, process_unfreeze_account,
+    process_delete_account, get_bank_statistics,
+    admin_authenticate,
+    create_savings_goal, contribute_to_goal, delete_savings_goal,
 )
+from database import init_db
 
 init_db()
 
@@ -74,6 +82,40 @@ app = FastAPI(
     version="1.0.0",
     contact={"name": "Union Bank Dev Team"},
 )
+
+# ── Rate Limiting ────────────────────────────────────────────────────────────
+# Disabled in testing mode so integration tests don't get rate-limited
+limiter = Limiter(
+    key_func=get_remote_address,
+    enabled=not settings.TESTING,
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ── Security Headers Middleware ───────────────────────────────────────────────
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to every response."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+        )
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "connect-src 'self'"
+        )
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ── CORS — restricted to configured origins ──────────────────────────────────
 app.add_middleware(
@@ -309,7 +351,8 @@ def _get_account_status(data: dict) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.post("/api/auth/login", response_model=TokenResponse)
-def customer_login(req: LoginRequest):
+@limiter.limit("10/minute")
+def customer_login(request: Request, req: LoginRequest):
     """Authenticate a customer and return a JWT access token."""
     acc_no = req.account_number
     password = req.password
@@ -362,7 +405,8 @@ def customer_login(req: LoginRequest):
 
 
 @app.post("/api/auth/register", response_model=MessageResponse)
-def customer_register(req: RegisterRequest):
+@limiter.limit("5/minute")
+def customer_register(request: Request, req: RegisterRequest):
     """Register a new customer account."""
     # Validate fields
     if not validate_name(req.name):
@@ -415,7 +459,8 @@ def customer_register(req: RegisterRequest):
 
 
 @app.post("/api/auth/admin-login", response_model=TokenResponse)
-def admin_login(req: AdminLoginRequest):
+@limiter.limit("10/minute")
+def admin_login(request: Request, req: AdminLoginRequest):
     """Authenticate as admin and return a JWT access token."""
     username = req.username
     password = req.password
@@ -452,7 +497,8 @@ def admin_login(req: AdminLoginRequest):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/account/profile", response_model=ProfileResponse)
-def get_profile(customer: dict = Depends(get_current_customer)):
+@limiter.limit("30/minute")
+def get_profile(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the authenticated customer's profile details."""
     return ProfileResponse(
         account_number=customer["account_number"],
@@ -469,7 +515,9 @@ def get_profile(customer: dict = Depends(get_current_customer)):
 
 
 @app.put("/api/account/profile", response_model=ProfileResponse)
+@limiter.limit("10/minute")
 def update_profile(
+    request: Request,
     req: UpdateProfileRequest,
     customer: dict = Depends(get_current_customer),
 ):
@@ -526,7 +574,9 @@ def update_profile(
 
 
 @app.post("/api/account/change-password", response_model=MessageResponse)
+@limiter.limit("5/minute")
 def change_password(
+    request: Request,
     req: ChangePasswordRequest,
     customer: dict = Depends(get_current_customer),
 ):
@@ -562,7 +612,9 @@ def change_password(
 
 
 @app.post("/api/account/close", response_model=MessageResponse)
+@limiter.limit("3/minute")
 def close_account(
+    request: Request,
     req: CloseAccountRequest,
     customer: dict = Depends(get_current_customer),
 ):
@@ -598,7 +650,8 @@ def close_account(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/account/balance", response_model=BalanceResponse)
-def get_balance(customer: dict = Depends(get_current_customer)):
+@limiter.limit("30/minute")
+def get_balance(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the current account balance."""
     # Refresh balance from file
     accounts = load_json(ACCOUNTS_FILE)
@@ -612,7 +665,9 @@ def get_balance(customer: dict = Depends(get_current_customer)):
 
 
 @app.post("/api/account/deposit", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def deposit_money(
+    request: Request,
     req: TransactionRequest,
     customer: dict = Depends(get_current_customer),
 ):
@@ -636,7 +691,9 @@ def deposit_money(
 
 
 @app.post("/api/account/withdraw", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def withdraw_money(
+    request: Request,
     req: TransactionRequest,
     customer: dict = Depends(get_current_customer),
 ):
@@ -665,7 +722,9 @@ def withdraw_money(
 
 
 @app.post("/api/account/transfer", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def transfer_funds(
+    request: Request,
     req: TransferRequest,
     customer: dict = Depends(get_current_customer),
 ):
@@ -758,7 +817,8 @@ def transfer_funds(
 
 
 @app.get("/api/account/statements", response_model=list[TransactionOut])
-def get_full_statement(customer: dict = Depends(get_current_customer)):
+@limiter.limit("30/minute")
+def get_full_statement(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the full transaction statement (newest first)."""
     acc_no = customer["account_number"]
     txns = load_json(TRANSACTIONS_FILE)
@@ -780,7 +840,8 @@ def get_full_statement(customer: dict = Depends(get_current_customer)):
 
 
 @app.get("/api/account/statements/mini", response_model=list[TransactionOut])
-def get_mini_statement(customer: dict = Depends(get_current_customer)):
+@limiter.limit("30/minute")
+def get_mini_statement(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the last 5 transactions (mini statement)."""
     acc_no = customer["account_number"]
     txns = load_json(TRANSACTIONS_FILE)
@@ -803,7 +864,8 @@ def get_mini_statement(customer: dict = Depends(get_current_customer)):
 
 
 @app.get("/api/account/export-csv")
-def export_csv(customer: dict = Depends(get_current_customer)):
+@limiter.limit("10/minute")
+def export_csv(request: Request, customer: dict = Depends(get_current_customer)):
     """Download transaction history as a CSV file."""
     acc_no = customer["account_number"]
     txns = load_json(TRANSACTIONS_FILE)
@@ -875,7 +937,8 @@ class SavingsGoalsSummary(BaseModel):
 # ── Savings Goals Endpoints ──────────────────────────────────────────────
 
 @app.get("/api/savings", response_model=SavingsGoalsSummary)
-def list_savings_goals(customer: dict = Depends(get_current_customer)):
+@limiter.limit("30/minute")
+def list_savings_goals(request: Request, customer: dict = Depends(get_current_customer)):
     """List all savings goals for the authenticated customer."""
     acc_no = customer["account_number"]
     goals = load_goals(acc_no)
@@ -910,7 +973,9 @@ def list_savings_goals(customer: dict = Depends(get_current_customer)):
 
 
 @app.post("/api/savings", response_model=SavingsGoalOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 def create_savings_goal(
+    request: Request,
     req: SavingsGoalCreate,
     customer: dict = Depends(get_current_customer),
 ):
@@ -943,7 +1008,9 @@ def create_savings_goal(
 
 
 @app.put("/api/savings/{goal_id}", response_model=SavingsGoalOut)
+@limiter.limit("10/minute")
 def update_savings_goal(
+    request: Request,
     goal_id: str,
     req: SavingsGoalUpdate,
     customer: dict = Depends(get_current_customer),
@@ -980,7 +1047,9 @@ def update_savings_goal(
 
 
 @app.post("/api/savings/{goal_id}/contribute", response_model=SavingsGoalOut)
+@limiter.limit("10/minute")
 def contribute_to_goal(
+    request: Request,
     goal_id: str,
     req: SavingsGoalContribute,
     customer: dict = Depends(get_current_customer),
@@ -1029,7 +1098,9 @@ def contribute_to_goal(
 
 
 @app.delete("/api/savings/{goal_id}", response_model=MessageResponse)
+@limiter.limit("5/minute")
 def delete_savings_goal(
+    request: Request,
     goal_id: str,
     customer: dict = Depends(get_current_customer),
 ):
@@ -1061,7 +1132,8 @@ def delete_savings_goal(
 
 
 @app.post("/api/account/apply-interest", response_model=MessageResponse)
-def apply_interest(customer: dict = Depends(get_current_customer)):
+@limiter.limit("5/minute")
+def apply_interest(request: Request, customer: dict = Depends(get_current_customer)):
     """Apply monthly interest (3.5% p.a.) using an atomic SQLite transaction."""
     acc_no = customer["account_number"]
     accounts = load_json(ACCOUNTS_FILE)
@@ -1098,7 +1170,8 @@ def apply_interest(customer: dict = Depends(get_current_customer)):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/admin/accounts", response_model=list[AccountListItem])
-def admin_view_accounts(admin: dict = Depends(get_current_admin)):
+@limiter.limit("30/minute")
+def admin_view_accounts(request: Request, admin: dict = Depends(get_current_admin)):
     """View all registered accounts (admin only)."""
     accounts = load_json(ACCOUNTS_FILE)
     return [
@@ -1119,7 +1192,9 @@ def admin_view_accounts(admin: dict = Depends(get_current_admin)):
 
 
 @app.get("/api/admin/accounts/search", response_model=list[AccountListItem])
+@limiter.limit("30/minute")
 def admin_search_accounts(
+    request: Request,
     q: str = Query(..., min_length=1, description="Search by account number or name"),
     admin: dict = Depends(get_current_admin),
 ):
@@ -1148,7 +1223,9 @@ def admin_search_accounts(
 
 
 @app.post("/api/admin/accounts/{acc_no}/freeze", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def admin_freeze_account(
+    request: Request,
     acc_no: str,
     admin: dict = Depends(get_current_admin),
 ):
@@ -1185,7 +1262,9 @@ def admin_freeze_account(
 
 
 @app.post("/api/admin/accounts/{acc_no}/unfreeze", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def admin_unfreeze_account(
+    request: Request,
     acc_no: str,
     admin: dict = Depends(get_current_admin),
 ):
@@ -1216,7 +1295,9 @@ def admin_unfreeze_account(
 
 
 @app.delete("/api/admin/accounts/{acc_no}", response_model=MessageResponse)
+@limiter.limit("5/minute")
 def admin_delete_account(
+    request: Request,
     acc_no: str,
     admin: dict = Depends(get_current_admin),
 ):
@@ -1244,7 +1325,8 @@ def admin_delete_account(
 
 
 @app.get("/api/admin/statistics", response_model=StatisticsResponse)
-def admin_statistics(admin: dict = Depends(get_current_admin)):
+@limiter.limit("30/minute")
+def admin_statistics(request: Request, admin: dict = Depends(get_current_admin)):
     """View bank-wide statistics (admin only)."""
     accounts = load_json(ACCOUNTS_FILE)
     txns = load_json(TRANSACTIONS_FILE)
@@ -1279,7 +1361,9 @@ def admin_statistics(admin: dict = Depends(get_current_admin)):
 
 
 @app.get("/api/admin/transactions")
+@limiter.limit("30/minute")
 def admin_view_transactions(
+    request: Request,
     account: Optional[str] = Query(None, description="Filter by account number"),
     admin: dict = Depends(get_current_admin),
 ):
@@ -1308,7 +1392,9 @@ def admin_view_transactions(
 
 
 @app.put("/api/admin/password", response_model=MessageResponse)
+@limiter.limit("5/minute")
 def admin_change_password(
+    request: Request,
     req: AdminChangePasswordRequest,
     admin: dict = Depends(get_current_admin),
 ):
@@ -1345,13 +1431,15 @@ def admin_change_password(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/categories", response_model=list[str])
-def list_categories():
+@limiter.limit("30/minute")
+def list_categories(request: Request):
     """List all available transaction categories."""
     return TRANSACTION_CATEGORIES
 
 
 @app.get("/api/health", response_model=HealthResponse)
-def health_check():
+@limiter.limit("30/minute")
+def health_check(request: Request):
     """Health check endpoint."""
     return HealthResponse()
 

@@ -9,4 +9,4 @@ pytest-cov>=5.0.0
 PyJWT>=2.9.0
 slowapi>=0.1.9
 SQLAlchemy>=2.0.0
-uvicorn>=0.32.0
+uvicorn>=0.51.0

@@ -135,6 +135,7 @@ class Account:
             f"Amt:{fmt_currency(amount)}  Bal:{fmt_currency(self.balance)}"
             + (f"  -> {target_acc}" if target_acc else "")
         )
+        return txn_id
 
     def check_balance(self):
         header("ACCOUNT BALANCE")

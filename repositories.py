@@ -68,6 +68,9 @@ class AccountRepository:
         if account is None:
             return None
         for key, value in data.items():
+            # Skip primary key and creation timestamp (DateTime column, not a string)
+            if key in ("account_number", "created_at"):
+                continue
             if hasattr(account, key) and value is not None:
                 if key == "balance":
                     setattr(account, key, Decimal(str(value)))

@@ -15,6 +15,7 @@ import io
 import os
 import sys
 from datetime import datetime, timedelta
+from decimal import Decimal
 from enum import Enum
 from typing import Optional
 
@@ -37,36 +38,37 @@ sys.path.insert(0, BASE_DIR)
 
 # ── Import existing business logic ───────────────────────────────────────────
 from utils import (
-    load_json, save_json, generate_account_number, now_str, fmt_currency,
+    generate_account_number, now_str, fmt_currency,
     hash_password, verify_password, validate_email, validate_phone,
     validate_password, validate_name,
-    check_login_locked, record_failed_login, reset_login_attempts,
     calculate_monthly_interest, TRANSACTION_CATEGORIES,
-    load_goals, save_goals, generate_goal_id,
-    ACCOUNTS_FILE, TRANSACTIONS_FILE, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
+    MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
 )
-from account import Account
-from admin import ADMIN_FILE
 from services import (
     process_deposit, process_withdraw, process_transfer,
     process_close_account, process_apply_interest,
-    process_freeze_account, process_unfreeze_account,
-    process_delete_account, get_bank_statistics,
-    admin_authenticate,
-    create_savings_goal, contribute_to_goal, delete_savings_goal,
 )
 from database import init_db
 
 init_db()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  JWT Configuration — loaded from centralized config
+#  JWT Configuration — RS256 asymmetric signing with short-lived tokens
 # ═══════════════════════════════════════════════════════════════════════════════
 
 from config import settings
+
+# For RS256 (asymmetric), the private key signs tokens and public key verifies them.
+# For HS256 fallback (symmetric), the same secret is used for both operations.
 JWT_SECRET = settings.JWT_SECRET
+JWT_PRIVATE_KEY = settings.JWT_PRIVATE_KEY
+JWT_PUBLIC_KEY = settings.JWT_PUBLIC_KEY
 JWT_ALGORITHM = settings.JWT_ALGORITHM
-JWT_EXPIRY_HOURS = settings.JWT_EXPIRY_HOURS
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
+
+# Refresh token storage (in-memory for now; backed by DB for production)
+_refresh_tokens: dict[str, dict] = {}  # token_id -> {account_number, role, expires_at, revoked_at}
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  FastAPI Application
@@ -108,8 +110,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; "
+            "style-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self'"
         )
@@ -156,8 +158,14 @@ class AdminLoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     role: str
+    expires_in: Optional[int] = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 # ── Transaction Models ───────────────────────────────────────────────────────
@@ -271,24 +279,58 @@ class HealthResponse(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  JWT Helper Functions
+#  JWT Helper Functions — RS256 (asymmetric) or HS256 (symmetric fallback)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def create_token(subject: str, role: str) -> str:
-    """Create a JWT access token."""
+from datetime import timezone
+
+
+def _get_signing_key() -> str:
+    """Return the key used for SIGNING (private key for RS256, secret for HS256)."""
+    if JWT_ALGORITHM == "RS256" and JWT_PRIVATE_KEY:
+        return JWT_PRIVATE_KEY
+    return JWT_SECRET
+
+
+def _get_verifying_key() -> str:
+    """Return the key used for VERIFYING (public key for RS256, secret for HS256)."""
+    if JWT_ALGORITHM == "RS256" and JWT_PUBLIC_KEY:
+        return JWT_PUBLIC_KEY
+    return JWT_SECRET
+
+
+def _generate_refresh_token_id() -> str:
+    """Generate a unique refresh token ID."""
+    import uuid
+    return f"ref_{uuid.uuid4().hex[:24]}"
+
+
+def create_token(subject: str, role: str, token_type: str = "access") -> str:
+    """Create a JWT token (access or refresh).
+
+    Access tokens are short-lived (default 15 minutes).
+    Refresh tokens live longer (default 7 days).
+    """
+    now = datetime.now(timezone.utc)
+    if token_type == "refresh":
+        expiry = now + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    else:
+        expiry = now + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+
     payload = {
         "sub": subject,
         "role": role,
-        "iat": datetime.utcnow(),
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
+        "type": token_type,
+        "iat": now,
+        "exp": expiry,
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, _get_signing_key(), algorithm=JWT_ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT token. Returns the payload dict."""
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, _get_verifying_key(), algorithms=[JWT_ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -304,6 +346,65 @@ def decode_token(token: str) -> dict:
         )
 
 
+def create_token_pair(subject: str, role: str) -> dict:
+    """Create an access + refresh token pair.
+
+    The refresh token can be used to get a new access token without
+    requiring the user to re-authenticate.
+    """
+    access_token = create_token(subject, role, token_type="access")
+    refresh_token_id = _generate_refresh_token_id()
+    refresh_token = create_token(subject + ":" + refresh_token_id, role, token_type="refresh")
+
+    # Store refresh token metadata for revocation tracking
+    now = datetime.now(timezone.utc)
+    _refresh_tokens[refresh_token_id] = {
+        "account_number": subject,
+        "role": role,
+        "expires_at": now + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS),
+        "revoked_at": None,
+    }
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "refresh_token_id": refresh_token_id,
+        "token_type": "bearer",
+        "expires_in": JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
+
+
+def revoke_refresh_token(refresh_token_id: str) -> bool:
+    """Revoke a refresh token so it can no longer be used."""
+    if refresh_token_id in _refresh_tokens:
+        _refresh_tokens[refresh_token_id]["revoked_at"] = datetime.now(timezone.utc)
+        return True
+    return False
+
+
+def verify_refresh_token(refresh_token: str) -> Optional[dict]:
+    """Verify a refresh token and return the subject + role if valid."""
+    try:
+        payload = jwt.decode(refresh_token, _get_verifying_key(), algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "refresh":
+            return None
+
+        # Extract refresh_token_id from subject (format: "account_number:refresh_token_id")
+        sub = payload.get("sub", "")
+        if ":" not in sub:
+            return None
+        account_number, token_id = sub.rsplit(":", 1)
+
+        # Check if revoked
+        token_data = _refresh_tokens.get(token_id)
+        if token_data is None or token_data["revoked_at"] is not None:
+            return None
+
+        return {"account_number": account_number, "role": payload.get("role")}
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
+
+
 async def get_current_customer(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
@@ -315,13 +416,26 @@ async def get_current_customer(
             detail="Customer access required.",
         )
     acc_no = payload.get("sub")
-    accounts = load_json(ACCOUNTS_FILE)
-    if acc_no not in accounts:
+    from container import get_container
+    domain_account = get_container().account_repo().get(acc_no)
+    if not domain_account:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Account no longer exists.",
         )
-    return accounts[acc_no]
+    return {
+        "account_number": domain_account.account_number,
+        "name": domain_account.name,
+        "age": domain_account.age,
+        "gender": domain_account.gender,
+        "mobile": domain_account.mobile,
+        "email": domain_account.email,
+        "password": domain_account.password,
+        "balance": float(domain_account.balance),
+        "is_active": domain_account.is_active,
+        "is_frozen": domain_account.is_frozen,
+        "created_at": str(domain_account.created_at)[:19],
+    }
 
 
 async def get_current_admin(
@@ -353,55 +467,27 @@ def _get_account_status(data: dict) -> str:
 @app.post("/api/auth/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
 def customer_login(request: Request, req: LoginRequest):
-    """Authenticate a customer and return a JWT access token."""
-    acc_no = req.account_number
-    password = req.password
+    """Authenticate a customer and return a JWT access + refresh token pair."""
+    from container import get_container
+    c = get_container()
 
-    # Rate limiting
-    is_locked, remaining = check_login_locked(acc_no)
-    if is_locked:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Account locked. Try again in {remaining} minute(s).",
-        )
+    # Use container's auth service for DB-backed authentication
+    auth_result = c.auth_service().customer_login(req.account_number, req.password)
+    if not auth_result.success:
+        if "locked" in auth_result.message.lower():
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=auth_result.message)
+        if "not found" in auth_result.message.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=auth_result.message)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=auth_result.message)
 
-    accounts = load_json(ACCOUNTS_FILE)
-    if acc_no not in accounts:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Account not found.",
-        )
-
-    data = accounts[acc_no]
-
-    if data.get("is_frozen", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is frozen. Please contact the bank.",
-        )
-
-    if not data.get("is_active", True):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account has been closed.",
-        )
-
-    if not verify_password(password, data["password"]):
-        remaining_attempts = record_failed_login(acc_no)
-        if remaining_attempts > 0:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Incorrect password. {remaining_attempts} attempt(s) remaining.",
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Incorrect password. Account locked for {LOGIN_LOCKOUT_MINUTES} minutes.",
-            )
-
-    reset_login_attempts(acc_no)
-    token = create_token(subject=acc_no, role="customer")
-    return TokenResponse(access_token=token, role="customer")
+    # Create access + refresh token pair
+    tokens = create_token_pair(subject=req.account_number, role="customer")
+    return TokenResponse(
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role="customer",
+        expires_in=tokens["expires_in"],
+    )
 
 
 @app.post("/api/auth/register", response_model=MessageResponse)
@@ -461,35 +547,23 @@ def customer_register(request: Request, req: RegisterRequest):
 @app.post("/api/auth/admin-login", response_model=TokenResponse)
 @limiter.limit("10/minute")
 def admin_login(request: Request, req: AdminLoginRequest):
-    """Authenticate as admin and return a JWT access token."""
-    username = req.username
-    password = req.password
+    """Authenticate as admin and return a JWT access + refresh token pair."""
+    from container import get_container
+    c = get_container()
 
-    lock_key = f"admin_{username}"
-    is_locked, remaining = check_login_locked(lock_key)
-    if is_locked:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Admin account locked. Try again in {remaining} minute(s).",
-        )
+    auth_result = c.auth_service().admin_login(req.username, req.password)
+    if not auth_result.success:
+        if "locked" in auth_result.message.lower():
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=auth_result.message)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=auth_result.message)
 
-    auth_result = admin_authenticate(username, password)
-    if auth_result.success:
-        reset_login_attempts(lock_key)
-        token = create_token(subject=username, role="admin")
-        return TokenResponse(access_token=token, role="admin")
-
-    remaining_attempts = record_failed_login(lock_key)
-    if remaining_attempts > 0:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid credentials. {remaining_attempts} attempt(s) remaining.",
-        )
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Admin account locked for {LOGIN_LOCKOUT_MINUTES} minutes.",
-        )
+    tokens = create_token_pair(subject=req.username, role="admin")
+    return TokenResponse(
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role="admin",
+        expires_in=tokens["expires_in"],
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -523,8 +597,12 @@ def update_profile(
 ):
     """Update the authenticated customer's profile details."""
     acc_no = customer["account_number"]
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[acc_no]
+
+    from container import get_container
+    c = get_container()
+    domain_account = c.account_repo().get(acc_no)
+    if not domain_account:
+        raise HTTPException(status_code=404, detail="Account not found.")
 
     if req.name is not None:
         if not validate_name(req.name):
@@ -532,13 +610,13 @@ def update_profile(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid name. Must be 2-50 characters (letters and spaces only).",
             )
-        data["name"] = req.name
+        domain_account.name = req.name
 
     if req.age is not None:
-        data["age"] = req.age
+        domain_account.age = req.age
 
     if req.gender is not None:
-        data["gender"] = req.gender
+        domain_account.gender = req.gender
 
     if req.mobile is not None:
         if not validate_phone(req.mobile):
@@ -546,7 +624,7 @@ def update_profile(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid mobile number. Must be 10 digits starting with 6-9.",
             )
-        data["mobile"] = req.mobile
+        domain_account.mobile = req.mobile
 
     if req.email is not None:
         if not validate_email(req.email):
@@ -554,22 +632,25 @@ def update_profile(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid email format.",
             )
-        data["email"] = req.email
+        domain_account.email = req.email
 
-    accounts[acc_no] = data
-    save_json(ACCOUNTS_FILE, accounts)
+    c.account_repo().update(domain_account)
+    c.account_repo().commit()
 
     return ProfileResponse(
-        account_number=data["account_number"],
-        name=data["name"],
-        age=data["age"],
-        gender=data["gender"],
-        mobile=data["mobile"],
-        email=data["email"],
-        balance=data["balance"],
-        balance_formatted=fmt_currency(data["balance"]),
-        status=_get_account_status(data),
-        created_at=data.get("created_at", "N/A"),
+        account_number=domain_account.account_number,
+        name=domain_account.name,
+        age=domain_account.age,
+        gender=domain_account.gender,
+        mobile=domain_account.mobile,
+        email=domain_account.email,
+        balance=float(domain_account.balance),
+        balance_formatted=fmt_currency(float(domain_account.balance)),
+        status=_get_account_status({
+            "is_frozen": domain_account.is_frozen,
+            "is_active": domain_account.is_active,
+        }),
+        created_at=str(domain_account.created_at)[:19],
     )
 
 
@@ -582,10 +663,14 @@ def change_password(
 ):
     """Change the authenticated customer's password."""
     acc_no = customer["account_number"]
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[acc_no]
 
-    if not verify_password(req.current_password, data["password"]):
+    from container import get_container
+    c = get_container()
+    domain_account = c.account_repo().get(acc_no)
+    if not domain_account:
+        raise HTTPException(status_code=404, detail="Account not found.")
+
+    if not verify_password(req.current_password, domain_account.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect current password.",
@@ -604,9 +689,9 @@ def change_password(
             detail="Passwords do not match.",
         )
 
-    data["password"] = hash_password(req.new_password)
-    accounts[acc_no] = data
-    save_json(ACCOUNTS_FILE, accounts)
+    domain_account.password = hash_password(req.new_password)
+    c.account_repo().update(domain_account)
+    c.account_repo().commit()
 
     return MessageResponse(message="Password changed successfully.")
 
@@ -648,14 +733,15 @@ def close_account(
 @limiter.limit("30/minute")
 def get_balance(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the current account balance."""
-    # Refresh balance from file
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[customer["account_number"]]
+    from container import get_container
+    domain_account = get_container().account_repo().get(customer["account_number"])
+    if not domain_account:
+        raise HTTPException(status_code=404, detail="Account not found.")
     return BalanceResponse(
-        account_number=data["account_number"],
-        name=data["name"],
-        balance=data["balance"],
-        balance_formatted=fmt_currency(data["balance"]),
+        account_number=domain_account.account_number,
+        name=domain_account.name,
+        balance=float(domain_account.balance),
+        balance_formatted=fmt_currency(float(domain_account.balance)),
     )
 
 
@@ -668,10 +754,6 @@ def deposit_money(
 ):
     """Deposit money into the authenticated customer's account."""
     acc_no = customer["account_number"]
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[acc_no]
-
-    # Validate category
     result = process_deposit(acc_no, req.amount, req.category)
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -688,9 +770,6 @@ def withdraw_money(
 ):
     """Withdraw money from the authenticated customer's account."""
     acc_no = customer["account_number"]
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[acc_no]
-
     result = process_withdraw(acc_no, req.amount, req.category)
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -707,12 +786,17 @@ def transfer_funds(
 ):
     """Transfer funds to another account."""
     acc_no = customer["account_number"]
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[acc_no]
-
     target_acc_no = req.target_account
 
-    if target_acc_no not in accounts:
+    from container import get_container
+    c = get_container()
+
+    sender = c.account_repo().get(acc_no)
+    if not sender:
+        raise HTTPException(status_code=404, detail="Sender account not found.")
+
+    receiver = c.account_repo().get(target_acc_no)
+    if not receiver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recipient account not found.",
@@ -724,22 +808,21 @@ def transfer_funds(
             detail="Cannot transfer to your own account.",
         )
 
-    target_data = accounts[target_acc_no]
-    if target_data.get("is_frozen"):
+    if receiver.is_frozen:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Recipient account is frozen.",
         )
-    if not target_data.get("is_active", True):
+    if not receiver.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Recipient account is closed.",
         )
 
-    if req.amount > data["balance"]:
+    if req.amount > float(sender.balance):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient balance. Available: {fmt_currency(data['balance'])}",
+            detail=f"Insufficient balance. Available: {fmt_currency(float(sender.balance))}",
         )
 
     result = process_transfer(
@@ -756,8 +839,8 @@ def transfer_funds(
         )
 
     return MessageResponse(
-        message=f"{fmt_currency(req.amount)} transferred to {target_data['name']} "
-                f"({target_acc_no}). New balance: {fmt_currency(result.sender_balance)}",
+        message=f"{fmt_currency(req.amount)} transferred to {receiver.name} "
+                f"({target_acc_no}). New balance: {fmt_currency(float(result.sender_balance))}",
     )
 
 
@@ -766,21 +849,21 @@ def transfer_funds(
 def get_full_statement(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the full transaction statement (newest first)."""
     acc_no = customer["account_number"]
-    txns = load_json(TRANSACTIONS_FILE)
-    records = txns.get(acc_no, [])
+    from container import get_container
+    domain_txns = get_container().transaction_repo().get_by_account(acc_no)
 
     return [
         TransactionOut(
-            txn_id=t.get("txn_id", ""),
-            timestamp=t.get("timestamp", ""),
-            type=t.get("type", ""),
-            amount=t.get("amount", 0),
-            balance=t.get("balance", 0),
-            description=t.get("description", ""),
-            category=t.get("category", "General"),
-            target_account=t.get("target_account"),
+            txn_id=t.txn_id,
+            timestamp=str(t.timestamp)[:19],
+            type=t.type.value,
+            amount=float(t.amount),
+            balance=float(t.balance),
+            description=t.description,
+            category=t.category,
+            target_account=t.target_account,
         )
-        for t in reversed(records)
+        for t in domain_txns
     ]
 
 
@@ -789,22 +872,21 @@ def get_full_statement(request: Request, customer: dict = Depends(get_current_cu
 def get_mini_statement(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the last 5 transactions (mini statement)."""
     acc_no = customer["account_number"]
-    txns = load_json(TRANSACTIONS_FILE)
-    records = txns.get(acc_no, [])
-    last5 = records[-5:]
+    from container import get_container
+    domain_txns = get_container().transaction_repo().get_mini(acc_no, 5)
 
     return [
         TransactionOut(
-            txn_id=t.get("txn_id", ""),
-            timestamp=t.get("timestamp", ""),
-            type=t.get("type", ""),
-            amount=t.get("amount", 0),
-            balance=t.get("balance", 0),
-            description=t.get("description", ""),
-            category=t.get("category", "General"),
-            target_account=t.get("target_account"),
+            txn_id=t.txn_id,
+            timestamp=str(t.timestamp)[:19],
+            type=t.type.value,
+            amount=float(t.amount),
+            balance=float(t.balance),
+            description=t.description,
+            category=t.category,
+            target_account=t.target_account,
         )
-        for t in reversed(last5)
+        for t in domain_txns
     ]
 
 
@@ -813,23 +895,23 @@ def get_mini_statement(request: Request, customer: dict = Depends(get_current_cu
 def export_csv(request: Request, customer: dict = Depends(get_current_customer)):
     """Download transaction history as a CSV file."""
     acc_no = customer["account_number"]
-    txns = load_json(TRANSACTIONS_FILE)
-    records = txns.get(acc_no, [])
+    from container import get_container
+    domain_txns = get_container().transaction_repo().get_by_account(acc_no)
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Transaction ID", "Date/Time", "Type", "Amount",
                       "Balance", "Description", "Category"])
-    for t in records:
-        sign = "+" if t["type"] in ("DEPOSIT", "TRANSFER_IN") else "-"
+    for t in domain_txns:
+        sign = "+" if t.type.value in ("DEPOSIT", "TRANSFER_IN") else "-"
         writer.writerow([
-            t.get("txn_id", ""),
-            t.get("timestamp", ""),
-            t.get("type", ""),
-            f"{sign}{t['amount']}",
-            t.get("balance", ""),
-            t.get("description", ""),
-            t.get("category", "General"),
+            t.txn_id,
+            str(t.timestamp)[:19],
+            t.type.value,
+            f"{sign}{float(t.amount)}",
+            float(t.balance),
+            t.description,
+            t.category or "General",
         ])
 
     output.seek(0)
@@ -886,25 +968,26 @@ class SavingsGoalsSummary(BaseModel):
 def list_savings_goals(request: Request, customer: dict = Depends(get_current_customer)):
     """List all savings goals for the authenticated customer."""
     acc_no = customer["account_number"]
-    goals = load_goals(acc_no)
+    from container import get_container
+    goals = get_container().savings_goal_repo().get_by_account(acc_no)
 
     goal_list = []
     for g in goals:
-        pct = round((g["current_amount"] / g["target_amount"] * 100), 1) if g["target_amount"] > 0 else 0
+        pct = round((float(g.current_amount) / float(g.target_amount) * 100), 1) if float(g.target_amount) > 0 else 0
         goal_list.append(SavingsGoalOut(
-            goal_id=g["goal_id"],
-            name=g["name"],
-            target_amount=g["target_amount"],
-            current_amount=g["current_amount"],
-            target_date=g.get("target_date"),
-            created_at=g["created_at"],
-            is_completed=g.get("is_completed", False),
+            goal_id=g.goal_id,
+            name=g.name,
+            target_amount=float(g.target_amount),
+            current_amount=float(g.current_amount),
+            target_date=g.target_date,
+            created_at=str(g.created_at)[:19],
+            is_completed=g.is_completed,
             progress_pct=pct,
         ))
 
-    total_saved = sum(g["current_amount"] for g in goals)
-    total_target = sum(g["target_amount"] for g in goals)
-    completed = sum(1 for g in goals if g.get("is_completed"))
+    total_saved = sum(float(g.current_amount) for g in goals)
+    total_target = sum(float(g.target_amount) for g in goals)
+    completed = sum(1 for g in goals if g.is_completed)
 
     return SavingsGoalsSummary(
         total_goals=len(goals),
@@ -926,30 +1009,31 @@ def create_savings_goal(
 ):
     """Create a new savings goal."""
     acc_no = customer["account_number"]
-    goals = load_goals(acc_no)
-
-    goal = {
-        "goal_id": generate_goal_id(),
-        "name": req.name,
-        "target_amount": round(req.target_amount, 2),
-        "current_amount": 0.0,
-        "target_date": req.target_date,
-        "created_at": now_str(),
-        "is_completed": False,
-    }
-    goals.append(goal)
-    save_goals(acc_no, goals)
-
-    return SavingsGoalOut(
-        goal_id=goal["goal_id"],
-        name=goal["name"],
-        target_amount=goal["target_amount"],
-        current_amount=goal["current_amount"],
-        target_date=goal.get("target_date"),
-        created_at=goal["created_at"],
-        is_completed=False,
-        progress_pct=0.0,
+    from container import get_container
+    result = get_container().savings_goal_service().create_goal(
+        acc_no=acc_no,
+        name=req.name,
+        target_amount=Decimal(str(req.target_amount)),
+        target_date=req.target_date,
     )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+
+    # Fetch the newly created goal
+    goals = get_container().savings_goal_repo().get_by_account(acc_no)
+    if goals:
+        g = goals[-1]
+        return SavingsGoalOut(
+            goal_id=g.goal_id,
+            name=g.name,
+            target_amount=float(g.target_amount),
+            current_amount=float(g.current_amount),
+            target_date=g.target_date,
+            created_at=str(g.created_at)[:19],
+            is_completed=False,
+            progress_pct=0.0,
+        )
+    raise HTTPException(status_code=500, detail="Failed to create goal.")
 
 
 @app.put("/api/savings/{goal_id}", response_model=SavingsGoalOut)
@@ -962,31 +1046,33 @@ def update_savings_goal(
 ):
     """Update a savings goal."""
     acc_no = customer["account_number"]
-    goals = load_goals(acc_no)
+    from container import get_container
+    goal_repo = get_container().savings_goal_repo()
 
-    goal = next((g for g in goals if g["goal_id"] == goal_id), None)
+    goal = goal_repo.get(goal_id)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found.")
 
     if req.name is not None:
-        goal["name"] = req.name
+        goal.name = req.name
     if req.target_amount is not None:
-        goal["target_amount"] = round(req.target_amount, 2)
+        goal.target_amount = Decimal(str(req.target_amount))
     if req.target_date is not None:
-        goal["target_date"] = req.target_date
+        goal.target_date = req.target_date
 
-    goal["is_completed"] = goal["current_amount"] >= goal["target_amount"]
-    save_goals(acc_no, goals)
+    goal.is_completed = goal.current_amount >= goal.target_amount
+    goal_repo.update(goal)
+    goal_repo.commit()
 
-    pct = round((goal["current_amount"] / goal["target_amount"] * 100), 1) if goal["target_amount"] > 0 else 0
+    pct = round((float(goal.current_amount) / float(goal.target_amount) * 100), 1) if float(goal.target_amount) > 0 else 0
     return SavingsGoalOut(
-        goal_id=goal["goal_id"],
-        name=goal["name"],
-        target_amount=goal["target_amount"],
-        current_amount=goal["current_amount"],
-        target_date=goal.get("target_date"),
-        created_at=goal["created_at"],
-        is_completed=goal["is_completed"],
+        goal_id=goal.goal_id,
+        name=goal.name,
+        target_amount=float(goal.target_amount),
+        current_amount=float(goal.current_amount),
+        target_date=goal.target_date,
+        created_at=str(goal.created_at)[:19],
+        is_completed=goal.is_completed,
         progress_pct=pct,
     )
 
@@ -1001,43 +1087,39 @@ def contribute_to_goal(
 ):
     """Contribute money from your balance to a savings goal."""
     acc_no = customer["account_number"]
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[acc_no]
+    from container import get_container
+    c = get_container()
 
-    goals = load_goals(acc_no)
-    goal = next((g for g in goals if g["goal_id"] == goal_id), None)
+    # Check current balance from DB
+    domain_acc = c.account_repo().get(acc_no)
+    if not domain_acc:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    if req.amount > float(domain_acc.balance):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient balance. Available: {fmt_currency(float(domain_acc.balance))}",
+        )
+
+    result = c.savings_goal_service().contribute(
+        acc_no=acc_no, goal_id=goal_id, amount=Decimal(str(req.amount))
+    )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+
+    # Return updated goal
+    goal = c.savings_goal_repo().get(goal_id)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found.")
 
-    if req.amount > data["balance"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient balance. Available: {fmt_currency(data['balance'])}",
-        )
-
-    # Transfer from balance to goal
-    account = Account(data)
-    account.balance -= req.amount
-    account.save()
-    account.log_transaction("TRANSFER_OUT", req.amount,
-                             f"Savings goal: {goal['name']}",
-                             category="Savings")
-
-    goal["current_amount"] += req.amount
-    if goal["current_amount"] >= goal["target_amount"]:
-        goal["is_completed"] = True
-
-    save_goals(acc_no, goals)
-
-    pct = round((goal["current_amount"] / goal["target_amount"] * 100), 1) if goal["target_amount"] > 0 else 0
+    pct = round((float(goal.current_amount) / float(goal.target_amount) * 100), 1) if float(goal.target_amount) > 0 else 0
     return SavingsGoalOut(
-        goal_id=goal["goal_id"],
-        name=goal["name"],
-        target_amount=goal["target_amount"],
-        current_amount=goal["current_amount"],
-        target_date=goal.get("target_date"),
-        created_at=goal["created_at"],
-        is_completed=goal["is_completed"],
+        goal_id=goal.goal_id,
+        name=goal.name,
+        target_amount=float(goal.target_amount),
+        current_amount=float(goal.current_amount),
+        target_date=goal.target_date,
+        created_at=str(goal.created_at)[:19],
+        is_completed=goal.is_completed,
         progress_pct=pct,
     )
 
@@ -1051,29 +1133,14 @@ def delete_savings_goal(
 ):
     """Delete a savings goal and refund the amount to your balance."""
     acc_no = customer["account_number"]
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[acc_no]
-
-    goals = load_goals(acc_no)
-    goal = next((g for g in goals if g["goal_id"] == goal_id), None)
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found.")
-
-    # Refund to balance
-    if goal["current_amount"] > 0:
-        account = Account(data)
-        account.balance += goal["current_amount"]
-        account.save()
-        account.log_transaction("DEPOSIT", goal["current_amount"],
-                                 f"Refund from deleted goal: {goal['name']}",
-                                 category="Savings")
-
-    goals.remove(goal)
-    save_goals(acc_no, goals)
-
-    return MessageResponse(
-        message=f"Goal '{goal['name']}' deleted. Amount refunded."
+    from container import get_container
+    result = get_container().savings_goal_service().delete_goal(
+        acc_no=acc_no, goal_id=goal_id
     )
+    if not result.success:
+        raise HTTPException(status_code=404, detail=result.message)
+
+    return MessageResponse(message=result.message)
 
 
 @app.post("/api/account/apply-interest", response_model=MessageResponse)
@@ -1081,10 +1148,12 @@ def delete_savings_goal(
 def apply_interest(request: Request, customer: dict = Depends(get_current_customer)):
     """Apply monthly interest (3.5% p.a.) using an atomic SQLite transaction."""
     acc_no = customer["account_number"]
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts[acc_no]
+    from container import get_container
+    domain_account = get_container().account_repo().get(acc_no)
+    if not domain_account:
+        raise HTTPException(status_code=404, detail="Account not found.")
 
-    result = process_apply_interest(acc_no, data["balance"])
+    result = process_apply_interest(acc_no, float(domain_account.balance))
     if not result.success:
         if "No interest" in result.message:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -1101,21 +1170,22 @@ def apply_interest(request: Request, customer: dict = Depends(get_current_custom
 @limiter.limit("30/minute")
 def admin_view_accounts(request: Request, admin: dict = Depends(get_current_admin)):
     """View all registered accounts (admin only)."""
-    accounts = load_json(ACCOUNTS_FILE)
+    from container import get_container
+    domain_accounts = get_container().admin_service().list_accounts()
     return [
         AccountListItem(
-            account_number=a["account_number"],
-            name=a["name"],
-            balance=a["balance"],
-            balance_formatted=fmt_currency(a["balance"]),
-            status=_get_account_status(a),
-            mobile=a.get("mobile", ""),
-            email=a.get("email", ""),
-            age=a.get("age", 0),
-            gender=a.get("gender", ""),
-            created_at=a.get("created_at", "N/A"),
+            account_number=a.account_number,
+            name=a.name,
+            balance=float(a.balance),
+            balance_formatted=fmt_currency(float(a.balance)),
+            status="frozen" if a.is_frozen else ("closed" if not a.is_active else "active"),
+            mobile=a.mobile,
+            email=a.email,
+            age=a.age,
+            gender=a.gender,
+            created_at=str(a.created_at)[:19],
         )
-        for a in accounts.values()
+        for a in domain_accounts
     ]
 
 
@@ -1127,26 +1197,22 @@ def admin_search_accounts(
     admin: dict = Depends(get_current_admin),
 ):
     """Search accounts by account number or name (admin only)."""
-    accounts = load_json(ACCOUNTS_FILE)
-    query = q.lower()
-    results = [
-        a for a in accounts.values()
-        if query in a["account_number"].lower() or query in a["name"].lower()
-    ]
+    from container import get_container
+    domain_accounts = get_container().admin_service().search_accounts(q)
     return [
         AccountListItem(
-            account_number=a["account_number"],
-            name=a["name"],
-            balance=a["balance"],
-            balance_formatted=fmt_currency(a["balance"]),
-            status=_get_account_status(a),
-            mobile=a.get("mobile", ""),
-            email=a.get("email", ""),
-            age=a.get("age", 0),
-            gender=a.get("gender", ""),
-            created_at=a.get("created_at", "N/A"),
+            account_number=a.account_number,
+            name=a.name,
+            balance=float(a.balance),
+            balance_formatted=fmt_currency(float(a.balance)),
+            status="frozen" if a.is_frozen else ("closed" if not a.is_active else "active"),
+            mobile=a.mobile,
+            email=a.email,
+            age=a.age,
+            gender=a.gender,
+            created_at=str(a.created_at)[:19],
         )
-        for a in results
+        for a in domain_accounts
     ]
 
 
@@ -1158,29 +1224,13 @@ def admin_freeze_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Freeze a customer account (admin only)."""
-    accounts = load_json(ACCOUNTS_FILE)
-
-    if acc_no not in accounts:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Account not found.",
-        )
-
-    acc = accounts[acc_no]
-    if not acc.get("is_active", True) and not acc.get("is_frozen", False):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Account is permanently closed – cannot modify.",
-        )
-
-    if acc.get("is_frozen", False):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Account {acc_no} is already frozen.",
-        )
-
-    result = process_freeze_account(acc_no)
+    from container import get_container
+    result = get_container().admin_service().freeze_account(
+        acc_no=acc_no, actor="admin"
+    )
     if not result.success:
+        if "not found" in result.message.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
     return MessageResponse(message=result.message)
@@ -1194,23 +1244,13 @@ def admin_unfreeze_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Unfreeze a customer account (admin only)."""
-    accounts = load_json(ACCOUNTS_FILE)
-
-    if acc_no not in accounts:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Account not found.",
-        )
-
-    acc = accounts[acc_no]
-    if not acc.get("is_frozen", False):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Account {acc_no} is not frozen.",
-        )
-
-    result = process_unfreeze_account(acc_no)
+    from container import get_container
+    result = get_container().admin_service().unfreeze_account(
+        acc_no=acc_no, actor="admin"
+    )
     if not result.success:
+        if "not found" in result.message.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
     return MessageResponse(message=result.message)
@@ -1224,16 +1264,10 @@ def admin_delete_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Permanently delete a customer account and all its transactions (admin only)."""
-    accounts = load_json(ACCOUNTS_FILE)
-
-    if acc_no not in accounts:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Account not found.",
-        )
-
-    acc_name = accounts[acc_no]["name"]
-    result = process_delete_account(acc_no)
+    from container import get_container
+    result = get_container().admin_service().delete_account(
+        acc_no=acc_no, actor="admin"
+    )
     if not result.success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
 
@@ -1244,7 +1278,8 @@ def admin_delete_account(
 @limiter.limit("30/minute")
 def admin_statistics(request: Request, admin: dict = Depends(get_current_admin)):
     """View bank-wide statistics (admin only)."""
-    s = get_bank_statistics()
+    from container import get_container
+    s = get_container().admin_service().get_statistics()
 
     return StatisticsResponse(
         total_customers=s["total_customers"],
@@ -1268,25 +1303,29 @@ def admin_view_transactions(
     admin: dict = Depends(get_current_admin),
 ):
     """View all transactions, optionally filtered by account (admin only)."""
-    txns = load_json(TRANSACTIONS_FILE)
-    result = {}
+    from container import get_container
+    repo = get_container().transaction_repo()
 
-    for acc_no, records in txns.items():
-        if account and acc_no != account:
-            continue
-        result[acc_no] = [
-            {
-                "txn_id": t.get("txn_id", ""),
-                "timestamp": t.get("timestamp", ""),
-                "type": t.get("type", ""),
-                "amount": t.get("amount", 0),
-                "balance": t.get("balance", 0),
-                "description": t.get("description", ""),
-                "category": t.get("category", "General"),
-                "target_account": t.get("target_account"),
-            }
-            for t in records
-        ]
+    if account:
+        domain_txns = repo.get_by_account(account)
+    else:
+        domain_txns = repo.get_all()
+
+    result = {}
+    for t in domain_txns:
+        acc_no = t.account_number
+        if acc_no not in result:
+            result[acc_no] = []
+        result[acc_no].append({
+            "txn_id": t.txn_id,
+            "timestamp": str(t.timestamp)[:19],
+            "type": t.type.value,
+            "amount": float(t.amount),
+            "balance": float(t.balance),
+            "description": t.description,
+            "category": t.category,
+            "target_account": t.target_account,
+        })
 
     return result
 
@@ -1299,31 +1338,62 @@ def admin_change_password(
     admin: dict = Depends(get_current_admin),
 ):
     """Change the admin password (admin only)."""
-    creds = load_json(ADMIN_FILE)
+    username = admin.get("username")
+    from container import get_container
+    result = get_container().admin_service().change_admin_password(
+        username=username or "admin",
+        current_pwd=req.current_password,
+        new_pwd=req.new_password,
+    )
+    if not result.success:
+        if "not found" in result.message.lower():
+            raise HTTPException(status_code=404, detail=result.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
-    if not verify_password(req.current_password, creds["password"]):
+    return MessageResponse(message=result.message)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Token Refresh Endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/auth/refresh", response_model=TokenResponse)
+@limiter.limit("10/minute")
+def refresh_token(request: Request, req: RefreshRequest):
+    """Exchange a refresh token for a new access + refresh token pair.
+
+    The previous refresh token is revoked (rotation) so it cannot be reused.
+    """
+    result = verify_refresh_token(req.refresh_token)
+    if result is None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect current password.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token.",
         )
 
-    valid_pwd, pwd_msg = validate_password(req.new_password)
-    if not valid_pwd:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=pwd_msg,
+    # Revoke old refresh token (rotation)
+    # Extract token_id from the old refresh token and revoke it
+    try:
+        old_payload = jwt.decode(
+            req.refresh_token,
+            _get_verifying_key(),
+            algorithms=[JWT_ALGORITHM],
+            options={"verify_exp": False},
         )
+        old_sub = old_payload.get("sub", "")
+        if ":" in old_sub:
+            _, old_token_id = old_sub.rsplit(":", 1)
+            revoke_refresh_token(old_token_id)
+    except Exception:
+        pass
 
-    if req.new_password != req.confirm_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Passwords do not match.",
-        )
-
-    creds["password"] = hash_password(req.new_password)
-    save_json(ADMIN_FILE, creds)
-
-    return MessageResponse(message="Admin password changed successfully.")
+    tokens = create_token_pair(subject=result["account_number"], role=result["role"])
+    return TokenResponse(
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role=result["role"],
+        expires_in=tokens["expires_in"],
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

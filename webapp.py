@@ -30,14 +30,15 @@ sys.path.insert(0, BASE_DIR)
 
 # ── Import existing business logic ───────────────────────────────────────────
 from utils import (
-    load_json, save_json, generate_account_number, now_str, fmt_currency,
+    generate_account_number, now_str, fmt_currency,
     hash_password, verify_password, validate_email, validate_phone,
     validate_password, validate_name,
     check_login_locked, record_failed_login, reset_login_attempts,
     export_transactions_to_csv, generate_csv_filename,
     calculate_monthly_interest, TRANSACTION_CATEGORIES,
-    load_goals, save_goals, generate_goal_id,
+    load_json, save_json, load_goals, save_goals, generate_goal_id,
     ACCOUNTS_FILE, TRANSACTIONS_FILE, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
+    mask_account_number, mask_sensitive_data,
 )
 from account import Account
 from admin import Admin, ADMIN_FILE
@@ -84,11 +85,12 @@ def add_security_headers(response):
     response.headers["Permissions-Policy"] = (
         "camera=(), microphone=(), geolocation=(), interest-cohort=()"
     )
-    # Content-Security-Policy allows Chart.js CDN for charts
+    # Content-Security-Policy — no 'unsafe-inline'; Chart.js loaded from CDN
+    nonce = get_request_nonce()
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        f"script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'nonce-{nonce}'; "
+        "style-src 'self' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' https://cdnjs.cloudflare.com; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
         "img-src 'self' data:; "
         "connect-src 'self'"
@@ -103,6 +105,44 @@ def add_security_headers(response):
 from collections import defaultdict
 from functools import wraps
 import time
+import secrets
+import re
+
+
+# ── PII-safe logging helper — re-exported from utils/formatting.py ──────────
+# mask_account_number() and mask_sensitive_data() are imported from utils above.
+
+
+# ── CSP nonce generator ───────────────────────────────────────────────────
+def _get_csp_nonce() -> str:
+    """Generate a cryptographically random nonce for CSP."""
+    return secrets.token_hex(16)
+
+
+# ── Thread-local nonce storage for request-scoped nonces ──────────────────
+import threading
+_request_nonce = threading.local()
+
+
+def set_request_nonce():
+    """Set a CSP nonce for the current request."""
+    _request_nonce.value = _get_csp_nonce()
+
+
+def get_request_nonce() -> str:
+    """Get the current request's CSP nonce."""
+    return getattr(_request_nonce, "value", _get_csp_nonce())
+
+
+# ── Generate CSP nonce before every request ────────────────────────────────
+@app.before_request
+def set_csp_nonce_for_request():
+    """Set a fresh CSP nonce before each request is processed.
+    Also pass it to templates via Flask's g object.
+    """
+    set_request_nonce()
+    from flask import g
+    g.csp_nonce = get_request_nonce()
 
 _rate_limits: dict[str, list[float]] = defaultdict(list)
 
@@ -187,15 +227,31 @@ def admin_required(f):
 
 
 def get_account() -> Account | None:
-    """Load the logged-in customer's Account object."""
+    """Load the logged-in customer's Account object from SQLite (via container)."""
     acc_no = session.get("account_number")
     if not acc_no:
         return None
-    accounts = load_json(ACCOUNTS_FILE)
-    data = accounts.get(acc_no)
-    if not data:
+
+    from container import get_container
+    domain_account = get_container().account_repo().get(acc_no)
+    if not domain_account:
         session.pop("account_number", None)
         return None
+
+    # Convert DomainAccount back to old Account format for backward compat
+    data = {
+        "account_number": domain_account.account_number,
+        "name": domain_account.name,
+        "age": domain_account.age,
+        "gender": domain_account.gender,
+        "mobile": domain_account.mobile,
+        "email": domain_account.email,
+        "password": domain_account.password,
+        "balance": float(domain_account.balance),
+        "is_active": domain_account.is_active,
+        "is_frozen": domain_account.is_frozen,
+        "created_at": str(domain_account.created_at)[:19],
+    }
     return Account(data)
 
 
@@ -209,21 +265,15 @@ def index():
     if session.get("is_admin"):
         return redirect(url_for("admin_dashboard"))
 
-    # Gather live statistics for the landing page
-    accounts = load_json(ACCOUNTS_FILE)
-    txns = load_json(TRANSACTIONS_FILE)
-
-    total_accounts = len(accounts)
-    total_txns = sum(len(v) for v in txns.values())
-    total_balance = sum(a["balance"] for a in accounts.values())
-    active = sum(1 for a in accounts.values()
-                 if a.get("is_active", True) and not a.get("is_frozen"))
+    # Gather live statistics via the container (no JSON reads)
+    from container import get_container
+    s = get_container().admin_service().get_statistics()
 
     stats = {
-        "total_accounts": total_accounts,
-        "total_txns": total_txns,
-        "total_balance": total_balance,
-        "active": active,
+        "total_accounts": s["total_customers"],
+        "total_txns": s["total_txns"],
+        "total_balance": s["total_balance"],
+        "active": s["active"],
     }
 
     return render_template("index.html", stats=stats, fmt_currency=fmt_currency)
@@ -374,8 +424,19 @@ def dashboard():
         return redirect(url_for("login"))
 
     # Load transactions for charts
-    txns = load_json(TRANSACTIONS_FILE)
-    records = txns.get(acc.account_number, [])
+    from container import get_container
+    c = get_container()
+    domain_txns = c.transaction_repo().get_by_account(acc.account_number)
+    records = [{
+        "txn_id": t.txn_id,
+        "timestamp": str(t.timestamp)[:19],
+        "type": t.type.value,
+        "amount": float(t.amount),
+        "balance": float(t.balance),
+        "description": t.description,
+        "category": t.category,
+        "target_account": t.target_account,
+    } for t in domain_txns]
 
     # Category breakdown pie chart
     category_counts = {}
@@ -586,8 +647,19 @@ def statement():
     if not acc:
         return redirect(url_for("login"))
 
-    txns = load_json(TRANSACTIONS_FILE)
-    records = txns.get(acc.account_number, [])
+    from container import get_container
+    c = get_container()
+    domain_txns = c.transaction_repo().get_by_account(acc.account_number)
+    records = [{
+        "txn_id": t.txn_id,
+        "timestamp": str(t.timestamp)[:19],
+        "type": t.type.value,
+        "amount": float(t.amount),
+        "balance": float(t.balance),
+        "description": t.description,
+        "category": t.category,
+        "target_account": t.target_account,
+    } for t in domain_txns]
 
     # Compute credit/debit stats
     total_credits = sum(t["amount"] for t in records
@@ -624,8 +696,19 @@ def export_csv():
     if not acc:
         return redirect(url_for("login"))
 
-    txns = load_json(TRANSACTIONS_FILE)
-    records = txns.get(acc.account_number, [])
+    from container import get_container
+    c = get_container()
+    domain_txns = c.transaction_repo().get_by_account(acc.account_number)
+    records = [{
+        "txn_id": t.txn_id,
+        "timestamp": str(t.timestamp)[:19],
+        "type": t.type.value,
+        "amount": float(t.amount),
+        "balance": float(t.balance),
+        "description": t.description,
+        "category": t.category,
+        "target_account": t.target_account,
+    } for t in domain_txns]
 
     if not records:
         flash("No transactions to export.", "warning")
@@ -1055,27 +1138,62 @@ def admin_dashboard():
 @app.route("/admin/accounts")
 @admin_required
 def admin_accounts():
-    """View all accounts."""
-    accounts = load_json(ACCOUNTS_FILE)
+    """View all accounts (from SQLite via container)."""
+    from container import get_container
+    domain_accounts = get_container().admin_service().list_accounts()
+    accounts = {a.account_number: {
+        "account_number": a.account_number,
+        "name": a.name,
+        "age": a.age,
+        "balance": float(a.balance),
+        "is_active": a.is_active,
+        "is_frozen": a.is_frozen,
+        "mobile": a.mobile,
+        "email": a.email,
+        "created_at": str(a.created_at)[:19],
+    } for a in domain_accounts}
     return render_template("admin_accounts.html", accounts=accounts, fmt_currency=fmt_currency)
 
 
 @app.route("/admin/accounts/<acc_no>")
 @admin_required
 def admin_account_detail(acc_no):
-    """View detailed information for a specific customer account."""
-    accounts = load_json(ACCOUNTS_FILE)
+    """View detailed information for a specific customer account (from SQLite)."""
+    from container import get_container
+    c = get_container()
 
-    if acc_no not in accounts:
+    domain_account = c.account_repo().get(acc_no)
+    if not domain_account:
         flash("Account not found.", "error")
         return redirect(url_for("admin_accounts"))
 
-    data = accounts[acc_no]
-    txns = load_json(TRANSACTIONS_FILE)
-    records = txns.get(acc_no, [])
+    data = {
+        "account_number": domain_account.account_number,
+        "name": domain_account.name,
+        "age": domain_account.age,
+        "gender": domain_account.gender,
+        "mobile": domain_account.mobile,
+        "email": domain_account.email,
+        "balance": float(domain_account.balance),
+        "is_active": domain_account.is_active,
+        "is_frozen": domain_account.is_frozen,
+        "created_at": str(domain_account.created_at)[:19],
+    }
+
+    domain_txns = c.transaction_repo().get_by_account(acc_no)
+    records = [{
+        "txn_id": t.txn_id,
+        "timestamp": str(t.timestamp)[:19],
+        "type": t.type.value,
+        "amount": float(t.amount),
+        "balance": float(t.balance),
+        "description": t.description,
+        "category": t.category,
+        "target_account": t.target_account,
+    } for t in reversed(domain_txns)]
 
     # ── Profile ─────────────────────────────────────
-    status = "frozen" if data.get("is_frozen") else ("closed" if not data.get("is_active", True) else "active")
+    status = "frozen" if domain_account.is_frozen else ("closed" if not domain_account.is_active else "active")
 
     # ── Financial summary ────────────────────────────
     total_credits = sum(t["amount"] for t in records
@@ -1136,16 +1254,25 @@ def admin_account_detail(acc_no):
 @app.route("/admin/search", methods=["GET", "POST"])
 @admin_required
 def admin_search():
-    """Search accounts."""
+    """Search accounts (from SQLite via container)."""
     results = []
     query = ""
     if request.method == "POST":
         query = request.form.get("query", "").strip().lower()
-        accounts = load_json(ACCOUNTS_FILE)
-        results = [
-            a for a in accounts.values()
-            if query in a["account_number"].lower() or query in a["name"].lower()
-        ]
+        from container import get_container
+        domain_accounts = get_container().admin_service().search_accounts(query)
+        results = [{
+            "account_number": a.account_number,
+            "name": a.name,
+            "age": a.age,
+            "gender": a.gender,
+            "mobile": a.mobile,
+            "email": a.email,
+            "balance": float(a.balance),
+            "is_active": a.is_active,
+            "is_frozen": a.is_frozen,
+            "created_at": str(a.created_at)[:19],
+        } for a in domain_accounts]
     return render_template("admin_search.html", results=results, query=query, fmt_currency=fmt_currency)
 
 
@@ -1153,31 +1280,40 @@ def admin_search():
 @admin_required
 @rate_limit(limit=10, per_seconds=60, key_prefix="admin_")
 def admin_freeze():
-    """Freeze / unfreeze an account."""
+    """Freeze / unfreeze an account (from SQLite via container)."""
     result = None
     if request.method == "POST":
         acc_no = request.form.get("account_number", "").strip()
-        accounts = load_json(ACCOUNTS_FILE)
 
-        if acc_no not in accounts:
+        from container import get_container
+        c = get_container()
+        domain_account = c.account_repo().get(acc_no)
+
+        if not domain_account:
             flash("Account not found.", "error")
             return redirect(url_for("admin_freeze"))
 
-        acc = accounts[acc_no]
-        if not acc.get("is_active", True) and not acc.get("is_frozen", False):
+        if not domain_account.is_active and not domain_account.is_frozen:
             flash("Account is permanently closed – cannot modify.", "error")
             return render_template("admin_freeze.html", result=None)
 
-        currently_frozen = acc.get("is_frozen", False)
+        currently_frozen = domain_account.is_frozen
         action = "unfreeze" if currently_frozen else "freeze"
+
+        acc_dict = {
+            "account_number": domain_account.account_number,
+            "name": domain_account.name,
+            "is_active": domain_account.is_active,
+            "is_frozen": domain_account.is_frozen,
+            "balance": float(domain_account.balance),
+        }
 
         confirm = request.form.get("confirm", "")
         if confirm != "yes":
-            # Show confirmation step
             return render_template(
                 "admin_freeze.html",
                 result=None,
-                preview_acc=acc,
+                preview_acc=acc_dict,
                 acc_no=acc_no,
                 action=action,
             )
@@ -1199,21 +1335,28 @@ def admin_freeze():
 @admin_required
 @rate_limit(limit=5, per_seconds=60, key_prefix="admin_sensitive_")
 def admin_delete():
-    """Delete an account."""
+    """Delete an account (from SQLite via container)."""
     if request.method == "POST":
         acc_no = request.form.get("account_number", "").strip()
-        accounts = load_json(ACCOUNTS_FILE)
 
-        if acc_no not in accounts:
+        from container import get_container
+        c = get_container()
+        domain_account = c.account_repo().get(acc_no)
+
+        if not domain_account:
             flash("Account not found.", "error")
             return redirect(url_for("admin_delete"))
 
-        acc = accounts[acc_no]
         confirm_text = request.form.get("confirm_text", "")
 
         if confirm_text != "DELETE":
+            acc_dict = {
+                "account_number": domain_account.account_number,
+                "name": domain_account.name,
+                "balance": float(domain_account.balance),
+            }
             flash("Please type 'DELETE' to confirm.", "error")
-            return render_template("admin_delete.html", preview_acc=acc, acc_no=acc_no)
+            return render_template("admin_delete.html", preview_acc=acc_dict, acc_no=acc_no)
 
         result = process_delete_account(acc_no)
         flash(result.message, "success" if result.success else "error")
@@ -1263,11 +1406,35 @@ def admin_statistics():
 @app.route("/admin/transactions", methods=["GET", "POST"])
 @admin_required
 def admin_transactions():
-    """View all transactions, optionally filtered by account."""
-    txns = load_json(TRANSACTIONS_FILE)
+    """View all transactions, optionally filtered by account (from SQLite)."""
+    from container import get_container
+    c = get_container()
     acc_filter = ""
     if request.method == "POST":
         acc_filter = request.form.get("account_number", "").strip()
+
+    if acc_filter:
+        domain_txns = c.transaction_repo().get_by_account(acc_filter)
+    else:
+        domain_txns = c.transaction_repo().get_all()
+
+    # Group by account number for template compatibility
+    txns = {}
+    for t in domain_txns:
+        acc_no = t.account_number
+        if acc_no not in txns:
+            txns[acc_no] = []
+        txns[acc_no].append({
+            "txn_id": t.txn_id,
+            "timestamp": str(t.timestamp)[:19],
+            "type": t.type.value,
+            "amount": float(t.amount),
+            "balance": float(t.balance),
+            "description": t.description,
+            "category": t.category,
+            "target_account": t.target_account,
+        })
+
     return render_template(
         "admin_transactions.html",
         txns=txns,
@@ -1280,14 +1447,16 @@ def admin_transactions():
 @admin_required
 @rate_limit(limit=5, per_seconds=60, key_prefix="admin_sensitive_")
 def admin_change_password():
-    """Change admin password."""
+    """Change admin password (via SQLite)."""
     if request.method == "POST":
         old_pwd = request.form.get("current_password", "")
         new_pwd = request.form.get("new_password", "")
         confirm = request.form.get("confirm_password", "")
 
-        creds = load_json(ADMIN_FILE)
-        if not verify_password(old_pwd, creds["password"]):
+        from container import get_container
+        c = get_container()
+        admin = c.admin_repo().get_by_username("simon")
+        if not admin or not verify_password(old_pwd, admin.password):
             flash("Incorrect current password.", "error")
             return render_template("admin_change_password.html")
 
@@ -1300,8 +1469,8 @@ def admin_change_password():
             flash("Passwords do not match.", "error")
             return render_template("admin_change_password.html")
 
-        creds["password"] = hash_password(new_pwd)
-        save_json(ADMIN_FILE, creds)
+        c.admin_repo().update_password("simon", hash_password(new_pwd))
+        c.admin_repo().commit()
         flash("Admin password changed successfully!", "success")
         return redirect(url_for("admin_dashboard"))
 
@@ -1690,46 +1859,25 @@ def admin_statistics_pdf():
         flash("PDF generation requires fpdf2. Run: pip install fpdf2", "error")
         return redirect(url_for("admin_statistics"))
 
-    accounts = load_json(ACCOUNTS_FILE)
-    txns = load_json(TRANSACTIONS_FILE)
-
-    total_customers = len(accounts)
-    active = sum(1 for a in accounts.values()
-                 if a.get("is_active", True) and not a.get("is_frozen"))
-    frozen = sum(1 for a in accounts.values() if a.get("is_frozen", False))
-    closed = sum(1 for a in accounts.values()
-                 if not a.get("is_active", True) and not a.get("is_frozen", False))
-    total_balance = sum(a["balance"] for a in accounts.values())
-    total_txns = sum(len(v) for v in txns.values())
-    total_dep = sum(t["amount"] for v in txns.values()
-                     for t in v if t["type"] == "DEPOSIT")
-    total_with = sum(t["amount"] for v in txns.values()
-                      for t in v if t["type"] == "WITHDRAW")
-    total_trans = sum(t["amount"] for v in txns.values()
-                       for t in v if t["type"] == "TRANSFER_OUT")
-
-    category_totals = {}
-    for acc_no, records in txns.items():
-        for t in records:
-            cat = t.get("category", "General")
-            category_totals[cat] = category_totals.get(cat, 0) + abs(t["amount"])
-    sorted_cats = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
+    from container import get_container
+    c = get_container()
+    s = c.admin_service().get_statistics()
 
     stats = {
-        "total_customers": total_customers,
-        "active": active,
-        "frozen": frozen,
-        "closed": closed,
-        "total_balance": total_balance,
-        "total_dep": total_dep,
-        "total_with": total_with,
-        "total_trans": total_trans,
-        "total_txns": total_txns,
+        "total_customers": s["total_customers"],
+        "active": s["active"],
+        "frozen": s["frozen"],
+        "closed": s["closed"],
+        "total_balance": s["total_balance"],
+        "total_dep": s["total_dep"],
+        "total_with": s["total_with"],
+        "total_trans": s["total_trans"],
+        "total_txns": s["total_txns"],
     }
 
     chart_data = {
-        "category_labels": [c[0] for c in sorted_cats[:8]],
-        "category_amounts": [round(c[1], 2) for c in sorted_cats[:8]],
+        "category_labels": [cat["name"] for cat in s["sorted_categories"]],
+        "category_amounts": [cat["total"] for cat in s["sorted_categories"]],
     }
 
     try:

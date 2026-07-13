@@ -9,3 +9,28 @@ line_length = 100
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "scripts/*",
+    "data/*",
+    "migrations/*",
+    "**/__init__.py",
+]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 45  # Minimum coverage percentage (can increase as tests expand)
+
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "if settings.TESTING:",
+    "raise NotImplementedError",
+]

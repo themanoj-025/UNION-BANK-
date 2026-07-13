@@ -1,0 +1,222 @@
+"""
+application/interfaces.py  –  Repository protocols (interfaces).
+
+These ABCs/Protocols define the contract between the application layer
+and the infrastructure layer. No concrete DB code lives here.
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional, Protocol, runtime_checkable
+
+from domain.entities import (
+    Account,
+    AdminUser,
+    LoginAttempt,
+    SavingsGoal,
+    TokenVersion,
+    Transaction,
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Account Repository Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class AccountRepositoryProtocol(Protocol):
+    """Interface for account data access."""
+
+    def get(self, acc_no: str) -> Optional[Account]: ...
+
+    def get_all(self) -> list[Account]: ...
+
+    def exists(self, acc_no: str) -> bool: ...
+
+    def create(self, account: Account) -> Account: ...
+
+    def update(self, account: Account) -> Account: ...
+
+    def update_balance(self, acc_no: str, new_balance: Decimal) -> bool: ...
+
+    def set_active(self, acc_no: str, active: bool) -> bool: ...
+
+    def set_frozen(self, acc_no: str, frozen: bool) -> bool: ...
+
+    def delete(self, acc_no: str) -> bool: ...
+
+    def search(self, query: str) -> list[Account]: ...
+
+    def count(self) -> int: ...
+
+    def total_balance(self) -> Decimal: ...
+
+    def active_count(self) -> int: ...
+
+    def frozen_count(self) -> int: ...
+
+    def closed_count(self) -> int: ...
+
+    def get_by_email(self, email: str) -> Optional[Account]: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Transaction Repository Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class TransactionRepositoryProtocol(Protocol):
+    """Interface for transaction data access."""
+
+    def get_by_account(self, acc_no: str) -> list[Transaction]: ...
+
+    def get_mini(self, acc_no: str, limit: int = 5) -> list[Transaction]: ...
+
+    def create(self, transaction: Transaction) -> Transaction: ...
+
+    def get_all(self) -> list[Transaction]: ...
+
+    def total_by_type(self, txn_type: str) -> Decimal: ...
+
+    def count(self) -> int: ...
+
+    def count_by_account(self, acc_no: str) -> int: ...
+
+    def get_category_totals(self) -> dict[str, Decimal]: ...
+
+    def get_paginated(
+        self,
+        acc_no: Optional[str] = None,
+        page: int = 1,
+        per_page: int = 20,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        txn_type: Optional[str] = None,
+    ) -> tuple[list[Transaction], int]: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Admin Repository Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class AdminRepositoryProtocol(Protocol):
+    """Interface for admin user data access."""
+
+    def get_by_username(self, username: str) -> Optional[AdminUser]: ...
+
+    def create(self, admin: AdminUser) -> AdminUser: ...
+
+    def update_password(self, username: str, new_hashed: str) -> bool: ...
+
+    def admin_count(self) -> int: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Savings Goal Repository Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class SavingsGoalRepositoryProtocol(Protocol):
+    """Interface for savings goal data access."""
+
+    def get_by_account(self, acc_no: str) -> list[SavingsGoal]: ...
+
+    def get(self, goal_id: str) -> Optional[SavingsGoal]: ...
+
+    def create(self, goal: SavingsGoal) -> SavingsGoal: ...
+
+    def update(self, goal: SavingsGoal) -> SavingsGoal: ...
+
+    def contribute(self, goal_id: str, amount: Decimal) -> Optional[SavingsGoal]: ...
+
+    def delete(self, goal_id: str) -> Optional[SavingsGoal]: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Login Attempt Repository Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class LoginAttemptRepositoryProtocol(Protocol):
+    """Interface for rate-limiting data access."""
+
+    def get(self, key: str) -> Optional[LoginAttempt]: ...
+
+    def record_failure(
+        self, key: str, max_attempts: int = 5, lockout_minutes: int = 15
+    ) -> int: ...
+
+    def is_locked(self, key: str, max_attempts: int = 5) -> tuple[bool, int]: ...
+
+    def reset(self, key: str) -> None: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Token Version Repository Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class TokenVersionRepositoryProtocol(Protocol):
+    """Interface for JWT token version tracking."""
+
+    def get_version(self, account_number: str) -> int: ...
+
+    def increment(self, account_number: str) -> int: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Audit Log Repository Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class AuditLogRepositoryProtocol(Protocol):
+    """Interface for admin audit log."""
+
+    def log(self, actor: str, action: str, target: Optional[str] = None,
+            details: Optional[str] = None, ip_address: Optional[str] = None,
+            reason: Optional[str] = None) -> None: ...
+
+    def get_recent(self, limit: int = 50) -> list: ...
+
+    def get_by_actor(self, actor: str, limit: int = 50) -> list: ...
+
+    def get_by_action(self, action: str, limit: int = 50) -> list: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...

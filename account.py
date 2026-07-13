@@ -3,6 +3,7 @@ account.py  –  Account model + all account-level operations (with logging).
 """
 
 import os
+from datetime import datetime, timezone
 
 from utils import (
     load_json, save_json,
@@ -24,6 +25,9 @@ from services import (
     create_savings_goal, contribute_to_goal, delete_savings_goal,
 )
 from database import init_db
+
+def _utcnow():
+    return datetime.now(timezone.utc)
 
 # Ensure SQLite tables exist
 init_db()
@@ -60,75 +64,95 @@ class Account:
         }
 
     def save(self):
-        accounts = load_json(ACCOUNTS_FILE)
-        accounts[self.account_number] = self.to_dict()
-        save_json(ACCOUNTS_FILE, accounts)
+        """Save the account — writes to SQLite only (no JSON)."""
+        from datetime import datetime
+        from decimal import Decimal
+        from container import get_container
+        from domain.entities import Account as DomainAccount
 
-        # Dual-write to SQLite
-        from database import get_session, close_session
-        from repositories import AccountRepository
-        session = get_session()
-        try:
-            repo = AccountRepository(session)
-            existing = repo.get(self.account_number)
-            if existing:
-                repo.update_from_dict(self.account_number, self.to_dict())
-            else:
-                repo.create(self.to_dict())  # create() already calls session.add()
-            session.commit()
-        finally:
-            close_session()
+        c = get_container()
+        repo = c.account_repo()
 
-        logger.debug(f"Account {self.account_number} saved to disk.")
+        # Preserve original created_at if account already exists
+        existing = repo.get(self.account_number)
+        original_created_at = None
+        if existing:
+            original_created_at = existing.created_at
+
+        # Parse string created_at to datetime if it's a string
+        created_at_dt = None
+        if isinstance(self.created_at, str) and self.created_at:
+            try:
+                created_at_dt = datetime.fromisoformat(self.created_at.replace(" ", "T"))
+            except (ValueError, TypeError):
+                pass
+
+        domain_acc = DomainAccount(
+            account_number=self.account_number,
+            name=self.name,
+            age=self.age,
+            gender=self.gender,
+            mobile=self.mobile,
+            email=self.email,
+            password=self.password,
+            balance=Decimal(str(self.balance)),
+            is_active=self.is_active,
+            is_frozen=self.is_frozen,
+            created_at=original_created_at or created_at_dt or _utcnow(),
+        )
+
+        if existing:
+            repo.update(domain_acc)
+        else:
+            repo.create(domain_acc)
+        repo.commit()
+
+        logger.debug(f"Account {self.account_number} saved to database.")
 
     def log_transaction(self, txn_type, amount, description, target_acc=None, category=None):
-        txns = load_json(TRANSACTIONS_FILE)
-        if self.account_number not in txns:
-            txns[self.account_number] = []
-        txn_id = generate_transaction_id()
-        record = {
-            "txn_id":      txn_id,
-            "type":        txn_type,
-            "amount":      amount,
-            "description": description,
-            "balance":     self.balance,
-            "timestamp":   now_str(),
-            "category":    category or "General",
-        }
-        if target_acc:
-            record["target_account"] = target_acc
-        txns[self.account_number].append(record)
-        save_json(TRANSACTIONS_FILE, txns)
-
-        # Dual-write to SQLite (gracefully skip if account doesn't exist yet)
-        from database import get_session, close_session, ensure_account_exists
-        from repositories import TransactionRepository
+        """Log a transaction — writes to SQLite only (no JSON)."""
+        from datetime import datetime
         from decimal import Decimal
+        from container import get_container
+        from domain.entities import Transaction as DomainTransaction, TransactionType
         from sqlalchemy.exc import IntegrityError
-        session = get_session()
-        try:
-            # Ensure the account row exists in SQLite first
-            ensure_account_exists(self.account_number, self.name, self.balance)
-            txn_repo = TransactionRepository(session)
-            txn_repo.create(
-                acc_no=self.account_number,
-                txn_type=txn_type,
-                amount=Decimal(str(amount)),
+
+        c = get_container()
+        txn_id = generate_transaction_id()
+
+        # Ensure the account row exists in SQLite first (in case it was only in JSON)
+        acc_repo = c.account_repo()
+        if not acc_repo.exists(self.account_number):
+            from domain.entities import Account as DomainAccount
+            acc_repo.create(DomainAccount(
+                account_number=self.account_number,
+                name=self.name,
+                password=self.password,
                 balance=Decimal(str(self.balance)),
-                description=description,
-                category=category or "General",
-                target_account=target_acc,
-                txn_id=txn_id,
-            )
-            session.commit()
+                is_active=self.is_active,
+                is_frozen=self.is_frozen,
+            ))
+            acc_repo.commit()
+
+        domain_txn = DomainTransaction(
+            txn_id=txn_id,
+            account_number=self.account_number,
+            type=TransactionType(txn_type.upper()),
+            amount=Decimal(str(amount)),
+            balance=Decimal(str(self.balance)),
+            description=description,
+            category=category or "General",
+            target_account=target_acc,
+        )
+        try:
+            c.transaction_repo().create(domain_txn)
+            c.transaction_repo().commit()
         except IntegrityError:
-            session.rollback()
+            c.transaction_repo().rollback()
             logger.warning(
-                f"SQLite dual-write skipped for txn {txn_id} "
-                f"(account {self.account_number} not in DB)"
+                f"Transaction logging skipped for {txn_id} "
+                f"(account {self.account_number} may not exist)"
             )
-        finally:
-            close_session()
 
         logger.info(
             f"TXN [{txn_id}]  {txn_type:<14}  Acc:{self.account_number}  "

@@ -218,10 +218,12 @@ class TestTransactionCategories:
         assert len(TRANSACTION_CATEGORIES) == len(set(TRANSACTION_CATEGORIES))
 
     def test_log_transaction_stores_category(self, monkeypatch, tmp_data_dir):
-        """Test that log_transaction stores the category field."""
-        from utils import TRANSACTIONS_FILE
-
+        """Test that log_transaction stores the category field (via SQLite)."""
         # Create a temp account and call log_transaction directly
+        # Note: log_transaction now writes to SQLite only (no JSON)
+        from container import get_container
+        c = get_container()
+
         from account import Account
         data = {
             "account_number": "8888888888",
@@ -237,15 +239,15 @@ class TestTransactionCategories:
             "created_at": "2026-01-01 00:00:00",
         }
         acc = Account(data)
+        acc.save()  # Create account in SQLite first
         acc.balance = 1100.0
         acc.log_transaction("DEPOSIT", 100.0, "Test deposit", category="Salary")
 
-        # Verify it was stored in the isolated temp directory
-        records = load_json(TRANSACTIONS_FILE)
-        txns = records.get("8888888888", [])
+        # Verify it was stored in SQLite via the container
+        txns = c.transaction_repo().get_by_account("8888888888")
         assert len(txns) >= 1
         last_txn = txns[-1]
-        assert last_txn.get("category") == "Salary"
+        assert last_txn.category == "Salary"
 
         # No cleanup needed — tmp_data_dir will be deleted automatically
 

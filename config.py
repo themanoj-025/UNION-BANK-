@@ -50,6 +50,16 @@ class Config:
             _require_env("JWT_SECRET") if not _TESTING else "test-secret-not-for-prod"
         )
     )
+    JWT_PRIVATE_KEY: str = field(
+        default_factory=lambda: (
+            _optional_env("JWT_PRIVATE_KEY", "") or ""
+        )
+    )
+    JWT_PUBLIC_KEY: str = field(
+        default_factory=lambda: (
+            _optional_env("JWT_PUBLIC_KEY", "") or ""
+        )
+    )
     FLASK_SECRET_KEY: str = field(
         default_factory=lambda: (
             _require_env("FLASK_SECRET_KEY") if not _TESTING else os.urandom(24).hex()
@@ -57,8 +67,11 @@ class Config:
     )
 
     # ── JWT ───────────────────────────────────────────────────────────────────
-    JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRY_HOURS: int = 24
+    # Use RS256 (asymmetric) in production — set JWT_PRIVATE_KEY + JWT_PUBLIC_KEY env vars.
+    # Falls back to HS256 (symmetric) if RSA keys are not configured.
+    JWT_ALGORITHM: str = "RS256" if _optional_env("JWT_PRIVATE_KEY") else "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Short-lived: 15 minutes
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh: 7 days
 
     # ── Rate limiting ─────────────────────────────────────────────────────────
     MAX_LOGIN_ATTEMPTS: int = 5

@@ -3,6 +3,7 @@ formatting.py  –  Formatting helpers, ID generators, and CLI input helpers.
 """
 
 import random
+import re
 import string
 from datetime import datetime
 
@@ -70,3 +71,29 @@ def get_int(prompt: str):
     except ValueError:
         print("  [!] Please enter a valid integer.")
         return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PII-safe logging helpers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def mask_account_number(acc_no: str) -> str:
+    """Mask an account number for safe logging — shows only last 4 digits."""
+    if not acc_no or len(acc_no) < 4:
+        return "****"
+    return "*" * (len(acc_no) - 4) + acc_no[-4:]
+
+
+def mask_sensitive_data(msg: str) -> str:
+    """Mask sensitive data in a log message for PII safety.
+
+    Masks:
+    - Account numbers (8+ digit sequences)
+    - Email addresses (local-part replaced with ***)
+    """
+    # Mask account numbers (sequences of 8+ digits)
+    msg = re.sub(r'\b(\d{8,})\b', lambda m: mask_account_number(m.group(1)), msg)
+    # Mask email addresses
+    msg = re.sub(r'([\w.-]+)@([\w.-]+\.\w{2,})', r'***@\2', msg)
+    return msg

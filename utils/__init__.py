@@ -36,6 +36,8 @@ from .formatting import (
     generate_goal_id,
     get_float,
     get_int,
+    mask_account_number,
+    mask_sensitive_data,
 )
 
 from .savings import (

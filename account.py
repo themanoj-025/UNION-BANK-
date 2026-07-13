@@ -63,6 +63,22 @@ class Account:
         accounts = load_json(ACCOUNTS_FILE)
         accounts[self.account_number] = self.to_dict()
         save_json(ACCOUNTS_FILE, accounts)
+
+        # Dual-write to SQLite
+        from database import get_session, close_session
+        from repositories import AccountRepository
+        session = get_session()
+        try:
+            repo = AccountRepository(session)
+            existing = repo.get(self.account_number)
+            if existing:
+                repo.update_from_dict(self.account_number, self.to_dict())
+            else:
+                repo.create(self.to_dict())  # create() already calls session.add()
+            session.commit()
+        finally:
+            close_session()
+
         logger.debug(f"Account {self.account_number} saved to disk.")
 
     def log_transaction(self, txn_type, amount, description, target_acc=None, category=None):
@@ -83,6 +99,37 @@ class Account:
             record["target_account"] = target_acc
         txns[self.account_number].append(record)
         save_json(TRANSACTIONS_FILE, txns)
+
+        # Dual-write to SQLite (gracefully skip if account doesn't exist yet)
+        from database import get_session, close_session, ensure_account_exists
+        from repositories import TransactionRepository
+        from decimal import Decimal
+        from sqlalchemy.exc import IntegrityError
+        session = get_session()
+        try:
+            # Ensure the account row exists in SQLite first
+            ensure_account_exists(self.account_number, self.name, self.balance)
+            txn_repo = TransactionRepository(session)
+            txn_repo.create(
+                acc_no=self.account_number,
+                txn_type=txn_type,
+                amount=Decimal(str(amount)),
+                balance=Decimal(str(self.balance)),
+                description=description,
+                category=category or "General",
+                target_account=target_acc,
+                txn_id=txn_id,
+            )
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            logger.warning(
+                f"SQLite dual-write skipped for txn {txn_id} "
+                f"(account {self.account_number} not in DB)"
+            )
+        finally:
+            close_session()
+
         logger.info(
             f"TXN [{txn_id}]  {txn_type:<14}  Acc:{self.account_number}  "
             f"Amt:{fmt_currency(amount)}  Bal:{fmt_currency(self.balance)}"
@@ -433,6 +480,7 @@ class Account:
 
         result = contribute_to_goal(self.account_number, goal["goal_id"], amount, self.balance)
         if result.success:
+            # Service already deducted from JSON; update in-memory balance
             self.balance -= amount
             success(result.message)
         else:

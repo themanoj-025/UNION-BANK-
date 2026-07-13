@@ -433,7 +433,7 @@ class TestAtomicTransfer:
         self._setup_accounts(tmp_data_dir)
 
         from database import atomic_session, get_db_balance
-        from database import Account as DbAccount
+        from database import AccountModel as DbAccount
 
         # Start an atomic transaction, make a change, then simulate a crash
         try:
@@ -474,7 +474,7 @@ class TestAtomicTransfer:
         self._setup_accounts(tmp_data_dir)
 
         from database import atomic_close_account, get_db_balance
-        from database import Account as DbAccount
+        from models import AccountModel as DbAccount
         from database import get_session
 
         result = atomic_close_account(self.SENDER)

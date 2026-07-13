@@ -96,11 +96,74 @@ def add_security_headers(response):
     return response
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Rate Limiting (in-memory, per-endpoint, per-IP)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from collections import defaultdict
+from functools import wraps
+import time
+
+_rate_limits: dict[str, list[float]] = defaultdict(list)
+
+
+def rate_limit(limit: int, per_seconds: int = 60, key_prefix: str = ""):
+    """
+    Decorator: limit the number of POST requests to a route.
+
+    Uses in-memory tracking keyed by ``endpoint:client_ip``.
+    GET requests (form display) are NOT counted — only POST (form submission).
+
+    Args:
+        limit:       Maximum requests allowed within the window
+        per_seconds: Duration of the sliding window in seconds
+        key_prefix:  Optional prefix for the rate-limit key (e.g. "admin_")
+
+    Usage:
+        @app.route("/deposit", methods=["GET", "POST"])
+        @rate_limit(limit=10, per_seconds=60)
+        def deposit():
+            ...
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if request.method == "POST":
+                # Disable in testing mode so tests don't get rate-limited
+                if settings.TESTING:
+                    return f(*args, **kwargs)
+
+                key = f"{key_prefix}{request.endpoint}:{request.remote_addr or 'local'}"
+                now = time.time()
+                window_start = now - per_seconds
+
+                # Prune expired entries (defaultdict handles missing keys)
+                _rate_limits[key] = [
+                    ts for ts in _rate_limits[key]
+                    if ts > window_start
+                ]
+
+                # Enforce limit
+                if len(_rate_limits[key]) >= limit:
+                    flash(
+                        f"Too many requests. Please wait {per_seconds // 60} minute(s) before trying again."
+                        if per_seconds >= 60
+                        else "Too many requests. Please slow down.",
+                        "error",
+                    )
+                    return redirect(url_for(request.endpoint, **request.view_args or {}))
+
+                _rate_limits[key].append(now)
+
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 # ── Helper functions ─────────────────────────────────────────────────────────
 
 def login_required(f):
     """Decorator: require a logged-in customer."""
-    from functools import wraps
 
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -113,7 +176,6 @@ def login_required(f):
 
 def admin_required(f):
     """Decorator: require admin login."""
-    from functools import wraps
 
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -170,6 +232,7 @@ def index():
 # ── Customer auth ────────────────────────────────────────────────────────────
 
 @app.route("/login", methods=["GET", "POST"])
+@rate_limit(limit=10, per_seconds=60)
 def login():
     """Customer login page."""
     if request.method == "POST":
@@ -229,6 +292,7 @@ def login():
 
 
 @app.route("/register", methods=["GET", "POST"])
+@rate_limit(limit=5, per_seconds=60)
 def register():
     """New account registration."""
     if request.method == "POST":
@@ -361,6 +425,7 @@ def dashboard():
 
 @app.route("/deposit", methods=["GET", "POST"])
 @login_required
+@rate_limit(limit=10, per_seconds=60)
 def deposit():
     """Deposit money."""
     acc = get_account()
@@ -394,6 +459,7 @@ def deposit():
 
 @app.route("/withdraw", methods=["GET", "POST"])
 @login_required
+@rate_limit(limit=10, per_seconds=60)
 def withdraw():
     """Withdraw money."""
     acc = get_account()
@@ -431,6 +497,7 @@ def withdraw():
 
 @app.route("/transfer", methods=["GET", "POST"])
 @login_required
+@rate_limit(limit=10, per_seconds=60)
 def transfer():
     """Transfer funds to another account."""
     acc = get_account()
@@ -593,6 +660,7 @@ def export_csv():
 
 @app.route("/apply-interest", methods=["GET", "POST"])
 @login_required
+@rate_limit(limit=5, per_seconds=60)
 def apply_interest():
     """Apply monthly interest."""
     acc = get_account()
@@ -624,6 +692,7 @@ def apply_interest():
 
 @app.route("/profile", methods=["GET", "POST"])
 @login_required
+@rate_limit(limit=10, per_seconds=60)
 def profile():
     """View and update profile."""
     acc = get_account()
@@ -674,6 +743,7 @@ def profile():
 
 @app.route("/change-password", methods=["GET", "POST"])
 @login_required
+@rate_limit(limit=5, per_seconds=60)
 def change_password():
     """Change account password."""
     acc = get_account()
@@ -734,6 +804,7 @@ def savings_goals():
 
 @app.route("/savings/new", methods=["GET", "POST"])
 @login_required
+@rate_limit(limit=10, per_seconds=60)
 def savings_goal_new():
     """Create a new savings goal."""
     acc = get_account()
@@ -778,6 +849,7 @@ def savings_goal_new():
 
 @app.route("/savings/<goal_id>/edit", methods=["GET", "POST"])
 @login_required
+@rate_limit(limit=10, per_seconds=60)
 def savings_goal_edit(goal_id):
     """Edit a savings goal."""
     acc = get_account()
@@ -821,6 +893,7 @@ def savings_goal_edit(goal_id):
 
 @app.route("/savings/<goal_id>/contribute", methods=["POST"])
 @login_required
+@rate_limit(limit=10, per_seconds=60)
 def savings_goal_contribute(goal_id):
     """Contribute to a savings goal."""
     acc = get_account()
@@ -865,6 +938,7 @@ def savings_goal_contribute(goal_id):
 
 @app.route("/savings/<goal_id>/delete", methods=["POST"])
 @login_required
+@rate_limit(limit=5, per_seconds=60, key_prefix="sensitive_")
 def savings_goal_delete(goal_id):
     """Delete a savings goal."""
     acc = get_account()
@@ -893,6 +967,7 @@ def savings_goal_delete(goal_id):
 
 @app.route("/close-account", methods=["POST"])
 @login_required
+@rate_limit(limit=3, per_seconds=60, key_prefix="sensitive_")
 def close_account():
     """Close the account (POST only)."""
     acc = get_account()
@@ -924,6 +999,7 @@ def close_account():
 # ── Admin routes ─────────────────────────────────────────────────────────────
 
 @app.route("/admin/login", methods=["GET", "POST"])
+@rate_limit(limit=10, per_seconds=60, key_prefix="admin_")
 def admin_login():
     """Admin login page."""
     if session.get("is_admin"):
@@ -1075,6 +1151,7 @@ def admin_search():
 
 @app.route("/admin/freeze", methods=["GET", "POST"])
 @admin_required
+@rate_limit(limit=10, per_seconds=60, key_prefix="admin_")
 def admin_freeze():
     """Freeze / unfreeze an account."""
     result = None
@@ -1120,6 +1197,7 @@ def admin_freeze():
 
 @app.route("/admin/delete", methods=["GET", "POST"])
 @admin_required
+@rate_limit(limit=5, per_seconds=60, key_prefix="admin_sensitive_")
 def admin_delete():
     """Delete an account."""
     if request.method == "POST":
@@ -1200,6 +1278,7 @@ def admin_transactions():
 
 @app.route("/admin/change-password", methods=["GET", "POST"])
 @admin_required
+@rate_limit(limit=5, per_seconds=60, key_prefix="admin_sensitive_")
 def admin_change_password():
     """Change admin password."""
     if request.method == "POST":

@@ -473,8 +473,8 @@ def admin_login(request: Request, req: AdminLoginRequest):
             detail=f"Admin account locked. Try again in {remaining} minute(s).",
         )
 
-    creds = load_json(ADMIN_FILE)
-    if username == creds["username"] and verify_password(password, creds["password"]):
+    auth_result = admin_authenticate(username, password)
+    if auth_result.success:
         reset_login_attempts(lock_key)
         token = create_token(subject=username, role="admin")
         return TokenResponse(access_token=token, role="admin")
@@ -633,16 +633,11 @@ def close_account(
             detail="Incorrect password.",
         )
 
-    accounts = load_json(ACCOUNTS_FILE)
-    accounts[acc_no]["is_active"] = False
-    save_json(ACCOUNTS_FILE, accounts)
+    result = process_close_account(acc_no, req.password, customer["password"])
+    if not result.success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
-    # Atomic closure in SQLite
-    sync_account_from_json(acc_no, accounts[acc_no])
-    atomic_close_account(acc_no)
-    db_close_session()
-
-    return MessageResponse(message="Account closed successfully.")
+    return MessageResponse(message=result.message)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -677,17 +672,11 @@ def deposit_money(
     data = accounts[acc_no]
 
     # Validate category
-    category = req.category if req.category in TRANSACTION_CATEGORIES else "General"
+    result = process_deposit(acc_no, req.amount, req.category)
+    if not result.success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
-    account = Account(data)
-    account.balance += req.amount
-    account.save()
-    account.log_transaction("DEPOSIT", req.amount, "API deposit", category=category)
-
-    return MessageResponse(
-        message=f"{fmt_currency(req.amount)} deposited successfully. "
-                f"New balance: {fmt_currency(account.balance)}",
-    )
+    return MessageResponse(message=result.message)
 
 
 @app.post("/api/account/withdraw", response_model=MessageResponse)
@@ -702,23 +691,11 @@ def withdraw_money(
     accounts = load_json(ACCOUNTS_FILE)
     data = accounts[acc_no]
 
-    if req.amount > data["balance"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient balance. Available: {fmt_currency(data['balance'])}",
-        )
+    result = process_withdraw(acc_no, req.amount, req.category)
+    if not result.success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
-    category = req.category if req.category in TRANSACTION_CATEGORIES else "General"
-
-    account = Account(data)
-    account.balance -= req.amount
-    account.save()
-    account.log_transaction("WITHDRAW", req.amount, "API withdrawal", category=category)
-
-    return MessageResponse(
-        message=f"{fmt_currency(req.amount)} withdrawn successfully. "
-                f"New balance: {fmt_currency(account.balance)}",
-    )
+    return MessageResponse(message=result.message)
 
 
 @app.post("/api/account/transfer", response_model=MessageResponse)
@@ -765,19 +742,11 @@ def transfer_funds(
             detail=f"Insufficient balance. Available: {fmt_currency(data['balance'])}",
         )
 
-    category = req.category if req.category in TRANSACTION_CATEGORIES else "General"
-
-    # ═══════════════════════════════════════════════════════════════════
-    #  ATOMIC TRANSFER — single ACID SQLite transaction
-    # ═══════════════════════════════════════════════════════════════════
-    sync_account_from_json(acc_no, data)
-    sync_account_from_json(target_acc_no, target_data)
-
-    result = atomic_transfer(
+    result = process_transfer(
         sender_acc_no=acc_no,
         receiver_acc_no=target_acc_no,
         amount=req.amount,
-        category=category,
+        category=req.category,
     )
 
     if not result.success:
@@ -785,30 +754,6 @@ def transfer_funds(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=result.error_message,
         )
-
-    # ── Sync back to JSON for backward compatibility ───────────────────
-    accounts = load_json(ACCOUNTS_FILE)
-    if acc_no in accounts:
-        accounts[acc_no]["balance"] = result.sender_balance
-    if target_acc_no in accounts:
-        accounts[target_acc_no]["balance"] = result.receiver_balance
-    save_json(ACCOUNTS_FILE, accounts)
-
-    # ── Log to JSON transactions ───────────────────────────────────────
-    sender = Account(data)
-    sender.balance = result.sender_balance
-    sender.log_transaction(
-        "TRANSFER_OUT", req.amount,
-        f"Transfer to {target_acc_no} (atomic)",
-        target_acc=target_acc_no, category=category,
-    )
-    receiver = Account(target_data)
-    receiver.balance = result.receiver_balance
-    receiver.log_transaction(
-        "TRANSFER_IN", req.amount,
-        f"Transfer from {acc_no} (atomic)",
-        target_acc=acc_no, category=category,
-    )
 
     return MessageResponse(
         message=f"{fmt_currency(req.amount)} transferred to {target_data['name']} "
@@ -1139,30 +1084,13 @@ def apply_interest(request: Request, customer: dict = Depends(get_current_custom
     accounts = load_json(ACCOUNTS_FILE)
     data = accounts[acc_no]
 
-    interest = calculate_monthly_interest(data["balance"])
-    if interest <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No interest to apply (balance is zero or negative).",
-        )
+    result = process_apply_interest(acc_no, data["balance"])
+    if not result.success:
+        if "No interest" in result.message:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.message)
 
-    sync_account_from_json(acc_no, data)
-    if not atomic_apply_interest(acc_no, interest):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to apply interest.",
-        )
-
-    account = Account(data)
-    account.balance += interest
-    account.save()
-    account.log_transaction("INTEREST", interest,
-                             "Monthly interest credit", category="Savings")
-
-    return MessageResponse(
-        message=f"Interest of {fmt_currency(interest)} credited! "
-                f"New balance: {fmt_currency(account.balance)}",
-    )
+    return MessageResponse(message=result.message)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1251,14 +1179,11 @@ def admin_freeze_account(
             detail=f"Account {acc_no} is already frozen.",
         )
 
-    acc["is_frozen"] = True
-    acc["is_active"] = False
-    accounts[acc_no] = acc
-    save_json(ACCOUNTS_FILE, accounts)
+    result = process_freeze_account(acc_no)
+    if not result.success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
-    return MessageResponse(
-        message=f"Account {acc_no} ({acc['name']}) has been frozen.",
-    )
+    return MessageResponse(message=result.message)
 
 
 @app.post("/api/admin/accounts/{acc_no}/unfreeze", response_model=MessageResponse)
@@ -1284,14 +1209,11 @@ def admin_unfreeze_account(
             detail=f"Account {acc_no} is not frozen.",
         )
 
-    acc["is_frozen"] = False
-    acc["is_active"] = True
-    accounts[acc_no] = acc
-    save_json(ACCOUNTS_FILE, accounts)
+    result = process_unfreeze_account(acc_no)
+    if not result.success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
-    return MessageResponse(
-        message=f"Account {acc_no} ({acc['name']}) has been unfrozen.",
-    )
+    return MessageResponse(message=result.message)
 
 
 @app.delete("/api/admin/accounts/{acc_no}", response_model=MessageResponse)
@@ -1311,52 +1233,30 @@ def admin_delete_account(
         )
 
     acc_name = accounts[acc_no]["name"]
-    del accounts[acc_no]
-    save_json(ACCOUNTS_FILE, accounts)
+    result = process_delete_account(acc_no)
+    if not result.success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
 
-    txns = load_json(TRANSACTIONS_FILE)
-    if acc_no in txns:
-        del txns[acc_no]
-        save_json(TRANSACTIONS_FILE, txns)
-
-    return MessageResponse(
-        message=f"Account {acc_no} ({acc_name}) has been deleted.",
-    )
+    return MessageResponse(message=result.message)
 
 
 @app.get("/api/admin/statistics", response_model=StatisticsResponse)
 @limiter.limit("30/minute")
 def admin_statistics(request: Request, admin: dict = Depends(get_current_admin)):
     """View bank-wide statistics (admin only)."""
-    accounts = load_json(ACCOUNTS_FILE)
-    txns = load_json(TRANSACTIONS_FILE)
-
-    total_customers = len(accounts)
-    active = sum(1 for a in accounts.values()
-                 if a.get("is_active", True) and not a.get("is_frozen"))
-    frozen = sum(1 for a in accounts.values() if a.get("is_frozen", False))
-    closed = sum(1 for a in accounts.values()
-                 if not a.get("is_active", True) and not a.get("is_frozen", False))
-    total_balance = sum(a["balance"] for a in accounts.values())
-    total_txns = sum(len(v) for v in txns.values())
-    total_dep = sum(t["amount"] for v in txns.values()
-                     for t in v if t["type"] == "DEPOSIT")
-    total_with = sum(t["amount"] for v in txns.values()
-                      for t in v if t["type"] == "WITHDRAW")
-    total_trans = sum(t["amount"] for v in txns.values()
-                       for t in v if t["type"] == "TRANSFER_OUT")
+    s = get_bank_statistics()
 
     return StatisticsResponse(
-        total_customers=total_customers,
-        active_accounts=active,
-        frozen_accounts=frozen,
-        closed_accounts=closed,
-        total_balance=total_balance,
-        total_balance_formatted=fmt_currency(total_balance),
-        total_deposits=total_dep,
-        total_withdrawals=total_with,
-        total_transfers=total_trans,
-        total_transactions=total_txns,
+        total_customers=s["total_customers"],
+        active_accounts=s["active"],
+        frozen_accounts=s["frozen"],
+        closed_accounts=s["closed"],
+        total_balance=s["total_balance"],
+        total_balance_formatted=s["total_balance_formatted"],
+        total_deposits=s["total_dep"],
+        total_withdrawals=s["total_with"],
+        total_transfers=s["total_trans"],
+        total_transactions=s["total_txns"],
     )
 
 

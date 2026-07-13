@@ -1,10 +1,8 @@
 """
-database.py  –  SQLite database connection and operations for Union Bank.
+database.py  –  SQLite database engine, session helpers, and atomic operations.
 
-Provides atomic ACID transactions for critical money operations (transfers,
-interest, account closure) where JSON file storage cannot guarantee consistency.
-
-Uses SQLAlchemy for connection management and WAL mode for better concurrency.
+Uses the unified models from models.py for schema definitions.
+Provides ACID transaction support via atomic_session() context manager.
 """
 
 from __future__ import annotations
@@ -12,17 +10,28 @@ from __future__ import annotations
 import os
 import threading
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Generator, Optional
 
-from sqlalchemy import (
-    Column, String, Float, Boolean, Integer, DateTime, create_engine,
-    event, text,
-)
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session, sessionmaker
 
 from config import settings
+from logger import logger
+from models import AccountModel, TransactionModel
+from repositories import AccountRepository, TransactionRepository
+from utils import generate_transaction_id
+
+# Re-export for external use
+from models import Base as ModelBase
+
+
+def _utcnow() -> datetime:
+    """Timezone-aware UTC now."""
+    return datetime.now(timezone.utc)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Database setup
@@ -36,7 +45,7 @@ DB_PATH = str(DATA_DIR / "union_bank.db")
 _engine = create_engine(
     f"sqlite:///{DB_PATH}",
     echo=False,
-    connect_args={"check_same_thread": False},  # Allow multi-threaded access
+    connect_args={"check_same_thread": False},
 )
 
 # Enable WAL mode for better concurrent read/write performance
@@ -93,68 +102,27 @@ def atomic_session() -> Generator[Session, None, None]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Declarative base
-# ═══════════════════════════════════════════════════════════════════════════════
-
-Base = declarative_base()
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  Models (minimal — only what's needed for atomic transfers in Phase 1)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class Account(Base):
-    """SQLAlchemy model mirroring the JSON account structure for critical ops."""
-
-    __tablename__ = "accounts"
-
-    account_number = Column(String(10), primary_key=True)
-    name = Column(String(100), nullable=False)
-    balance = Column(Float, nullable=False, default=0.0)
-    is_active = Column(Boolean, nullable=False, default=True)
-    is_frozen = Column(Boolean, nullable=False, default=False)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-
-class Transaction(Base):
-    """SQLAlchemy model for transaction records created via atomic operations."""
-
-    __tablename__ = "transactions"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    txn_id = Column(String(20), nullable=False, unique=True)
-    account_number = Column(String(10), nullable=False, index=True)
-    type = Column(String(20), nullable=False)
-    amount = Column(Float, nullable=False)
-    balance = Column(Float, nullable=False)
-    description = Column(String(200), default="")
-    category = Column(String(50), default="General")
-    target_account = Column(String(10), nullable=True)
-    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Initialization
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Re-export for external use
+Base = ModelBase
+
+
 def init_db():
-    """Create all tables if they don't exist."""
-    Base.metadata.create_all(bind=_engine)
+    """Create all tables if they don't exist (uses models.py schema)."""
+    ModelBase.metadata.create_all(bind=_engine)
 
 
-def ensure_account_exists(acc_no: str, name: str = "", balance: float = 0.0) -> Account:
-    """Ensure an Account row exists in the DB, creating it if necessary.
-
-    This is used during the JSON-to-SQLite transition to lazily populate
-    the SQLite DB from the JSON storage.
-    """
+def ensure_account_exists(acc_no: str, name: str = "", balance: float = 0.0) -> AccountModel:
+    """Ensure an AccountModel row exists in the DB, creating it if necessary."""
     session = get_session()
-    account = session.query(Account).filter_by(account_number=acc_no).first()
+    account = session.query(AccountModel).filter_by(account_number=acc_no).first()
     if account is None:
-        account = Account(
+        account = AccountModel(
             account_number=acc_no,
             name=name,
-            balance=balance,
+            balance=Decimal(str(balance)),
             is_active=True,
             is_frozen=False,
         )
@@ -164,33 +132,35 @@ def ensure_account_exists(acc_no: str, name: str = "", balance: float = 0.0) -> 
 
 
 def sync_account_from_json(acc_no: str, json_data: dict):
-    """Sync or create an Account row from JSON data.
-
-    Call this when an Account is loaded from JSON to ensure the DB is in sync.
-    """
+    """Sync or create an AccountModel row from JSON data."""
     session = get_session()
-    account = session.query(Account).filter_by(account_number=acc_no).first()
+    account = session.query(AccountModel).filter_by(account_number=acc_no).first()
     if account is None:
-        account = Account(
+        account = AccountModel(
             account_number=acc_no,
             name=json_data.get("name", ""),
-            balance=json_data.get("balance", 0.0),
+            age=json_data.get("age", 18),
+            gender=json_data.get("gender", ""),
+            mobile=json_data.get("mobile", ""),
+            email=json_data.get("email", ""),
+            password=json_data.get("password", ""),
+            balance=Decimal(str(json_data.get("balance", 0.0))),
             is_active=json_data.get("is_active", True),
             is_frozen=json_data.get("is_frozen", False),
         )
         session.add(account)
     else:
         account.name = json_data.get("name", account.name)
-        account.balance = json_data.get("balance", account.balance)
+        account.balance = Decimal(str(json_data.get("balance", float(account.balance))))
         account.is_active = json_data.get("is_active", account.is_active)
         account.is_frozen = json_data.get("is_frozen", account.is_frozen)
     session.commit()
 
 
-def get_db_balance(acc_no: str) -> Optional[float]:
+def get_db_balance(acc_no: str) -> Optional[Decimal]:
     """Get the current balance from the SQLite DB."""
     session = get_session()
-    account = session.query(Account).filter_by(account_number=acc_no).first()
+    account = session.query(AccountModel).filter_by(account_number=acc_no).first()
     if account is None:
         return None
     return account.balance
@@ -249,9 +219,6 @@ def atomic_transfer(
     Returns:
         AtomicTransferResult with success status and new balances
     """
-    from utils import generate_transaction_id, now_str
-    from logger import logger
-
     if amount <= 0:
         return AtomicTransferResult(
             success=False, error_message="Amount must be positive."
@@ -259,13 +226,13 @@ def atomic_transfer(
 
     with atomic_session() as session:
         # ── Lock both rows (SELECT FOR UPDATE on SQLite is implicit via row-level locking)
-        sender = session.query(Account).filter_by(account_number=sender_acc_no).first()
+        sender = session.query(AccountModel).filter_by(account_number=sender_acc_no).first()
         if sender is None:
             return AtomicTransferResult(
                 success=False, error_message="Sender account not found."
             )
 
-        receiver = session.query(Account).filter_by(account_number=receiver_acc_no).first()
+        receiver = session.query(AccountModel).filter_by(account_number=receiver_acc_no).first()
         if receiver is None:
             return AtomicTransferResult(
                 success=False, error_message="Receiver account not found."
@@ -294,15 +261,15 @@ def atomic_transfer(
             )
 
         # ── Execute the transfer (both changes in same transaction) ──────────
-        sender.balance -= amount
-        receiver.balance += amount
+        sender.balance -= Decimal(str(amount))
+        receiver.balance += Decimal(str(amount))
 
         # ── Generate transaction records ─────────────────────────────────────
-        now = datetime.utcnow()
+        now = _utcnow()
         sender_txn_id = generate_transaction_id()
         receiver_txn_id = generate_transaction_id()
 
-        sender_txn = Transaction(
+        sender_txn = TransactionModel(
             txn_id=sender_txn_id,
             account_number=sender_acc_no,
             type="TRANSFER_OUT",
@@ -313,7 +280,7 @@ def atomic_transfer(
             target_account=receiver_acc_no,
             timestamp=now,
         )
-        receiver_txn = Transaction(
+        receiver_txn = TransactionModel(
             txn_id=receiver_txn_id,
             account_number=receiver_acc_no,
             type="TRANSFER_IN",
@@ -337,10 +304,9 @@ def atomic_transfer(
             f"(TXN:{sender_txn_id}/{receiver_txn_id})"
         )
 
-        from utils import fmt_currency
         return AtomicTransferResult(
             success=True,
-            sender_balance=round(sender.balance, 2),
+            sender_balance=round(float(sender.balance), 2),
             receiver_balance=round(receiver.balance, 2),
         )
 
@@ -357,22 +323,19 @@ def atomic_apply_interest(
 
     Returns True if successful, False if account not found or frozen/closed.
     """
-    from utils import generate_transaction_id
-    from logger import logger
-
     if interest_amount <= 0:
         return False
 
     with atomic_session() as session:
-        account = session.query(Account).filter_by(account_number=acc_no).first()
+        account = session.query(AccountModel).filter_by(account_number=acc_no).first()
         if account is None:
             return False
         if account.is_frozen or not account.is_active:
             return False
 
-        account.balance += interest_amount
+        account.balance += Decimal(str(interest_amount))
 
-        txn = Transaction(
+        txn = TransactionModel(
             txn_id=generate_transaction_id(),
             account_number=acc_no,
             type="INTEREST",
@@ -380,7 +343,7 @@ def atomic_apply_interest(
             balance=round(account.balance, 2),
             description="Monthly interest credit",
             category="Savings",
-            timestamp=datetime.utcnow(),
+            timestamp=_utcnow(),
         )
         session.add(txn)
 
@@ -395,7 +358,7 @@ def atomic_apply_interest(
 def atomic_close_account(acc_no: str) -> bool:
     """Mark an account as inactive atomically."""
     with atomic_session() as session:
-        account = session.query(Account).filter_by(account_number=acc_no).first()
+        account = session.query(AccountModel).filter_by(account_number=acc_no).first()
         if account is None:
             return False
         account.is_active = False

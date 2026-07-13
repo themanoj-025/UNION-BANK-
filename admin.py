@@ -12,13 +12,11 @@ from utils import (
     hash_password, verify_password, validate_password,
     check_login_locked, record_failed_login, reset_login_attempts,
     LOGIN_LOCKOUT_MINUTES,
-    ACCOUNTS_FILE, TRANSACTIONS_FILE,
+    ACCOUNTS_FILE, TRANSACTIONS_FILE, ADMIN_FILE,
 )
 from ui import header, divider, success, error, warning, info, prompt_password, GREEN, RED, CYAN, WHITE, YELLOW, BOLD, RESET
 from logger import logger
-
-# Import ADMIN_FILE from utils.py which respects UNION_BANK_DATA_DIR env var
-from utils import ADMIN_FILE
+from services import get_bank_statistics, process_freeze_account, process_delete_account
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -197,18 +195,14 @@ class Admin:
             return
 
         if currently_frozen:
-            acc["is_frozen"] = False
-            acc["is_active"] = True
-            msg = f"Account {acc_no} ({acc['name']}) UNFROZEN by admin."
+            result = process_unfreeze_account(acc_no)
         else:
-            acc["is_frozen"] = True
-            acc["is_active"] = False
-            msg = f"Account {acc_no} ({acc['name']}) FROZEN by admin."
+            result = process_freeze_account(acc_no)
 
-        accounts[acc_no] = acc
-        save_json(ACCOUNTS_FILE, accounts)
-        logger.critical(msg)
-        success(msg)
+        if result.success:
+            success(result.message)
+        else:
+            error(result.message)
         divider()
 
     # ── 4. delete account ────────────────────────────────────────────────────
@@ -234,54 +228,36 @@ class Admin:
             divider()
             return
 
-        del accounts[acc_no]
-        save_json(ACCOUNTS_FILE, accounts)
-
-        txns = load_json(TRANSACTIONS_FILE)
-        if acc_no in txns:
-            del txns[acc_no]
-            save_json(TRANSACTIONS_FILE, txns)
-
-        msg = f"Account {acc_no} ({acc['name']}) DELETED by admin."
-        logger.critical(msg)
-        success(msg)
+        result = process_delete_account(acc_no)
+        if result.success:
+            success(result.message)
+        else:
+            error(result.message)
         divider()
 
     # ── 5. bank statistics ────────────────────────────────────────────────────
 
     def _bank_statistics(self):
         header("BANK STATISTICS")
-        accounts = load_json(ACCOUNTS_FILE)
-        txns     = load_json(TRANSACTIONS_FILE)
-
-        total_customers = len(accounts)
-        active   = sum(1 for a in accounts.values() if a.get("is_active", True) and not a.get("is_frozen"))
-        frozen   = sum(1 for a in accounts.values() if a.get("is_frozen", False))
-        closed   = sum(1 for a in accounts.values() if not a.get("is_active", True) and not a.get("is_frozen", False))
-        total_balance = sum(a["balance"] for a in accounts.values())
-
-        total_txns  = sum(len(v) for v in txns.values())
-        total_dep   = sum(t["amount"] for v in txns.values() for t in v if t["type"] == "DEPOSIT")
-        total_with  = sum(t["amount"] for v in txns.values() for t in v if t["type"] == "WITHDRAW")
-        total_trans = sum(t["amount"] for v in txns.values() for t in v if t["type"] == "TRANSFER_OUT")
+        s = get_bank_statistics()
 
         print(f"""
   {GREEN}{'┌' + '─' * 41 + '┐'}{RESET}
   {GREEN}│{RESET}  {BOLD}CUSTOMER STATISTICS{RESET}{' ' * 19}{GREEN}│{RESET}
   {GREEN}{'├' + '─' * 41 + '┤'}{RESET}
-  {GREEN}│{RESET}  Total Customers   : {CYAN}{total_customers:<5}{RESET}                {GREEN}│{RESET}
-  {GREEN}│{RESET}  Active Accounts   : {GREEN}{active:<5}{RESET}                {GREEN}│{RESET}
-  {GREEN}│{RESET}  Frozen Accounts   : {RED}{frozen:<5}{RESET}                {GREEN}│{RESET}
-  {GREEN}│{RESET}  Closed Accounts   : {YELLOW}{closed:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Customers   : {CYAN}{s['total_customers']:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}│{RESET}  Active Accounts   : {GREEN}{s['active']:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}│{RESET}  Frozen Accounts   : {RED}{s['frozen']:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}│{RESET}  Closed Accounts   : {YELLOW}{s['closed']:<5}{RESET}                {GREEN}│{RESET}
   {GREEN}{'├' + '─' * 41 + '┤'}{RESET}
   {GREEN}│{RESET}  {BOLD}FINANCIAL SUMMARY{RESET}{' ' * 21}{GREEN}│{RESET}
   {GREEN}{'├' + '─' * 41 + '┤'}{RESET}
-  {GREEN}│{RESET}  Total Bank Balance: {WHITE}{fmt_currency(total_balance):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}│{RESET}  Total Deposits    : {WHITE}{fmt_currency(total_dep):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}│{RESET}  Total Withdrawals : {WHITE}{fmt_currency(total_with):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}│{RESET}  Total Transfers   : {WHITE}{fmt_currency(total_trans):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Bank Balance: {WHITE}{fmt_currency(s['total_balance']):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Deposits    : {WHITE}{fmt_currency(s['total_dep']):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Withdrawals : {WHITE}{fmt_currency(s['total_with']):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Transfers   : {WHITE}{fmt_currency(s['total_trans']):<20}{RESET} {GREEN}│{RESET}
   {GREEN}{'├' + '─' * 41 + '┤'}{RESET}
-  {GREEN}│{RESET}  Total Transactions: {CYAN}{total_txns:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Transactions: {CYAN}{s['total_txns']:<5}{RESET}                {GREEN}│{RESET}
   {GREEN}{'└' + '─' * 41 + '┘'}{RESET}""")
         divider()
 

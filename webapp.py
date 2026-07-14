@@ -1846,6 +1846,7 @@ def admin_freeze():
                 preview_acc=acc_dict,
                 acc_no=acc_no,
                 action=action,
+                fmt_currency=fmt_currency,
             )
 
         if currently_frozen:
@@ -1855,10 +1856,10 @@ def admin_freeze():
 
         flash(result.message, "success" if result.success else "error")
         if result.success:
-            return render_template("admin_freeze.html", result=result.message)
+            return render_template("admin_freeze.html", result=result.message, fmt_currency=fmt_currency)
         return redirect(url_for("admin_freeze"))
 
-    return render_template("admin_freeze.html", result=None)
+    return render_template("admin_freeze.html", result=None, fmt_currency=fmt_currency)
 
 
 @app.route("/admin/delete", methods=["GET", "POST"])
@@ -1892,7 +1893,7 @@ def admin_delete():
         flash(result.message, "success" if result.success else "error")
         return redirect(url_for("admin_delete"))
 
-    return render_template("admin_delete.html", preview_acc=None)
+    return render_template("admin_delete.html", preview_acc=None, fmt_currency=fmt_currency)
 
 
 @app.route("/admin/statistics")

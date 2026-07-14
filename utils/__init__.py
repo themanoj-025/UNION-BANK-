@@ -11,16 +11,6 @@ This package splits the old monolithic utils.py into focused sub-modules:
 All functions are re-exported here for backward compatibility.
 """
 
-from .file_io import (
-    ACCOUNTS_FILE,
-    TRANSACTIONS_FILE,
-    LOGIN_ATTEMPTS_FILE,
-    SAVINGS_GOALS_FILE,
-    ADMIN_FILE,
-    load_json,
-    save_json,
-)
-
 from .validation import (
     validate_email,
     validate_phone,
@@ -41,11 +31,6 @@ from .formatting import (
     get_int,
     mask_account_number,
     mask_sensitive_data,
-)
-
-from .savings import (
-    load_goals,
-    save_goals,
 )
 
 from .auth import (

@@ -1,0 +1,61 @@
+# ── Version control ─────────────────────────────────────────────────────────
+.git/
+.gitattributes
+.gitignore
+.github/
+
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.so
+*.whl
+
+# ── Virtual environments ───────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+
+# ── IDE / Editor ───────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.cursorrules
+.cursorignore
+
+# ── Testing & coverage ─────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+.coverage.*
+*.coverage
+nosetests.xml
+coverage.xml
+
+# ── Data files ─────────────────────────────────────────────────────────────
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.log
+data/*.jsonl
+data/*.json
+
+# ── OS files ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Documentation builds ───────────────────────────────────────────────────
+docs/_build/
+site/
+
+# ── Docker ─────────────────────────────────────────────────────────────────
+.docker/

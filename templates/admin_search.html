@@ -15,9 +15,40 @@
            hx-get="/admin/search-results"
            hx-trigger="keyup changed delay:300ms"
            hx-target="#search-results"
-           hx-indicator="#search-spinner"
+           hx-indicator="#search-spinner, #search-skeleton"
            autofocus>
-    <span id="search-spinner" class="htmx-indicator" style="font-size: 13px; color: var(--text-muted); margin-top: 4px; display: none;">🔍 Searching...</span>
+    <span id="search-spinner" class="htmx-indicator" style="font-size: 13px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 6px;">
+      <span class="spinner spinner-sm" style="color: var(--text-muted);"></span>
+      Searching…
+    </span>
+  </div>
+</div>
+
+{# ── Skeleton shown during search (lives OUTSIDE #search-results so it persists across swaps) ── #}
+<div id="search-skeleton" class="htmx-indicator" style="position: relative;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Search Results</div>
+        <div class="card-subtitle skeleton" style="width: 160px; height: 14px;"></div>
+      </div>
+    </div>
+    <div class="skeleton-search-row">
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+    </div>
+    <div class="skeleton-search-row" style="margin-bottom: 0;">
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+      <div class="skeleton" style="height: 14px;"></div>
+    </div>
   </div>
 </div>
 

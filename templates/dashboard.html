@@ -2,17 +2,26 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 {# ── Balance Hero Card ─────────────────────────── #}
-<div id="balance-card-container">
-  {% include '_balance_card.html' %}
+<div class="balance-section" style="position: relative;">
+  {# Skeleton shown during refresh #}
+  <div id="balance-skeleton" class="htmx-indicator skeleton-balance-card" style="position: absolute; inset: 0; z-index: 2;">
+    <div class="skeleton skeleton-line-sm" style="margin-bottom: 12px;"></div>
+    <div class="skeleton skeleton-line-lg" style="margin-bottom: 8px;"></div>
+    <div class="skeleton skeleton-line-md" style="width: 60%;"></div>
+  </div>
+  {# Actual card #}
+  <div id="balance-card-container">
+    {% include '_balance_card.html' %}
+  </div>
 </div>
-<div style="text-align: right; margin-top: -20px; margin-bottom: 20px;">
+<div style="text-align: right; margin-top: -16px; margin-bottom: 20px;">
   <button class="btn btn-sm btn-outline"
           hx-get="{{ url_for('balance_refresh') }}"
           hx-target="#balance-card-container"
           hx-swap="innerHTML"
-          hx-indicator="#refresh-spinner">
-    <span id="refresh-spinner" class="htmx-indicator">⏳</span>
-    ↻ Refresh Balance
+          hx-indicator="#balance-skeleton">
+    <span class="spinner spinner-sm htmx-indicator" style="color: inherit;"></span>
+    <span class="btn-label">↻ Refresh Balance</span>
   </button>
 </div>
 

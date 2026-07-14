@@ -1,0 +1,117 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  UNION BANK MANAGEMENT SYSTEM  —  Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Orchestrates three services:
+#    web     — Flask frontend         (port 5000)
+#    api     — FastAPI REST API       (port 8000)
+#    redis   — In-memory cache        (port 6379, internal only)
+#
+#  Usage:
+#    docker compose up -d              # Start all services in detached mode
+#    docker compose up -d web api     # Start only web + api (no Redis)
+#    docker compose logs -f           # Follow logs
+#    docker compose down              # Stop and remove containers
+#
+#  Production overrides:
+#    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── Flask Web Frontend ─────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      target: web
+      dockerfile: Dockerfile
+    image: union-bank/web:latest
+    container_name: union-bank-web
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      - UNION_BANK_TESTING=0
+      - GUNICORN_WORKERS=4
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      # Mount the data directory for persistent SQLite database
+      - union_bank_data:/app/data
+      # Mount the static assets for live reload (dev)
+      - ./static:/app/static
+      - ./templates:/app/templates
+    depends_on:
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - union_bank_net
+
+  # ── FastAPI REST API ───────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      target: api
+      dockerfile: Dockerfile
+    image: union-bank/api:latest
+    container_name: union-bank-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - UNION_BANK_TESTING=0
+      - UVICORN_WORKERS=4
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - union_bank_data:/app/data
+    depends_on:
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - union_bank_net
+
+  # ── Redis Cache ────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: union-bank-redis
+    restart: unless-stopped
+    ports:
+      # Exposed only for local development — remove in production
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - union_bank_net
+
+
+# ── Persistent Volumes ───────────────────────────────────────────────────────
+volumes:
+  union_bank_data:
+    driver: local
+  redis_data:
+    driver: local
+
+
+# ── Network ──────────────────────────────────────────────────────────────────
+networks:
+  union_bank_net:
+    driver: bridge

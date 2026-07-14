@@ -1,0 +1,49 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Docker Compose — Production Override
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Hardens the default docker-compose.yml for production deployment.
+#  Apply with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  web:
+    # Remove volume mounts in production (code is baked into the image)
+    volumes:
+      - union_bank_data:/app/data
+    # Restart more aggressively
+    restart: always
+    # No port mapping — put behind a reverse proxy (nginx/traefik) instead
+    ports: []
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  api:
+    volumes:
+      - union_bank_data:/app/data
+    restart: always
+    ports: []
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  redis:
+    # Don't expose Redis port in production
+    ports: []
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M

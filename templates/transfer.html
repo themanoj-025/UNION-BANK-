@@ -21,7 +21,8 @@
     <form method="POST"
           hx-post="{{ url_for('transfer') }}"
           hx-target="#txn-result"
-          hx-swap="innerHTML">
+          hx-swap="innerHTML"
+          hx-indicator="#transfer-spinner">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="target_account" value="{{ target_acc_no }}">
       <input type="hidden" name="amount" value="{{ amount }}">
@@ -29,8 +30,8 @@
       <input type="hidden" name="confirm" value="yes">
       <div class="btn-group">
         <button type="submit" class="btn btn-success" id="confirm-transfer-btn">
-          <span id="transfer-spinner" class="htmx-indicator">⏳</span>
-          ✅ Confirm Transfer
+          <span id="transfer-spinner" class="spinner spinner-sm htmx-indicator" style="color: inherit;"></span>
+          <span class="btn-label">✅ Confirm Transfer</span>
         </button>
         <a href="{{ url_for('transfer') }}" class="btn btn-outline">Cancel</a>
       </div>
@@ -64,8 +65,8 @@
       </div>
       <div class="btn-group">
         <button type="submit" class="btn btn-primary" id="transfer-step-btn">
-          <span id="transfer-step-spinner" class="htmx-indicator">⏳</span>
-          Continue →
+          <span id="transfer-step-spinner" class="spinner spinner-sm htmx-indicator" style="color: inherit;"></span>
+          <span class="btn-label">Continue →</span>
         </button>
         <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Cancel</a>
       </div>

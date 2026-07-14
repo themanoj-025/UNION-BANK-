@@ -13,7 +13,7 @@ from datetime import datetime
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    flash, session, send_file,
+    flash, session, send_file, Response as FlaskResponse, make_response,
 )
 from flask_wtf.csrf import CSRFProtect
 
@@ -23,6 +23,11 @@ try:
     HAS_FPDF = True
 except ImportError:
     HAS_FPDF = False
+
+# Observability
+import secrets
+from logger import set_request_id, get_request_id, clear_context
+from infrastructure.metrics import WsgiMetricsMiddleware, metrics_response
 
 # Ensure project root is in path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -52,6 +57,31 @@ from services import (
 from database import init_db
 
 init_db()
+
+# ── Request ID middleware ────────────────────────────────────────────────────
+@app.before_request
+def set_request_id_for_request():
+    """Assign a unique request ID and set up logging context for each request."""
+    request_id = request.headers.get("X-Request-ID") or secrets.token_hex(16)
+    set_request_id(request_id)
+
+
+@app.after_request
+def add_request_id_header(response):
+    """Add the request ID to the response headers."""
+    request_id = get_request_id() or secrets.token_hex(16)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+@app.teardown_request
+def cleanup_logging_context(exception=None):
+    """Clear thread-local logging context after each request (even on errors)."""
+    clear_context()
+
+
+# ── Prometheus metrics middleware ───────────────────────────────────────────
+app.wsgi_app = WsgiMetricsMiddleware(app.wsgi_app)
 
 
 # ── Font path for PDF generation ─────────────────────────────────────────
@@ -493,21 +523,34 @@ def deposit():
     if not acc:
         return redirect(url_for("login"))
 
+    is_htmx = request.headers.get("HX-Request") == "true"
+
     if request.method == "POST":
         try:
             amount = float(request.form.get("amount", "0"))
             if amount <= 0:
                 raise ValueError
         except ValueError:
+            msg = '<div class="flash flash-error">❌ Invalid amount. Please enter a positive number.</div>'
+            if is_htmx:
+                return msg
             flash("Invalid amount. Please enter a positive number.", "error")
-            return render_template("deposit.html", acc=acc)
+            return render_template("deposit.html", acc=acc, categories=TRANSACTION_CATEGORIES)
 
         category = request.form.get("category", "General")
         result = process_deposit(acc.account_number, amount, category)
         if result.success:
             acc.balance = result.data["balance"]
+            if is_htmx:
+                resp = make_response(
+                    f'<div class="flash flash-success">✅ {result.message}</div>'
+                )
+                resp.headers["HX-Redirect"] = url_for("dashboard")
+                return resp
             flash(result.message, "success")
         else:
+            if is_htmx:
+                return f'<div class="flash flash-error">❌ {result.message}</div>'
             flash(result.message, "error")
         return redirect(url_for("dashboard"))
 
@@ -527,25 +570,41 @@ def withdraw():
     if not acc:
         return redirect(url_for("login"))
 
+    is_htmx = request.headers.get("HX-Request") == "true"
+
     if request.method == "POST":
         try:
             amount = float(request.form.get("amount", "0"))
             if amount <= 0:
                 raise ValueError
         except ValueError:
+            msg = '<div class="flash flash-error">❌ Invalid amount. Please enter a positive number.</div>'
+            if is_htmx:
+                return msg
             flash("Invalid amount. Please enter a positive number.", "error")
-            return render_template("withdraw.html", acc=acc)
+            return render_template("withdraw.html", acc=acc, categories=TRANSACTION_CATEGORIES)
 
         if amount > acc.balance:
+            msg = '<div class="flash flash-error">❌ Insufficient balance!</div>'
+            if is_htmx:
+                return msg
             flash("Insufficient balance!", "error")
-            return render_template("withdraw.html", acc=acc)
+            return render_template("withdraw.html", acc=acc, categories=TRANSACTION_CATEGORIES)
 
         category = request.form.get("category", "General")
         result = process_withdraw(acc.account_number, amount, category)
         if result.success:
             acc.balance = result.data["balance"]
+            if is_htmx:
+                resp = make_response(
+                    f'<div class="flash flash-success">✅ {result.message}</div>'
+                )
+                resp.headers["HX-Redirect"] = url_for("dashboard")
+                return resp
             flash(result.message, "success")
         else:
+            if is_htmx:
+                return f'<div class="flash flash-error">❌ {result.message}</div>'
             flash(result.message, "error")
         return redirect(url_for("dashboard"))
 
@@ -565,7 +624,9 @@ def transfer():
     if not acc:
         return redirect(url_for("login"))
 
+    is_htmx = request.headers.get("HX-Request") == "true"
     recipient = None
+
     if request.method == "POST":
         target_acc_no = request.form.get("target_account", "").strip()
         try:
@@ -573,6 +634,9 @@ def transfer():
             if amount <= 0:
                 raise ValueError
         except ValueError:
+            msg = '<div class="flash flash-error">❌ Invalid amount. Please enter a positive number.</div>'
+            if is_htmx:
+                return msg
             flash("Invalid amount. Please enter a positive number.", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
 
@@ -581,22 +645,37 @@ def transfer():
         accounts = load_json(ACCOUNTS_FILE)
 
         if target_acc_no not in accounts:
+            msg = '<div class="flash flash-error">❌ Recipient account not found.</div>'
+            if is_htmx:
+                return msg
             flash("Recipient account not found.", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
 
         if target_acc_no == acc.account_number:
+            msg = '<div class="flash flash-error">❌ Cannot transfer to your own account.</div>'
+            if is_htmx:
+                return msg
             flash("Cannot transfer to your own account.", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
 
         target_data = accounts[target_acc_no]
         if target_data.get("is_frozen"):
+            msg = '<div class="flash flash-error">❌ Recipient account is frozen.</div>'
+            if is_htmx:
+                return msg
             flash("Recipient account is frozen.", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
         if not target_data.get("is_active", True):
+            msg = '<div class="flash flash-error">❌ Recipient account is closed.</div>'
+            if is_htmx:
+                return msg
             flash("Recipient account is closed.", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
 
         if amount > acc.balance:
+            msg = '<div class="flash flash-error">❌ Insufficient balance!</div>'
+            if is_htmx:
+                return msg
             flash("Insufficient balance!", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
 
@@ -625,12 +704,22 @@ def transfer():
 
         if result.success:
             acc.balance = result.sender_balance
+            if is_htmx:
+                resp = make_response(
+                    f'<div class="flash flash-success">✅ '
+                    f'{fmt_currency(amount)} transferred to {target_data["name"]} '
+                    f'({target_acc_no}) successfully!</div>'
+                )
+                resp.headers["HX-Redirect"] = url_for("dashboard")
+                return resp
             flash(
                 f"{fmt_currency(amount)} transferred to {target_data['name']} "
                 f"({target_acc_no}) successfully!",
                 "success",
             )
         else:
+            if is_htmx:
+                return f'<div class="flash flash-error">❌ {result.error_message}</div>'
             flash(result.error_message, "error")
             return render_template("transfer.html", acc=acc, recipient=None)
 
@@ -1126,6 +1215,47 @@ def admin_login():
             return render_template("admin_login.html")
 
     return render_template("admin_login.html")
+
+
+@app.route("/admin/search-results")
+@admin_required
+def admin_search_results():
+    """HTMX fragment: returns search results for admin search."""
+    query = request.args.get("query", "").strip().lower()
+    if not query or len(query) < 1:
+        return ""
+
+    from container import get_container
+    domain_accounts = get_container().admin_service().search_accounts(query)
+    results = [{
+        "account_number": a.account_number,
+        "name": a.name,
+        "age": a.age,
+        "gender": a.gender,
+        "mobile": a.mobile,
+        "email": a.email,
+        "balance": float(a.balance),
+        "is_active": a.is_active,
+        "is_frozen": a.is_frozen,
+        "created_at": str(a.created_at)[:19],
+    } for a in domain_accounts]
+
+    return render_template(
+        "_search_results.html",
+        results=results,
+        query=query,
+        fmt_currency=fmt_currency,
+    )
+
+
+@app.route("/admin/balance-refresh")
+@login_required
+def balance_refresh():
+    """HTMX fragment: returns the current balance card."""
+    acc = get_account()
+    if not acc:
+        return ""
+    return render_template("_balance_card.html", acc=acc, fmt_currency=fmt_currency)
 
 
 @app.route("/admin/dashboard")

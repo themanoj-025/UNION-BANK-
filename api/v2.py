@@ -1,0 +1,770 @@
+"""
+api/v2.py  –  V2 API Router with standardised ApiResponse[T] envelopes.
+
+All endpoints return the same shape:
+    { "success": true/false, "data": ..., "error": ..., "meta": ... }
+
+V2 also introduces:
+  - Generic error handling (no bare HTTPExceptions)
+  - Keyset-cursor pagination for statements
+  - Consistent response structure
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional
+
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+
+from api.common import (
+    get_current_customer,
+    get_current_admin,
+    create_token_pair,
+    _get_verifying_key,
+    revoke_refresh_token,
+    verify_refresh_token,
+)
+from api.models import (
+    AccountListItem,
+    AdminLoginRequest,
+    ApiResponse,
+    BalanceData,
+    ChangePasswordRequest,
+    CloseAccountRequest,
+    HealthData,
+    KeysetMeta,
+    LoginRequest,
+    MessageData,
+    ProfileData,
+    RegisterRequest,
+    RefreshRequest,
+    SavingsGoalContribute,
+    SavingsGoalCreate,
+    SavingsGoalOut,
+    SavingsGoalsSummary,
+    StatisticsData,
+    TokenData,
+    TransactionOut,
+    TransactionRequest,
+    TransferRequest,
+    UpdateProfileRequest,
+)
+
+router = APIRouter(prefix="/api/v2")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Helpers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _get_container():
+    """Lazy-import the DI container."""
+    from container import get_container
+    return get_container()
+
+
+def _fmt_currency(val: float) -> str:
+    from utils import fmt_currency as _fc
+    return _fc(val)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Response helpers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _ok(data, meta: Optional[dict] = None) -> ApiResponse:
+    """Build a success response."""
+    return ApiResponse(success=True, data=data, meta=meta)
+
+
+def _err(message: str, status_code: int = 400):
+    """Build an error response (raises HTTPException with envelope body)."""
+    resp = ApiResponse(success=False, error=message)
+    raise HTTPException(status_code=status_code, detail=resp.model_dump())
+
+
+# ── Custom exception handler — returns flat envelope for errors ──────────
+
+
+@router.exception_handler(HTTPException)
+async def v2_http_exception_handler(request, exc: HTTPException):
+    """Override FastAPI's default exception handler for the v2 router.
+
+    Instead of wrapping the error in {"detail": {...}}, we return the
+    ApiResponse envelope directly as the response body.
+    """
+    from fastapi.responses import JSONResponse
+
+    detail = exc.detail
+    if isinstance(detail, dict):
+        # Already an ApiResponse dict — pass through directly
+        return JSONResponse(status_code=exc.status_code, content=detail)
+    # Plain string detail — wrap in standard error envelope
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ApiResponse(success=False, error=str(detail)).model_dump(),
+    )
+
+@router.exception_handler(Exception)
+async def v2_generic_exception_handler(request, exc: Exception):
+    """Catch unhandled exceptions and return a 500 envelope response."""
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=500,
+        content=ApiResponse(
+            success=False, error="An unexpected error occurred."
+        ).model_dump(),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Auth Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.post("/auth/login", response_model=ApiResponse[TokenData])
+def v2_customer_login(req: LoginRequest):
+    """Authenticate a customer and return a JWT access + refresh token pair."""
+    c = _get_container()
+    auth_result = c.auth_service().customer_login(req.account_number, req.password)
+
+    if not auth_result.success:
+        msg = auth_result.message.lower()
+        if "locked" in msg:
+            _err(auth_result.message, status.HTTP_429_TOO_MANY_REQUESTS)
+        if "not found" in msg:
+            _err(auth_result.message, status.HTTP_404_NOT_FOUND)
+        _err(auth_result.message, status.HTTP_401_UNAUTHORIZED)
+
+    tokens = create_token_pair(subject=req.account_number, role="customer")
+    return _ok(TokenData(
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role="customer",
+        expires_in=tokens["expires_in"],
+    ))
+
+
+@router.post("/auth/register", response_model=ApiResponse[MessageData])
+def v2_customer_register(req: RegisterRequest):
+    """Register a new customer account."""
+    from utils import validate_name, validate_phone, validate_email, validate_password
+
+    if not validate_name(req.name):
+        _err("Name must be 2-50 characters (letters and spaces only).")
+    if not validate_phone(req.mobile):
+        _err("Invalid mobile number. Must be 10 digits starting with 6-9.")
+    if not validate_email(req.email):
+        _err("Invalid email format.")
+    valid_pwd, pwd_msg = validate_password(req.password)
+    if not valid_pwd:
+        _err(pwd_msg)
+    if req.password != req.confirm_password:
+        _err("Passwords do not match.")
+
+    c = _get_container()
+    result = c.auth_service().customer_register(
+        name=req.name, age=req.age, gender=req.gender,
+        mobile=req.mobile, email=req.email, password=req.password,
+    )
+    if not result.success:
+        _err(result.message)
+
+    return _ok(MessageData(message=result.message))
+
+
+@router.post("/auth/admin-login", response_model=ApiResponse[TokenData])
+def v2_admin_login(req: AdminLoginRequest):
+    """Authenticate as admin and return a JWT access + refresh token pair."""
+    c = _get_container()
+    auth_result = c.auth_service().admin_login(req.username, req.password)
+
+    if not auth_result.success:
+        msg = auth_result.message.lower()
+        if "locked" in msg:
+            _err(auth_result.message, status.HTTP_429_TOO_MANY_REQUESTS)
+        _err(auth_result.message, status.HTTP_401_UNAUTHORIZED)
+
+    tokens = create_token_pair(subject=req.username, role="admin")
+    return _ok(TokenData(
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role="admin",
+        expires_in=tokens["expires_in"],
+    ))
+
+
+@router.post("/auth/refresh", response_model=ApiResponse[TokenData])
+def v2_refresh_token(req: RefreshRequest):
+    """Exchange a refresh token for a new access + refresh token pair.
+
+    The previous refresh token is revoked (rotation) so it cannot be reused.
+    """
+    result = verify_refresh_token(req.refresh_token)
+    if result is None:
+        _err("Invalid or expired refresh token.", status.HTTP_401_UNAUTHORIZED)
+
+    # Revoke old refresh token (rotation)
+    try:
+        old_payload = jwt.decode(
+            req.refresh_token,
+            _get_verifying_key(),
+            algorithms=["RS256", "HS256"],
+            options={"verify_exp": False},
+        )
+        old_sub = old_payload.get("sub", "")
+        if ":" in old_sub:
+            _, old_token_id = old_sub.rsplit(":", 1)
+            revoke_refresh_token(old_token_id)
+    except Exception:
+        pass
+
+    tokens = create_token_pair(subject=result["account_number"], role=result["role"])
+    return _ok(TokenData(
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role=result["role"],
+        expires_in=tokens["expires_in"],
+    ))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Customer Account Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/account/profile", response_model=ApiResponse[ProfileData])
+def v2_get_profile(customer: dict = Depends(get_current_customer)):
+    """Get the authenticated customer's profile details."""
+    from api.common import get_account_status
+
+    return _ok(ProfileData(
+        account_number=customer["account_number"],
+        name=customer["name"],
+        age=customer["age"],
+        gender=customer["gender"],
+        mobile=customer["mobile"],
+        email=customer["email"],
+        balance=customer["balance"],
+        balance_formatted=_fmt_currency(customer["balance"]),
+        status=get_account_status(customer),
+        created_at=customer.get("created_at", "N/A"),
+    ))
+
+
+@router.put("/account/profile", response_model=ApiResponse[ProfileData])
+def v2_update_profile(req: UpdateProfileRequest, customer: dict = Depends(get_current_customer)):
+    """Update the authenticated customer's profile details."""
+    from utils import validate_name, validate_phone, validate_email
+    from api.common import get_account_status
+
+    acc_no = customer["account_number"]
+    c = _get_container()
+    domain_account = c.account_repo().get(acc_no)
+    if not domain_account:
+        _err("Account not found.", status.HTTP_404_NOT_FOUND)
+
+    if req.name is not None:
+        if not validate_name(req.name):
+            _err("Invalid name. Must be 2-50 characters (letters and spaces only).")
+        domain_account.name = req.name
+    if req.age is not None:
+        domain_account.age = req.age
+    if req.gender is not None:
+        domain_account.gender = req.gender
+    if req.mobile is not None:
+        if not validate_phone(req.mobile):
+            _err("Invalid mobile number. Must be 10 digits starting with 6-9.")
+        domain_account.mobile = req.mobile
+    if req.email is not None:
+        if not validate_email(req.email):
+            _err("Invalid email format.")
+        domain_account.email = req.email
+
+    c.account_repo().update(domain_account)
+    c.account_repo().commit()
+
+    return _ok(ProfileData(
+        account_number=domain_account.account_number,
+        name=domain_account.name,
+        age=domain_account.age,
+        gender=domain_account.gender,
+        mobile=domain_account.mobile,
+        email=domain_account.email,
+        balance=float(domain_account.balance),
+        balance_formatted=_fmt_currency(float(domain_account.balance)),
+        status=get_account_status({
+            "is_frozen": domain_account.is_frozen,
+            "is_active": domain_account.is_active,
+        }),
+        created_at=str(domain_account.created_at)[:19],
+    ))
+
+
+@router.post("/account/change-password", response_model=ApiResponse[MessageData])
+def v2_change_password(req: ChangePasswordRequest, customer: dict = Depends(get_current_customer)):
+    """Change the authenticated customer's password."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+    result = c.account_service().change_password(
+        acc_no=acc_no, current_pwd=req.current_password, new_pwd=req.new_password
+    )
+    if not result.success:
+        _err(result.message)
+
+    return _ok(MessageData(message=result.message))
+
+
+@router.post("/account/close", response_model=ApiResponse[MessageData])
+def v2_close_account(req: CloseAccountRequest, customer: dict = Depends(get_current_customer)):
+    """Close the authenticated customer's account."""
+    if req.confirm_text != "CLOSE":
+        _err("Please type 'CLOSE' to confirm.")
+
+    from utils import verify_password
+
+    acc_no = customer["account_number"]
+    c = _get_container()
+
+    domain_account = c.account_repo().get(acc_no)
+    if not domain_account:
+        _err("Account not found.", status.HTTP_404_NOT_FOUND)
+
+    if not verify_password(req.password, domain_account.password):
+        _err("Incorrect password.")
+
+    result = c.account_service().close_account(acc_no=acc_no, password=req.password)
+    if not result.success:
+        _err(result.message)
+
+    return _ok(MessageData(message=result.message))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Customer Transaction Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/account/balance", response_model=ApiResponse[BalanceData])
+def v2_get_balance(customer: dict = Depends(get_current_customer)):
+    """Get the current account balance."""
+    c = _get_container()
+    domain_account = c.account_repo().get(customer["account_number"])
+    if not domain_account:
+        _err("Account not found.", status.HTTP_404_NOT_FOUND)
+
+    return _ok(BalanceData(
+        account_number=domain_account.account_number,
+        name=domain_account.name,
+        balance=float(domain_account.balance),
+        balance_formatted=_fmt_currency(float(domain_account.balance)),
+    ))
+
+
+@router.post("/account/deposit", response_model=ApiResponse[MessageData])
+def v2_deposit_money(req: TransactionRequest, customer: dict = Depends(get_current_customer)):
+    """Deposit money into the authenticated customer's account."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+    result = c.transaction_service().deposit(
+        acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
+    )
+    if not result.success:
+        _err(result.message)
+
+    return _ok(MessageData(message=result.message))
+
+
+@router.post("/account/withdraw", response_model=ApiResponse[MessageData])
+def v2_withdraw_money(req: TransactionRequest, customer: dict = Depends(get_current_customer)):
+    """Withdraw money from the authenticated customer's account."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+    result = c.transaction_service().withdraw(
+        acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
+    )
+    if not result.success:
+        _err(result.message)
+
+    return _ok(MessageData(message=result.message))
+
+
+@router.post("/account/transfer", response_model=ApiResponse[MessageData])
+def v2_transfer_funds(req: TransferRequest, customer: dict = Depends(get_current_customer)):
+    """Transfer funds to another account."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+
+    sender = c.account_repo().get(acc_no)
+    if not sender:
+        _err("Sender account not found.", status.HTTP_404_NOT_FOUND)
+
+    receiver = c.account_repo().get(req.target_account)
+    if not receiver:
+        _err("Recipient account not found.", status.HTTP_404_NOT_FOUND)
+
+    result = c.transaction_service().transfer(
+        sender_acc_no=acc_no,
+        receiver_acc_no=req.target_account,
+        amount=Decimal(str(req.amount)),
+        category=req.category,
+    )
+    if not result.success:
+        _err(result.error_message)
+
+    return _ok(MessageData(
+        message=f"{_fmt_currency(req.amount)} transferred to {receiver.name} "
+                f"({req.target_account}). New balance: {_fmt_currency(float(result.sender_balance))}"
+    ))
+
+
+@router.get("/account/statements", response_model=ApiResponse[list[TransactionOut]])
+def v2_get_full_statement(customer: dict = Depends(get_current_customer)):
+    """Get the full transaction statement (newest first)."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+    domain_txns = c.transaction_repo().get_by_account(acc_no)
+
+    return _ok([
+        TransactionOut(
+            txn_id=t.txn_id,
+            timestamp=str(t.timestamp)[:19],
+            type=t.type.value,
+            amount=float(t.amount),
+            balance=float(t.balance),
+            description=t.description,
+            category=t.category,
+            target_account=t.target_account,
+        )
+        for t in domain_txns
+    ])
+
+
+@router.get("/account/statements/mini", response_model=ApiResponse[list[TransactionOut]])
+def v2_get_mini_statement(customer: dict = Depends(get_current_customer)):
+    """Get the last 5 transactions (mini statement)."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+    domain_txns = c.transaction_repo().get_mini(acc_no, 5)
+
+    return _ok([
+        TransactionOut(
+            txn_id=t.txn_id,
+            timestamp=str(t.timestamp)[:19],
+            type=t.type.value,
+            amount=float(t.amount),
+            balance=float(t.balance),
+            description=t.description,
+            category=t.category,
+            target_account=t.target_account,
+        )
+        for t in domain_txns
+    ])
+
+
+@router.get("/account/statements/keyset", response_model=ApiResponse[list[TransactionOut]])
+def v2_get_statement_keyset(
+    cursor: Optional[str] = Query(None, description="Timestamp cursor from previous page"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    customer: dict = Depends(get_current_customer),
+):
+    """Get paginated statement using keyset (cursor-based) pagination.
+
+    More efficient than offset-based pagination on large datasets.
+    Include the `cursor` value from the previous page's meta to get the next page.
+    """
+    acc_no = customer["account_number"]
+    c = _get_container()
+
+    cursor_dt: Optional[datetime] = None
+    if cursor:
+        try:
+            cursor_dt = datetime.fromisoformat(cursor)
+        except (ValueError, TypeError):
+            _err("Invalid cursor format. Use ISO 8601 timestamp.")
+
+    page = c.transaction_service().get_paginated_keyset(
+        acc_no=acc_no, limit=limit, cursor=cursor_dt
+    )
+
+    items = [
+        TransactionOut(
+            txn_id=t.txn_id,
+            timestamp=str(t.timestamp)[:19],
+            type=t.type.value,
+            amount=float(t.amount),
+            balance=float(t.balance),
+            description=t.description,
+            category=t.category,
+            target_account=t.target_account,
+        )
+        for t in page.items
+    ]
+
+    next_cursor = str(page.cursor) if page.cursor else None
+    return _ok(items, meta=KeysetMeta(
+        cursor=next_cursor,
+        has_more=page.has_more,
+        cursor_key=page.cursor_key,
+    ).model_dump())
+
+
+@router.get("/account/export-csv", response_model=None)
+def v2_export_csv(customer: dict = Depends(get_current_customer)):
+    """Download transaction history as a CSV file."""
+    import csv
+    import io
+
+    acc_no = customer["account_number"]
+    c = _get_container()
+    domain_txns = c.transaction_repo().get_by_account(acc_no)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Transaction ID", "Date/Time", "Type", "Amount",
+                      "Balance", "Description", "Category"])
+    for t in domain_txns:
+        sign = "+" if t.type.value in ("DEPOSIT", "TRANSFER_IN") else "-"
+        writer.writerow([
+            t.txn_id,
+            str(t.timestamp)[:19],
+            t.type.value,
+            f"{sign}{float(t.amount)}",
+            float(t.balance),
+            t.description,
+            t.category or "General",
+        ])
+
+    output.seek(0)
+    return Response(
+        content=output.getvalue().encode("utf-8-sig"),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=statement_{acc_no}.csv"},
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Savings Goals Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/savings", response_model=ApiResponse[SavingsGoalsSummary])
+def v2_list_savings_goals(customer: dict = Depends(get_current_customer)):
+    """List all savings goals for the authenticated customer."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+    goals = c.savings_goal_repo().get_by_account(acc_no)
+
+    goal_list = []
+    for g in goals:
+        pct = round((float(g.current_amount) / float(g.target_amount) * 100), 1) if float(g.target_amount) > 0 else 0
+        goal_list.append(SavingsGoalOut(
+            goal_id=g.goal_id, name=g.name,
+            target_amount=float(g.target_amount),
+            current_amount=float(g.current_amount),
+            target_date=g.target_date,
+            created_at=str(g.created_at)[:19],
+            is_completed=g.is_completed,
+            progress_pct=pct,
+        ))
+
+    total_saved = sum(float(g.current_amount) for g in goals)
+    total_target = sum(float(g.target_amount) for g in goals)
+    completed = sum(1 for g in goals if g.is_completed)
+
+    return _ok(SavingsGoalsSummary(
+        total_goals=len(goals), completed=completed,
+        total_saved=total_saved, total_saved_formatted=_fmt_currency(total_saved),
+        total_target=total_target, total_target_formatted=_fmt_currency(total_target),
+        goals=goal_list,
+    ))
+
+
+@router.post("/savings", response_model=ApiResponse[SavingsGoalOut], status_code=status.HTTP_201_CREATED)
+def v2_create_savings_goal(req: SavingsGoalCreate, customer: dict = Depends(get_current_customer)):
+    """Create a new savings goal."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+    result = c.savings_goal_service().create_goal(
+        acc_no=acc_no, name=req.name,
+        target_amount=Decimal(str(req.target_amount)),
+        target_date=req.target_date,
+    )
+    if not result.success:
+        _err(result.message)
+
+    goals = c.savings_goal_repo().get_by_account(acc_no)
+    if goals:
+        g = goals[-1]
+        return _ok(SavingsGoalOut(
+            goal_id=g.goal_id, name=g.name,
+            target_amount=float(g.target_amount),
+            current_amount=float(g.current_amount),
+            target_date=g.target_date,
+            created_at=str(g.created_at)[:19],
+            is_completed=False, progress_pct=0.0,
+        ))
+    _err("Failed to create goal.", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.post("/savings/{goal_id}/contribute", response_model=ApiResponse[SavingsGoalOut])
+def v2_contribute_to_goal(goal_id: str, req: SavingsGoalContribute, customer: dict = Depends(get_current_customer)):
+    """Contribute money from your balance to a savings goal."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+
+    result = c.savings_goal_service().contribute(
+        acc_no=acc_no, goal_id=goal_id, amount=Decimal(str(req.amount))
+    )
+    if not result.success:
+        _err(result.message)
+
+    goal = c.savings_goal_repo().get(goal_id)
+    if not goal:
+        _err("Goal not found.", status.HTTP_404_NOT_FOUND)
+
+    pct = round((float(goal.current_amount) / float(goal.target_amount) * 100), 1) if float(goal.target_amount) > 0 else 0
+    return _ok(SavingsGoalOut(
+        goal_id=goal.goal_id, name=goal.name,
+        target_amount=float(goal.target_amount),
+        current_amount=float(goal.current_amount),
+        target_date=goal.target_date,
+        created_at=str(goal.created_at)[:19],
+        is_completed=goal.is_completed, progress_pct=pct,
+    ))
+
+
+@router.delete("/savings/{goal_id}", response_model=ApiResponse[MessageData])
+def v2_delete_savings_goal(goal_id: str, customer: dict = Depends(get_current_customer)):
+    """Delete a savings goal and refund the amount to your balance."""
+    acc_no = customer["account_number"]
+    c = _get_container()
+    result = c.savings_goal_service().delete_goal(acc_no=acc_no, goal_id=goal_id)
+    if not result.success:
+        _err(result.message)
+
+    return _ok(MessageData(message=result.message))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Admin Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/admin/accounts", response_model=ApiResponse[list[AccountListItem]])
+def v2_admin_view_accounts(admin: dict = Depends(get_current_admin)):
+    """View all registered accounts (admin only)."""
+    c = _get_container()
+    domain_accounts = c.admin_service().list_accounts()
+    return _ok([
+        AccountListItem(
+            account_number=a.account_number, name=a.name,
+            balance=float(a.balance),
+            balance_formatted=_fmt_currency(float(a.balance)),
+            status="frozen" if a.is_frozen else ("closed" if not a.is_active else "active"),
+            mobile=a.mobile, email=a.email, age=a.age, gender=a.gender,
+            created_at=str(a.created_at)[:19],
+        )
+        for a in domain_accounts
+    ])
+
+
+@router.get("/admin/accounts/search", response_model=ApiResponse[list[AccountListItem]])
+def v2_admin_search_accounts(
+    q: str = Query(..., min_length=1, description="Search by account number or name"),
+    admin: dict = Depends(get_current_admin),
+):
+    """Search accounts by account number or name (admin only)."""
+    c = _get_container()
+    domain_accounts = c.admin_service().search_accounts(q)
+    return _ok([
+        AccountListItem(
+            account_number=a.account_number, name=a.name,
+            balance=float(a.balance),
+            balance_formatted=_fmt_currency(float(a.balance)),
+            status="frozen" if a.is_frozen else ("closed" if not a.is_active else "active"),
+            mobile=a.mobile, email=a.email, age=a.age, gender=a.gender,
+            created_at=str(a.created_at)[:19],
+        )
+        for a in domain_accounts
+    ])
+
+
+@router.post("/admin/accounts/{acc_no}/freeze", response_model=ApiResponse[MessageData])
+def v2_admin_freeze_account(acc_no: str, admin: dict = Depends(get_current_admin)):
+    """Freeze a customer account (admin only)."""
+    c = _get_container()
+    result = c.admin_service().freeze_account(acc_no=acc_no, actor="admin")
+    if not result.success:
+        if "not found" in result.message.lower():
+            _err(result.message, status.HTTP_404_NOT_FOUND)
+        _err(result.message)
+
+    return _ok(MessageData(message=result.message))
+
+
+@router.post("/admin/accounts/{acc_no}/unfreeze", response_model=ApiResponse[MessageData])
+def v2_admin_unfreeze_account(acc_no: str, admin: dict = Depends(get_current_admin)):
+    """Unfreeze a customer account (admin only)."""
+    c = _get_container()
+    result = c.admin_service().unfreeze_account(acc_no=acc_no, actor="admin")
+    if not result.success:
+        if "not found" in result.message.lower():
+            _err(result.message, status.HTTP_404_NOT_FOUND)
+        _err(result.message)
+
+    return _ok(MessageData(message=result.message))
+
+
+@router.delete("/admin/accounts/{acc_no}", response_model=ApiResponse[MessageData])
+def v2_admin_delete_account(acc_no: str, admin: dict = Depends(get_current_admin)):
+    """Permanently delete a customer account and all its transactions (admin only)."""
+    c = _get_container()
+    result = c.admin_service().delete_account(acc_no=acc_no, actor="admin")
+    if not result.success:
+        _err(result.message, status.HTTP_404_NOT_FOUND)
+
+    return _ok(MessageData(message=result.message))
+
+
+@router.get("/admin/statistics", response_model=ApiResponse[StatisticsData])
+def v2_admin_statistics(admin: dict = Depends(get_current_admin)):
+    """View bank-wide statistics (admin only)."""
+    c = _get_container()
+    s = c.admin_service().get_statistics()
+
+    return _ok(StatisticsData(
+        total_customers=s["total_customers"],
+        active_accounts=s["active"],
+        frozen_accounts=s["frozen"],
+        closed_accounts=s["closed"],
+        total_balance=s["total_balance"],
+        total_balance_formatted=s["total_balance_formatted"],
+        total_deposits=s["total_dep"],
+        total_withdrawals=s["total_with"],
+        total_transfers=s["total_trans"],
+        total_transactions=s["total_txns"],
+    ))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Utility Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/categories", response_model=ApiResponse[list[str]])
+def v2_list_categories():
+    """List all available transaction categories."""
+    from application.services import TRANSACTION_CATEGORIES
+    return _ok(TRANSACTION_CATEGORIES)
+
+
+@router.get("/health", response_model=ApiResponse[HealthData])
+def v2_health_check():
+    """Health check endpoint."""
+    return _ok(HealthData())

@@ -8,7 +8,11 @@
       <div class="card-subtitle">Current balance: {{ fmt_currency(acc.balance) }}</div>
     </div>
   </div>
-  <form method="POST">
+  <form method="POST"
+        hx-post="{{ url_for('deposit') }}"
+        hx-target="#txn-result"
+        hx-swap="innerHTML"
+        hx-indicator="#deposit-spinner">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
       <label for="amount">Amount (₹)</label>
@@ -24,9 +28,13 @@
       </select>
     </div>
     <div class="btn-group">
-      <button type="submit" class="btn btn-success">Deposit</button>
+      <button type="submit" class="btn btn-success" id="deposit-btn">
+        <span id="deposit-spinner" class="htmx-indicator">⏳</span>
+        Deposit
+      </button>
       <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Cancel</a>
     </div>
+    <div id="txn-result" style="margin-top: 12px;"></div>
   </form>
 </div>
 {% endblock %}

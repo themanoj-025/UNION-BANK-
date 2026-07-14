@@ -1,0 +1,286 @@
+"""
+api/models.py  –  Shared Pydantic models for the Union Bank REST API.
+
+Includes the generic ApiResponse[T] envelope type and all request/response
+models used by v1 and v2 endpoints.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+from typing import Any, Generic, Optional, TypeVar
+
+from pydantic import BaseModel, Field
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Generic API Response Envelope
+# ═══════════════════════════════════════════════════════════════════════════════
+
+T = TypeVar("T")
+
+
+class ApiResponse(BaseModel, Generic[T]):
+    """Generic API response envelope.
+
+    Every v2 endpoint returns a standardised wrapper with:
+      success  – boolean indicating operation success.
+      data     – the response payload (null on error).
+      error    – human-readable error message (null on success).
+      meta     – optional metadata (pagination cursors, timestamps, etc.).
+
+    Example (success):
+      { "success": true, "data": { "balance": 2500.00 }, "error": null, "meta": null }
+
+    Example (error):
+      { "success": false, "data": null, "error": "Insufficient balance.", "meta": null }
+    """
+
+    success: bool = True
+    data: Optional[T] = None
+    error: Optional[str] = None
+    meta: Optional[dict[str, Any]] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Pagination meta
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class PageMeta(BaseModel):
+    """Pagination metadata included in ApiResponse.meta for list endpoints."""
+
+    page: int = 1
+    per_page: int = 20
+    total: int = 0
+    total_pages: int = 1
+
+
+class KeysetMeta(BaseModel):
+    """Keyset (cursor) pagination metadata for ApiResponse.meta."""
+
+    cursor: Optional[str] = None
+    has_more: bool = False
+    cursor_key: str = "timestamp"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Auth Request Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class LoginRequest(BaseModel):
+    account_number: str = Field(..., description="10-digit account number")
+    password: str = Field(..., min_length=1, description="Account password")
+
+
+class RegisterRequest(BaseModel):
+    name: str = Field(..., description="Full name (2-50 chars, letters/spaces only)")
+    age: int = Field(..., ge=18, le=120, description="Age (18-120)")
+    gender: str = Field(..., description="Gender")
+    mobile: str = Field(..., description="10-digit mobile number starting with 6-9")
+    email: str = Field(..., description="Valid email address")
+    password: str = Field(..., min_length=8, description="Password: min 8 chars, upper+lower+digit")
+    confirm_password: str = Field(..., description="Must match password")
+
+
+class AdminLoginRequest(BaseModel):
+    username: str = Field(..., description="Admin username")
+    password: str = Field(..., min_length=1, description="Admin password")
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., description="Refresh token from previous login")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Auth Response Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TokenData(BaseModel):
+    """Payload inside ApiResponse.data for /auth/* endpoints."""
+
+    access_token: str
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    role: str
+    expires_in: Optional[int] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Transaction Request Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TransactionRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Positive transaction amount")
+    category: str = Field(default="General", description="Transaction category")
+
+
+class TransferRequest(BaseModel):
+    target_account: str = Field(..., description="Recipient account number")
+    amount: float = Field(..., gt=0, description="Transfer amount")
+    category: str = Field(default="General", description="Transaction category")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Account Request Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+    confirm_password: str
+
+
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    age: Optional[int] = Field(default=None, ge=18, le=120)
+    gender: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+
+
+class CloseAccountRequest(BaseModel):
+    confirm_text: str = Field(..., description="Must be 'CLOSE'")
+    password: str
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Account Response Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class BalanceData(BaseModel):
+    """Account balance payload."""
+
+    account_number: str
+    name: str
+    balance: float
+    balance_formatted: str
+
+
+class ProfileData(BaseModel):
+    """Customer profile payload."""
+
+    account_number: str
+    name: str
+    age: int
+    gender: str
+    mobile: str
+    email: str
+    balance: float
+    balance_formatted: str
+    status: str
+    created_at: str
+
+
+class AccountListItem(BaseModel):
+    """Account list item for admin views."""
+
+    account_number: str
+    name: str
+    balance: float
+    balance_formatted: str
+    status: str
+    mobile: str
+    email: str
+    age: int
+    gender: str
+    created_at: str
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Transaction Response Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TransactionOut(BaseModel):
+    """Single transaction in a statement."""
+
+    txn_id: str
+    timestamp: str
+    type: str
+    amount: float
+    balance: float
+    description: str
+    category: str
+    target_account: Optional[str] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Savings Goal Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class SavingsGoalCreate(BaseModel):
+    name: str = Field(..., min_length=2, description="Goal name")
+    target_amount: float = Field(..., gt=0, description="Savings target")
+    target_date: Optional[str] = Field(None, description="Optional target date (YYYY-MM-DD)")
+
+
+class SavingsGoalUpdate(BaseModel):
+    name: Optional[str] = None
+    target_amount: Optional[float] = Field(default=None, gt=0)
+    target_date: Optional[str] = None
+
+
+class SavingsGoalContribute(BaseModel):
+    amount: float = Field(..., gt=0, description="Amount to contribute")
+
+
+class SavingsGoalOut(BaseModel):
+    goal_id: str
+    name: str
+    target_amount: float
+    current_amount: float
+    target_date: Optional[str] = None
+    created_at: str
+    is_completed: bool
+    progress_pct: float = 0.0
+
+
+class SavingsGoalsSummary(BaseModel):
+    total_goals: int
+    completed: int
+    total_saved: float
+    total_saved_formatted: str
+    total_target: float
+    total_target_formatted: str
+    goals: list[SavingsGoalOut]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Admin Response Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class StatisticsData(BaseModel):
+    total_customers: int
+    active_accounts: int
+    frozen_accounts: int
+    closed_accounts: int
+    total_balance: float
+    total_balance_formatted: str
+    total_deposits: float
+    total_withdrawals: float
+    total_transfers: float
+    total_transactions: int
+
+
+class HealthData(BaseModel):
+    status: str = "healthy"
+    service: str = "Union Bank API"
+    version: str = "2.0.0"
+    api_version: str = "v2"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Generic "message" payload
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class MessageData(BaseModel):
+    message: str

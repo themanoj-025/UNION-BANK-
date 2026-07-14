@@ -6,6 +6,7 @@
   <title>{% block title %}Union Bank{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
   {# ── Theme: apply saved preference before render ── #}
   <script>
     (function() {
@@ -70,6 +71,28 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  {# ── HTMX Global Configuration ─────────────── #}
+  <script>
+    // Configure HTMX to include CSRF token on all non-GET requests
+    document.addEventListener('htmx:configRequest', function(evt) {
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+      if (csrfMeta) {
+        evt.detail.headers['X-CSRFToken'] = csrfMeta.getAttribute('content');
+      }
+    });
+
+    // Show flash messages from HTMX responses
+    document.addEventListener('htmx:afterSwap', function(evt) {
+      // Reinitialize flash auto-dismiss for any new flash messages
+      document.querySelectorAll('.flash').forEach(function(el) {
+        setTimeout(function() { el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 300); }, 4000);
+      });
+    });
+  </script>
+
+  {# ── CSRF meta tag for HTMX ─────────────────── #}
+  <meta name="csrf-token" content="{{ csrf_token() }}">
 
   {# ── Theme Toggle Script ─────────────────── #}
   <script>

@@ -9,6 +9,7 @@
     </div>
   </div>
 
+  <div id="transfer-form-content">
   {% if recipient %}
     {# ── Confirmation Step ──────────────────── #}
     <div class="confirm-box">
@@ -17,20 +18,31 @@
       <div class="confirm-detail"><strong>Amount:</strong> ₹{{ "%.2f"|format(amount) }}</div>
       <div class="confirm-detail"><strong>Category:</strong> {{ category }}</div>
     </div>
-    <form method="POST">
+    <form method="POST"
+          hx-post="{{ url_for('transfer') }}"
+          hx-target="#txn-result"
+          hx-swap="innerHTML">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="target_account" value="{{ target_acc_no }}">
       <input type="hidden" name="amount" value="{{ amount }}">
       <input type="hidden" name="category" value="{{ category }}">
       <input type="hidden" name="confirm" value="yes">
       <div class="btn-group">
-        <button type="submit" class="btn btn-success">✅ Confirm Transfer</button>
+        <button type="submit" class="btn btn-success" id="confirm-transfer-btn">
+          <span id="transfer-spinner" class="htmx-indicator">⏳</span>
+          ✅ Confirm Transfer
+        </button>
         <a href="{{ url_for('transfer') }}" class="btn btn-outline">Cancel</a>
       </div>
+      <div id="txn-result" style="margin-top: 12px;"></div>
     </form>
   {% else %}
     {# ── Transfer Form ──────────────────────── #}
-    <form method="POST">
+    <form method="POST"
+          hx-post="{{ url_for('transfer') }}"
+          hx-target="#transfer-form-content"
+          hx-swap="innerHTML"
+          hx-indicator="#transfer-step-spinner">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="target_account">Recipient Account Number</label>
@@ -51,10 +63,14 @@
         </select>
       </div>
       <div class="btn-group">
-        <button type="submit" class="btn btn-primary">Continue →</button>
+        <button type="submit" class="btn btn-primary" id="transfer-step-btn">
+          <span id="transfer-step-spinner" class="htmx-indicator">⏳</span>
+          Continue →
+        </button>
         <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Cancel</a>
       </div>
     </form>
   {% endif %}
+  </div>
 </div>
 {% endblock %}

@@ -2,20 +2,18 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 {# ── Balance Hero Card ─────────────────────────── #}
-<div class="balance-card">
-  <div class="balance-label">Account Balance</div>
-  <div class="balance-amount">{{ fmt_currency(acc.balance) }}</div>
-  <div class="account-info">
-    {{ acc.name }} &middot; Account #{{ acc.account_number }} &middot;
-    {% if acc.is_frozen %}
-      <span style="color: #ffcdd2;">🔴 FROZEN</span>
-    {% elif acc.is_active %}
-      <span style="color: #c8e6c9;">🟢 ACTIVE</span>
-    {% else %}
-      <span style="color: #fff9c4;">🟡 CLOSED</span>
-    {% endif %}
-    &middot; {{ total_txns }} transaction(s)
-  </div>
+<div id="balance-card-container">
+  {% include '_balance_card.html' %}
+</div>
+<div style="text-align: right; margin-top: -20px; margin-bottom: 20px;">
+  <button class="btn btn-sm btn-outline"
+          hx-get="{{ url_for('balance_refresh') }}"
+          hx-target="#balance-card-container"
+          hx-swap="innerHTML"
+          hx-indicator="#refresh-spinner">
+    <span id="refresh-spinner" class="htmx-indicator">⏳</span>
+    ↻ Refresh Balance
+  </button>
 </div>
 
 {# ── Quick Actions ─────────────────────────────── #}

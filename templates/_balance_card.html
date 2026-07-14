@@ -1,0 +1,14 @@
+<div class="balance-card" id="balance-card">
+  <div class="balance-label">Account Balance</div>
+  <div class="balance-amount">{{ fmt_currency(acc.balance) }}</div>
+  <div class="account-info">
+    {{ acc.name }} &middot; Account #{{ acc.account_number }} &middot;
+    {% if acc.is_frozen %}
+      <span style="color: #ffcdd2;">🔴 FROZEN</span>
+    {% elif acc.is_active %}
+      <span style="color: #c8e6c9;">🟢 ACTIVE</span>
+    {% else %}
+      <span style="color: #fff9c4;">🟡 CLOSED</span>
+    {% endif %}
+  </div>
+</div>

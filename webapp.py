@@ -10,6 +10,7 @@ import io
 import os
 import sys
 from datetime import datetime
+from decimal import Decimal
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -52,8 +53,21 @@ from services import (
 )
 
 from database import init_db
+from config import settings
+
+# ── App setup — MUST be created before any @app decorators ───────────────────
+app = Flask(__name__)
+app.secret_key = settings.FLASK_SECRET_KEY
 
 init_db()
+
+# ── CSRF Protection ───────────────────────────────────────────────────────────
+csrf = CSRFProtect(app)
+
+# Disable CSRF in testing mode so tests can POST without tokens
+if settings.TESTING:
+    app.config["WTF_CSRF_ENABLED"] = False
+
 
 # ── Request ID middleware ────────────────────────────────────────────────────
 @app.before_request
@@ -86,18 +100,6 @@ PDF_FONT_PATH = os.path.join(
     os.environ.get("SystemRoot", "C:\\Windows"),
     "Fonts", "arial.ttf",
 )
-
-# ── App setup ────────────────────────────────────────────────────────────────
-from config import settings
-app = Flask(__name__)
-app.secret_key = settings.FLASK_SECRET_KEY
-
-# ── CSRF Protection ───────────────────────────────────────────────────────────
-csrf = CSRFProtect(app)
-
-# Disable CSRF in testing mode so tests can POST without tokens
-if settings.TESTING:
-    app.config["WTF_CSRF_ENABLED"] = False
 
 
 # ── Security Headers ──────────────────────────────────────────────────────────
@@ -524,7 +526,7 @@ def deposit():
             if is_htmx:
                 return msg
             flash("Invalid amount. Please enter a positive number.", "error")
-            return render_template("deposit.html", acc=acc, categories=TRANSACTION_CATEGORIES)
+            return render_template("deposit.html", acc=acc, categories=TRANSACTION_CATEGORIES, fmt_currency=fmt_currency)
 
         category = request.form.get("category", "General")
         result = process_deposit(acc.account_number, amount, category)
@@ -547,6 +549,7 @@ def deposit():
         "deposit.html",
         acc=acc,
         categories=TRANSACTION_CATEGORIES,
+        fmt_currency=fmt_currency,
     )
 
 
@@ -571,14 +574,14 @@ def withdraw():
             if is_htmx:
                 return msg
             flash("Invalid amount. Please enter a positive number.", "error")
-            return render_template("withdraw.html", acc=acc, categories=TRANSACTION_CATEGORIES)
+            return render_template("withdraw.html", acc=acc, categories=TRANSACTION_CATEGORIES, fmt_currency=fmt_currency)
 
         if amount > acc.balance:
             msg = '<div class="flash flash-error">❌ Insufficient balance!</div>'
             if is_htmx:
                 return msg
             flash("Insufficient balance!", "error")
-            return render_template("withdraw.html", acc=acc, categories=TRANSACTION_CATEGORIES)
+            return render_template("withdraw.html", acc=acc, categories=TRANSACTION_CATEGORIES, fmt_currency=fmt_currency)
 
         category = request.form.get("category", "General")
         result = process_withdraw(acc.account_number, amount, category)
@@ -601,6 +604,7 @@ def withdraw():
         "withdraw.html",
         acc=acc,
         categories=TRANSACTION_CATEGORIES,
+        fmt_currency=fmt_currency,
     )
 
 
@@ -627,7 +631,7 @@ def transfer():
             if is_htmx:
                 return msg
             flash("Invalid amount. Please enter a positive number.", "error")
-            return render_template("transfer.html", acc=acc, recipient=None)
+            return render_template("transfer.html", acc=acc, recipient=None, fmt_currency=fmt_currency)
 
         category = request.form.get("category", "General")
 
@@ -641,34 +645,35 @@ def transfer():
             if is_htmx:
                 return msg
             flash("Recipient account not found.", "error")
-            return render_template("transfer.html", acc=acc, recipient=None)
+            return render_template("transfer.html", acc=acc, recipient=None, fmt_currency=fmt_currency)
 
         if target_acc_no == acc.account_number:
             msg = '<div class="flash flash-error">❌ Cannot transfer to your own account.</div>'
             if is_htmx:
                 return msg
             flash("Cannot transfer to your own account.", "error")
-            return render_template("transfer.html", acc=acc, recipient=None)
+            return render_template("transfer.html", acc=acc, recipient=None, fmt_currency=fmt_currency)
 
         if target_domain.is_frozen:
             msg = '<div class="flash flash-error">❌ Recipient account is frozen.</div>'
             if is_htmx:
                 return msg
             flash("Recipient account is frozen.", "error")
-            return render_template("transfer.html", acc=acc, recipient=None)
+            return render_template("transfer.html", acc=acc, recipient=None, fmt_currency=fmt_currency)
+
         if not target_domain.is_active:
             msg = '<div class="flash flash-error">❌ Recipient account is closed.</div>'
             if is_htmx:
                 return msg
             flash("Recipient account is closed.", "error")
-            return render_template("transfer.html", acc=acc, recipient=None)
+            return render_template("transfer.html", acc=acc, recipient=None, fmt_currency=fmt_currency)
 
         if amount > acc.balance:
             msg = '<div class="flash flash-error">❌ Insufficient balance!</div>'
             if is_htmx:
                 return msg
             flash("Insufficient balance!", "error")
-            return render_template("transfer.html", acc=acc, recipient=None)
+            return render_template("transfer.html", acc=acc, recipient=None, fmt_currency=fmt_currency)
 
         # Build recipient dict for template
         target_data = {
@@ -689,6 +694,7 @@ def transfer():
                 amount=amount,
                 category=category,
                 target_acc_no=target_acc_no,
+                fmt_currency=fmt_currency,
             )
 
         # ═══════════════════════════════════════════════════════════════
@@ -720,11 +726,11 @@ def transfer():
             if is_htmx:
                 return f'<div class="flash flash-error">❌ {result.error_message}</div>'
             flash(result.error_message, "error")
-            return render_template("transfer.html", acc=acc, recipient=None)
+            return render_template("transfer.html", acc=acc, recipient=None, fmt_currency=fmt_currency)
 
         return redirect(url_for("dashboard"))
 
-    return render_template("transfer.html", acc=acc, recipient=None)
+    return render_template("transfer.html", acc=acc, recipient=None, fmt_currency=fmt_currency)
 
 
 @app.route("/statement")
@@ -1819,7 +1825,7 @@ def admin_freeze():
 
         if not domain_account.is_active and not domain_account.is_frozen:
             flash("Account is permanently closed – cannot modify.", "error")
-            return render_template("admin_freeze.html", result=None)
+            return render_template("admin_freeze.html", result=None, fmt_currency=fmt_currency)
 
         currently_frozen = domain_account.is_frozen
         action = "unfreeze" if currently_frozen else "freeze"
@@ -1880,7 +1886,7 @@ def admin_delete():
                 "balance": float(domain_account.balance),
             }
             flash("Please type 'DELETE' to confirm.", "error")
-            return render_template("admin_delete.html", preview_acc=acc_dict, acc_no=acc_no)
+            return render_template("admin_delete.html", preview_acc=acc_dict, acc_no=acc_no, fmt_currency=fmt_currency)
 
         result = c.admin_service().delete_account(acc_no, actor="admin")
         flash(result.message, "success" if result.success else "error")

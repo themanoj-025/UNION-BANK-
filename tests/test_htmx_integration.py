@@ -590,6 +590,9 @@ class TestTransactionPages:
 
     def test_export_csv(self, client, customer):
         """GET /export-csv should download CSV."""
+        # Create a transaction first so there's data to export
+        client.post("/deposit", data={"amount": "100", "category": "Salary"},
+                     follow_redirects=True)
         resp = client.get("/export-csv")
         assert resp.status_code == 200
         assert "text/csv" in resp.content_type or "csv" in resp.content_type.lower()

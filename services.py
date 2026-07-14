@@ -83,11 +83,19 @@ def _log_txn_repo(txn_repo, acc_no: str, balance: float, txn_type: str,
                   category: str = "General",
                   target_acc: Optional[str] = None) -> str:
     """Log a transaction using TransactionRepository."""
-    txn = txn_repo.create(
-        acc_no, txn_type, Decimal(str(amount)), Decimal(str(balance)),
-        description=description, category=category,
+    from domain.entities import Transaction, TransactionType
+    txn = Transaction(
+        txn_id=generate_transaction_id(),
+        account_number=acc_no,
+        type=TransactionType(txn_type),
+        amount=Decimal(str(amount)),
+        balance=Decimal(str(balance)),
+        description=description,
+        category=category,
         target_account=target_acc,
     )
+    txn_repo.create(txn)
+    return txn.txn_id
     logger.info(
         f"TXN [{txn.txn_id}]  {txn_type:<14}  Acc:{acc_no}  "
         f"Amt:{fmt_currency(amount)}  Bal:{fmt_currency(balance)}"
@@ -132,7 +140,7 @@ def process_deposit(acc_no: str, amount: float,
             data={"balance": new_balance, "balance_formatted": fmt_currency(new_balance)},
         )
     finally:
-        close_session()
+        db_close_session()
 
 
 def process_withdraw(acc_no: str, amount: float,
@@ -178,7 +186,7 @@ def process_withdraw(acc_no: str, amount: float,
             data={"balance": new_balance, "balance_formatted": fmt_currency(new_balance)},
         )
     finally:
-        close_session()
+        db_close_session()
 
 
 def process_transfer(sender_acc_no: str, receiver_acc_no: str,
@@ -231,7 +239,7 @@ def process_transfer(sender_acc_no: str, receiver_acc_no: str,
         receiver_name = receiver_name_hint or receiver.name
         session.commit()
     finally:
-        close_session()
+        db_close_session()
 
     # Use the atomic SQLite transfer (handles commit/rollback internally)
     result = atomic_transfer(
@@ -272,7 +280,7 @@ def process_close_account(acc_no: str, password: str,
             account.is_active = False
             session.commit()
     finally:
-        close_session()
+        db_close_session()
 
     logger.critical(f"Account CLOSED -> Acc:{acc_no}")
     return ServiceResult(success=True, message="Account closed successfully.")
@@ -296,7 +304,7 @@ def process_apply_interest(acc_no: str, balance: float) -> ServiceResult:
                       "Monthly interest credit", category="Savings")
         session.commit()
     finally:
-        close_session()
+        db_close_session()
 
     logger.info(f"Interest applied -> Acc:{acc_no} Amt:{fmt_currency(interest)}")
     return ServiceResult(
@@ -378,7 +386,7 @@ def process_freeze_account(acc_no: str) -> ServiceResult:
         logger.critical(msg)
         return ServiceResult(success=True, message=msg)
     finally:
-        close_session()
+        db_close_session()
 
 
 def process_unfreeze_account(acc_no: str) -> ServiceResult:
@@ -398,7 +406,7 @@ def process_unfreeze_account(acc_no: str) -> ServiceResult:
         logger.critical(msg)
         return ServiceResult(success=True, message=msg)
     finally:
-        close_session()
+        db_close_session()
 
 
 def process_delete_account(acc_no: str) -> ServiceResult:
@@ -417,7 +425,7 @@ def process_delete_account(acc_no: str) -> ServiceResult:
         logger.critical(msg)
         return ServiceResult(success=True, message=msg)
     finally:
-        close_session()
+        db_close_session()
 
 
 def admin_authenticate(username: str, password: str) -> ServiceResult:
@@ -430,7 +438,7 @@ def admin_authenticate(username: str, password: str) -> ServiceResult:
             return ServiceResult(success=True, data={"username": username})
         return ServiceResult(success=False, message="Invalid admin credentials.")
     finally:
-        close_session()
+        db_close_session()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -451,7 +459,7 @@ def create_savings_goal(acc_no: str, name: str, target_amount: float,
         goal_repo.create(acc_no, name, Decimal(str(target_amount)), target_date=target_date)
         session.commit()
     finally:
-        close_session()
+        db_close_session()
 
     logger.info(f"Savings goal created -> Acc:{acc_no} Goal:{name}")
     return ServiceResult(success=True, message=f"Goal '{name}' created!")
@@ -485,7 +493,7 @@ def contribute_to_goal(acc_no: str, goal_id: str, amount: float,
         goal_repo.contribute(goal_id, Decimal(str(amount)))
         session.commit()
     finally:
-        close_session()
+        db_close_session()
 
     logger.info(f"Goal contribution -> Acc:{acc_no} Goal:{goal_id} Amt:{fmt_currency(amount)}")
     return ServiceResult(success=True, message=f"{fmt_currency(amount)} contributed!")
@@ -515,7 +523,7 @@ def delete_savings_goal(acc_no: str, goal_id: str) -> ServiceResult:
 
         session.commit()
     finally:
-        close_session()
+        db_close_session()
 
     logger.info(f"Goal deleted -> Acc:{acc_no} Goal:{name}")
     return ServiceResult(success=True, message=f"Goal '{name}' deleted. Amount refunded.")

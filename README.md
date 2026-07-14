@@ -2,13 +2,13 @@
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/Flask-3.1%2B-000?logo=flask&logoColor=white" alt="Flask">
   <img src="https://img.shields.io/badge/FastAPI-0.135%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/SQLAlchemy-2.0%2B-d71f00?logo=sqlalchemy&logoColor=white" alt="SQLAlchemy">
+  <img src="https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white" alt="SQLite">
   <img src="https://img.shields.io/badge/Chart.js-4.4%2B-FF6384?logo=chartdotjs&logoColor=white" alt="Chart.js">
   <a href="https://github.com/themanoj-025/UNION-BANK-/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/themanoj-025/UNION-BANK-/ci.yml?branch=main&label=CI&logo=github" alt="CI"></a>
-  <img src="https://img.shields.io/badge/tests-58%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-139%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
-  <a href="https://github.com/themanoj-025/UNION-BANK-/security/dependabot"><img src="https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot" alt="Dependabot"></a>
-  <img src="https://img.shields.io/badge/database-JSON-orange" alt="JSON Storage">
-  <img src="https://img.shields.io/badge/seed_data-5,000%20accounts-success" alt="Seed Data">
+  <img src="https://img.shields.io/badge/database-SQLite_3-brightgreen" alt="SQLite">
 </p>
 
 <h1 align="center">
@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <i>Register accounts · Deposit & withdraw · Transfer funds · Admin panel · Rate limiting · CSV export · Interest calculation · Interactive charts · REST API with JWT auth</i>
+  <i>Register accounts · Deposit & withdraw · Transfer funds · Loans · Savings goals · Admin panel · Rate limiting · CSV export · Interest calculation · Interactive charts · REST API with JWT auth · In-app notifications</i>
 </p>
 
 <p align="center">
@@ -72,11 +72,24 @@ Choose your interface:
 | 🔌 **REST API (FastAPI)** | `uvicorn api:app --reload --port 8000` | http://localhost:8000 |
 | 📖 **API Docs (Swagger)** | (automatic with API) | http://localhost:8000/docs |
 
+### Docker
+
+```bash
+# Start all services (web + API + Redis)
+docker compose up -d
+
+# Or use Make targets
+make up        # Start all services
+make logs      # Follow logs
+make test      # Run tests
+make down      # Stop all services
+```
+
 ### Default Credentials
 
 | Role | Username | Password |
 |------|----------|----------|
-| 👤 **Customer** | (any account number from `data/accounts.json`) | `Seed@123` *(if seeded)* |
+| 👤 **Customer** | (any account number from seed data) | `Seed@123` *(if seeded)* |
 | 🛡️ **Admin** | `admin` | `admin123` |
 
 ---
@@ -84,47 +97,55 @@ Choose your interface:
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        UNION BANK SYSTEM                            │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌──────────┐    ┌──────────────┐    ┌──────────────┐              │
-│  │   CLI    │    │  Flask Web   │    │  FastAPI     │              │
-│  │  (main)  │    │  (webapp)    │    │  REST API    │              │
-│  │          │    │              │    │              │              │
-│  │ Terminal │    │  HTML/CSS/JS │    │  JWT Auth    │              │
-│  │ Menus    │    │  Chart.js    │    │  Swagger     │              │
-│  └────┬─────┘    └──────┬───────┘    └──────┬────────┘              │
-│       │                 │                   │                       │
-│       └─────────────────┼───────────────────┘                       │
-│                         │                                           │
-│            ┌────────────▼────────────┐                              │
-│            │   Business Logic        │                              │
-│            │   (bank.py, account.py, │                              │
-│            │    admin.py, utils.py)  │                              │
-│            └────────────┬────────────┘                              │
-│                         │                                           │
-│            ┌────────────▼────────────┐                              │
-│            │   Data Layer            │                              │
-│            │   JSON files            │                              │
-│            │   (atomic writes,       │                              │
-│            │    auto backups)        │                              │
-│            └─────────────────────────┘                              │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        UNION BANK SYSTEM                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌──────────┐    ┌──────────────┐    ┌──────────────┐                  │
+│  │   CLI    │    │  Flask Web   │    │  FastAPI     │                  │
+│  │  (main)  │    │  (webapp)    │    │  REST API    │                  │
+│  └────┬─────┘    └──────┬───────┘    └──────┬───────┘                  │
+│       │                 │                   │                           │
+│       └─────────────────┼───────────────────┘                           │
+│                         │                                               │
+│            ┌────────────▼────────────┐                                  │
+│            │   Application Services  │  AuthService, AccountService,   │
+│            │   (application/)        │  TransactionService, AdminService│
+│            │                         │  LoanService, SavingsGoalService │
+│            └────────────┬────────────┘                                  │
+│                         │                                               │
+│            ┌────────────▼────────────┐                                  │
+│            │   Repository Layer      │  10 SQLAlchemy repositories      │
+│            │   (infrastructure/)     │  backed by SQLite                │
+│            └────────────┬────────────┘                                  │
+│                         │                                               │
+│            ┌────────────▼────────────┐                                  │
+│            │   SQLite Database       │  ACID transactions, WAL mode     │
+│            │   (union_bank.db)       │  Foreign keys, connection pooling│
+│            └─────────────────────────┘                                  │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │              Dependency Injection Container                     │    │
+│  │              (container.py — wires everything)                  │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  ┌──────────┐    ┌──────────────┐    ┌──────────────┐                  │
+│  │  Domain  │    │  Interfaces  │    │  Alembic     │                  │
+│  │ Entities │    │  (Protocols) │    │  Migrations  │                  │
+│  └──────────┘    └──────────────┘    └──────────────┘                  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
 
 ```
-User Input → [CLI / Web / API] → Bank/Admin/Account methods
-                                    ↓
-                              utils.py (validation, hashing)
-                                    ↓
-                              load_json / save_json (atomic writes)
-                                    ↓
-                              data/*.json files (with .bak backups)
-                                    ↓
-                              logger.py (audit trail to bank.log)
+User Input → [CLI / Web / API] → Service Layer (business logic)
+                                      ↓
+                              Repository Layer (data access)
+                                      ↓
+                              SQLAlchemy ORM → SQLite DB (union_bank.db)
+                                      ↓
+                              Domain Entities (Account, Transaction, etc.)
 ```
 
 ---
@@ -148,7 +169,9 @@ User Input → [CLI / Web / API] → Bank/Admin/Account methods
 | **Profile Management** | ✅ Inline edit | ✅ Form with validation | ✅ `PUT /api/account/profile` |
 | **Change Password** | ✅ Verified | ✅ Strength check | ✅ `POST /api/account/change-password` |
 | **Close Account** | ✅ Irreversible | ✅ Danger zone | ✅ `POST /api/account/close` |
-| **Session Timeout** | ✅ 5 mins | ❌ (browser session) | ✅ 24h JWT expiry |
+| **Savings Goals** | ✅ Full CRUD | ✅ Progress bars | ✅ `GET/POST /api/savings` |
+| **Loans** | ✅ Apply, pay EMI | ✅ Apply, view detail | ✅ `POST /api/loans/apply` |
+| **Notifications** | — | ✅ In-app notifications | ✅ `GET /api/notifications` |
 
 ### 🛡️ Admin Features
 
@@ -156,13 +179,14 @@ User Input → [CLI / Web / API] → Bank/Admin/Account methods
 |---------|---------|-----------|-------------|
 | **Admin Login** | ✅ Password mask | ✅ Rate-limited | ✅ `POST /api/auth/admin-login` (JWT) |
 | **View All Accounts** | ✅ Table w/ status | ✅ Table w/ links | ✅ `GET /api/admin/accounts` |
-| **Account Detail** | ❌ | ✅ Full profile + charts + transactions | ❌ (use search or list) |
+| **Account Detail** | ❌ | ✅ Full profile + charts | ❌ |
 | **Search Account** | ✅ By number/name | ✅ Search form | ✅ `GET /api/admin/accounts/search?q=` |
 | **Freeze / Unfreeze** | ✅ With confirm | ✅ Confirmation | ✅ `POST /api/admin/accounts/{no}/freeze` |
 | **Delete Account** | ✅ Permanent | ✅ Type DELETE | ✅ `DELETE /api/admin/accounts/{no}` |
 | **Bank Statistics** | ✅ Numbers only | ✅ Stats + charts | ✅ `GET /api/admin/statistics` |
 | **View Transactions** | ✅ Filtered | ✅ Filtered table | ✅ `GET /api/admin/transactions` |
 | **Change Admin Password** | ✅ Verified | ✅ Strength check | ✅ `PUT /api/admin/password` |
+| **Loan Management** | — | ✅ Approve/reject loans | ✅ `POST /api/admin/loans/{id}/approve` |
 
 ### 📊 Interactive Charts (Web UI)
 
@@ -179,13 +203,14 @@ User Input → [CLI / Web / API] → Bank/Admin/Account methods
 |-------|---------|---------|
 | 🔑 **Password Storage** | bcrypt hashing | Salted hashes — never plain-text |
 | ✅ **Input Validation** | Server-side | Email, mobile (Indian 10-digit), password strength, name |
-| 🚫 **Rate Limiting** | 5 attempts → 15-min lockout | Per-account + admin tracking |
-| ⏱️ **Session Timeout** | Auto-logout | 5 mins CLI, 24h JWT |
-| 💾 **Atomic Writes** | Temp file + `os.replace()` | No JSON corruption |
-| 🔄 **Auto Backup** | `.bak` before every save | Corruption recovery |
-| 🔐 **JWT Auth** | HS256 with 24h expiry | Customer + admin role separation |
-| 🛠️ **CSV BOM** | UTF-8 with BOM | Excel-compatible ₹ symbols |
-| 📝 **Audit Logging** | 5 log levels | File DEBUG+, console WARNING+ |
+| 🚫 **Rate Limiting** | 5 attempts → 15-min lockout | Per-account + admin tracking (SQLite-backed) |
+| ⏱️ **Session Timeout** | Auto-logout | 5 mins CLI, 24h JWT with refresh tokens |
+| 🔐 **JWT Auth** | HS256/RS256 with expiry | Access (15min) + Refresh (7d) tokens |
+| 🛡️ **CSP Nonces** | Per-request | Cryptographically random nonces for script/style |
+| 📝 **Audit Logging** | Immutable append-only | Admin actions logged with actor, target, timestamp |
+| 🔔 **Notifications** | In-app real-time | Deposit, withdraw, transfer, loan, account alerts |
+| 💾 **SQLite WAL** | Write-Ahead Logging | Concurrent reads, crash-safe writes |
+| 🔄 **Token Invalidation** | Version-based | Password change invalidates all existing JWTs |
 
 ### 🏷️ Transaction Categories
 
@@ -221,6 +246,7 @@ Authorization: Bearer <your_jwt_token>
 - `POST /api/auth/login` — Customer login → JWT
 - `POST /api/auth/register` — Register new account
 - `POST /api/auth/admin-login` — Admin login → JWT
+- `POST /api/auth/refresh` — Refresh access token
 
 **Customer Account:**
 - `GET /api/account/profile` — View profile
@@ -238,6 +264,19 @@ Authorization: Bearer <your_jwt_token>
 - `GET /api/account/export-csv` — Download CSV
 - `POST /api/account/apply-interest` — Apply interest
 
+**Savings Goals:**
+- `GET /api/savings` — List goals with summary
+- `POST /api/savings` — Create goal
+- `PUT /api/savings/{goal_id}` — Update goal
+- `POST /api/savings/{goal_id}/contribute` — Contribute to goal
+- `DELETE /api/savings/{goal_id}` — Delete goal
+
+**Loans:**
+- `GET /api/loans` — List customer loans
+- `POST /api/loans/apply` — Apply for loan
+- `GET /api/loans/{loan_id}` — Loan detail
+- `POST /api/loans/{loan_id}/pay-emi` — Pay EMI
+
 **Admin:**
 - `GET /api/admin/accounts` — List all accounts
 - `GET /api/admin/accounts/search?q=` — Search accounts
@@ -247,19 +286,27 @@ Authorization: Bearer <your_jwt_token>
 - `GET /api/admin/statistics` — Bank statistics
 - `GET /api/admin/transactions?account=` — Filtered transactions
 - `PUT /api/admin/password` — Change admin password
+- `GET /api/admin/loans` — List all loans
+- `POST /api/admin/loans/{id}/approve` — Approve loan
+- `POST /api/admin/loans/{id}/reject` — Reject loan
 
 **Utility:**
 - `GET /api/categories` — List transaction categories
 - `GET /api/health` — Health check
+- `GET /api/notifications` — Customer notifications
+- `GET /api/notifications/unread-count` — Unread count
 
-All endpoints return JSON responses with proper HTTP status codes (200, 400, 401, 403, 404, 429).
+**V2 API** (ApiResponse envelope):
+- All V2 endpoints mirror V1 under `/api/v2/` with standardized `{success, data, error}` envelope.
+
+All endpoints return JSON responses with proper HTTP status codes (200, 400, 401, 403, 404, 422, 429).
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-# Run all 58 tests
+# Run all 139 tests
 python -m pytest tests/ -v
 
 # With coverage report
@@ -268,6 +315,11 @@ python -m pytest tests/ --cov --cov-report=term
 # Generate HTML coverage report
 python -m pytest tests/ --cov --cov-report=html
 # → Open htmlcov/index.html in your browser
+
+# Run specific test files
+python -m pytest tests/test_api_integration.py -v
+python -m pytest tests/test_htmx_integration.py -v
+python -m pytest tests/test_services.py -v
 ```
 
 ### Test Suite
@@ -275,10 +327,15 @@ python -m pytest tests/ --cov --cov-report=html
 | File | Tests | What It Covers |
 |------|-------|----------------|
 | `test_smoke.py` | 6 | Module import verification |
-| `test_utils.py` | 29 | Validation, hashing, JSON I/O, generators |
-| `test_features.py` | 23 | Rate limiting, CSV export, interest, categories, session mgmt |
+| `test_utils.py` | 29 | Validation, hashing, ID generators, formatting |
+| `test_features.py` | 23 | Rate limiting, CSV export, interest, categories |
+| `test_services.py` | 20 | Service layer unit tests with fake repositories |
+| `test_integration.py` | 15 | Container, repository, and service integration |
+| `test_property_based.py` | 5 | Property-based tests with Hypothesis |
+| `test_api_integration.py` | 35 | FastAPI TestClient integration tests |
+| `test_htmx_integration.py` | 6 | Flask test client HTMX integration tests |
 
-All **58 tests pass** with 100% pass rate.
+All **139 tests pass** with 100% pass rate.
 
 ---
 
@@ -287,60 +344,120 @@ All **58 tests pass** with 100% pass rate.
 ```
 union-bank/
 │
-├── 🖥️ APPLICATION CORE
-│   ├── main.py              # CLI entry point & main menu loop
-│   ├── bank.py              # Bank class: registration, login, customer dashboards
-│   ├── account.py           # Account model: transactions, statements, profile, export
-│   ├── admin.py             # Admin panel: manage, search, freeze, delete, statistics
-│   ├── utils.py             # Core utilities: JSON I/O, validation, hashing, rate limiting
-│   ├── ui.py                # Terminal UI: colorama colors, styled helpers
-│   └── logger.py            # Centralized logging (file + console)
+├── 🏛️ DOMAIN LAYER
+│   └── domain/
+│       └── entities.py          # Pure domain entities (Account, Transaction, Loan, etc.)
 │
-├── 🌐 WEB FRONTEND (Flask)
-│   ├── webapp.py            # Flask application (26 routes)
-│   ├── templates/           # Jinja2 HTML templates (21 files)
-│   │   ├── base.html        # Base layout with Chart.js CDN
-│   │   ├── index.html       # Redesigned landing page with live stats
-│   │   ├── dashboard.html   # Customer dashboard with charts
-│   │   ├── admin_account_detail.html  # Customer detail page with charts
+├── 📋 APPLICATION LAYER
+│   └── application/
+│       ├── interfaces.py        # Repository protocols (ABCs)
+│       ├── services.py          # Business logic services (6 services)
+│       └── notifications.py     # Notification service
+│
+├── 🔧 INFRASTRUCTURE LAYER
+│   └── infrastructure/
+│       ├── database.py          # SQLAlchemy engine, sessions, init_db()
+│       ├── persistence.py       # ORM models (SQLAlchemy declarative)
+│       ├── repositories.py      # 10 SQLAlchemy repository implementations
+│       ├── cache.py             # Redis cache layer
+│       └── metrics.py           # Prometheus metrics middleware
+│
+├── 🔗 DEPENDENCY INJECTION
+│   └── container.py             # DI container (wires repos → services → interfaces)
+│
+├── 🖥️ CLI INTERFACE
+│   ├── main.py                  # CLI entry point
+│   ├── bank.py                  # Customer menu system
+│   ├── account.py               # Account operations (transactions, goals, loans)
+│   └── admin.py                 # Admin panel
+│
+├── 🌐 WEB FRONTEND (Flask + HTMX)
+│   ├── webapp.py                # Flask application (40+ routes)
+│   ├── templates/               # Jinja2 HTML templates (28 files)
+│   │   ├── base.html            # Base layout with Chart.js CDN
+│   │   ├── index.html           # Landing page with live stats
+│   │   ├── dashboard.html       # Customer dashboard with charts
+│   │   ├── admin_account_detail.html  # Customer detail with charts
 │   │   ├── admin_statistics.html      # Bank statistics with charts
-│   │   ├── statement.html   # Transaction statement with balance chart
-│   │   └── ...              # (login, register, deposit, withdraw, etc.)
+│   │   ├── statement.html       # Transaction statement with chart
+│   │   └── ...
 │   └── static/
-│       └── style.css        # 900+ lines of professional CSS
+│       └── style.css            # 900+ lines of professional CSS
 │
 ├── 🔌 REST API (FastAPI)
-│   └── api.py               # FastAPI application (24 endpoints, JWT auth)
+│   └── api/
+│       ├── __init__.py          # FastAPI app with CORS, middleware
+│       ├── models.py            # Pydantic request/response models
+│       ├── common.py            # Shared auth dependencies
+│       └── v2.py                # V2 API with ApiResponse envelope
 │
-├── 📦 DATA
-│   ├── data/                 # Runtime data (auto-created, gitignored)
-│   │   ├── accounts.json    # Customer account records
-│   │   ├── transactions.json# Transaction history
-│   │   ├── admin.json       # Admin credentials (bcrypt hashed)
-│   │   ├── login_attempts.json # Rate limiting tracker
-│   │   └── bank.log         # Audit log
-│   └── seed_data.py         # Generate 5,000 sample accounts
+├── 🛠️ UTILITIES
+│   └── utils/
+│       ├── auth.py              # Password hashing, JWT, rate limiting
+│       ├── formatting.py        # Currency, ID generation, CSV export
+│       ├── validation.py        # Email, phone, password, name validation
+│       ├── file_io.py           # Legacy JSON helpers (migration scripts only)
+│       └── savings.py           # Legacy goal helpers (migration scripts only)
+│
+├── 🗃️ DATABASE
+│   ├── config.py                # Centralized configuration
+│   ├── database.py              # Legacy DB init (compatibility)
+│   ├── seed_data.py             # Generate 5,000 sample accounts
+│   └── alembic/                 # Database migrations
+│       ├── env.py               # Alembic environment config
+│       └── versions/            # Migration scripts
 │
 ├── 🧪 TESTS
 │   ├── tests/
-│   │   ├── conftest.py
-│   │   ├── test_smoke.py    # 6 import tests
-│   │   ├── test_utils.py    # 29 unit tests
-│   │   └── test_features.py # 23 feature tests
+│   │   ├── conftest.py          # Pytest fixtures, fresh DB setup
+│   │   ├── fakes.py             # Fake repository implementations
+│   │   ├── test_smoke.py        # 6 import tests
+│   │   ├── test_utils.py        # 29 unit tests
+│   │   ├── test_features.py     # 23 feature tests
+│   │   ├── test_services.py     # 20 service tests
+│   │   ├── test_integration.py  # 15 integration tests
+│   │   ├── test_property_based.py  # 5 property-based tests
+│   │   ├── test_api_integration.py # 35 API integration tests
+│   │   └── test_htmx_integration.py # 6 HTMX integration tests
 │   └── ...
 │
+├── 🐳 DOCKER
+│   ├── Dockerfile               # Multi-stage build (web/api/dev)
+│   ├── docker-compose.yml       # Orchestration (web + api + redis)
+│   ├── docker-compose.prod.yml  # Production overrides
+│   └── Makefile                 # Docker convenience commands
+│
+├── 📊 OBSERVABILITY
+│   ├── logger.py                # Structured logging (file + console)
+│   └── infrastructure/
+│       ├── metrics.py           # Prometheus metrics middleware
+│       └── cache.py             # Redis cache integration
+│
+├── 📄 DOCUMENTATION
+│   ├── README.md                # This file
+│   ├── PROJECT_OVERVIEW.md      # Comprehensive architecture document
+│   ├── CHANGELOG.md             # Version history
+│   └── docs/                    # Architecture docs
+│       ├── architecture.md
+│       ├── routes.md
+│       ├── api-map.md
+│       ├── database-map.md
+│       └── dependency-graph.md
+│
 ├── ⚙️ CONFIGURATION
-│   ├── requirements.txt     # Python dependencies
-│   ├── pyproject.toml       # Project metadata & pytest config
+│   ├── requirements.txt         # Python dependencies
+│   ├── pyproject.toml           # Project metadata & pytest config
+│   ├── .env.example             # Environment variable template
 │   ├── .gitignore
 │   ├── .pre-commit-config.yaml
-│   └── .github/workflows/ci.yml  # GitHub Actions CI
+│   └── .github/workflows/       # GitHub Actions CI/CD
 │
-├── 🚀 SCRIPTS
-│   ├── start.bat            # Windows one-click launcher
-│   └── test.bat             # Windows one-click test runner
-│
-└── 📄 README.md             # This file
+└── 🚀 SCRIPTS
+    ├── start.bat                # Windows one-click launcher
+    ├── test.bat                 # Windows one-click test runner
+    └── scripts/
+        ├── docker-entrypoint.sh # Docker startup script
+        └── migrate_json_to_sqlite.py  # JSON → SQLite migration
 ```
 
 ---
@@ -358,33 +475,43 @@ union-bank/
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | Flask | 3.1+ | Web framework |
+| Flask-WTF | 1.2+ | CSRF protection |
 | Chart.js | 4.4+ | Interactive charts & graphs |
 | Jinja2 | (built-in) | Template engine |
-| CSS3 | — | Responsive design |
+| HTMX | — | Partial page updates |
 
 ### REST API
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | FastAPI | 0.135+ | REST API framework |
-| Uvicorn | 0.44+ | ASGI server |
-| PyJWT | 2.12+ | JWT token auth |
+| Uvicorn | 0.32+ | ASGI server |
+| PyJWT | 2.9+ | JWT token auth |
 | Pydantic | (built-in) | Request/response validation |
 | Swagger UI | (built-in) | Interactive API docs |
 
 ### Data & Storage
 | Technology | Purpose |
 |-----------|---------|
-| JSON files | Human-readable persistence |
-| Atomic writes | Corruption prevention |
-| Auto `.bak` backups | Data recovery |
+| SQLite 3 | ACID database (WAL mode, foreign keys) |
+| SQLAlchemy 2.0+ | ORM with connection pooling |
+| Alembic | Database migrations |
+| Redis | Optional caching layer |
 
-### Testing & CI
+### Docker & DevOps
+| Technology | Purpose |
+|-----------|---------|
+| Docker | Containerization (multi-stage build) |
+| Docker Compose | Service orchestration |
+| Gunicorn | Production WSGI server |
+| GitHub Actions | CI/CD pipeline |
+
+### Testing & Quality
 | Technology | Purpose |
 |-----------|---------|
 | pytest | Test framework |
 | pytest-cov | Coverage reporting |
+| Hypothesis | Property-based testing |
 | Ruff | Linting & formatting |
-| GitHub Actions | CI/CD pipeline |
 
 ---
 
@@ -406,17 +533,15 @@ Log format: `[2026-06-02 14:30:22]  INFO      New account registered -> Acc:8352
 
 | Metric | Value |
 |--------|-------|
-| **Python Files** | 9 (core) + 4 (tests) + 3 (web) |
-| **HTML Templates** | 21 |
+| **Python Files** | 30+ (domain, app, infra, CLI, web, API, utils) |
+| **HTML Templates** | 28 |
 | **CSS Lines** | 900+ |
-| **API Endpoints** | 24 |
-| **Total Tests** | 58 |
+| **API Endpoints** | 40+ |
+| **Total Tests** | 139 |
 | **Test Pass Rate** | 100% |
 | **Seed Data** | 5,000 accounts, 70,000 transactions |
-| **Security Layers** | 9 (bcrypt, validation, rate limit, session, JWT, atomic writes, backup, recovery, logging) |
-| **Dependencies** | 8 (bcrypt, colorama, flask, fastapi, uvicorn, PyJWT, pytest, pytest-cov) |
-| **Default Admin Password** | `admin123` |
-| **Default Customer Password** | `Seed@123` |
+| **Security Layers** | 10 (bcrypt, validation, rate limit, JWT, CSP, audit, notifications, WAL, token invalidation, HTTPS-ready) |
+| **Dependencies** | 12 (bcrypt, colorama, fastapi, flask, flask-wtf, fpdf2, PyJWT, sqlalchemy, uvicorn, pytest, pytest-cov, slowapi) |
 
 ---
 
@@ -429,10 +554,11 @@ Log format: `[2026-06-02 14:30:22]  INFO      New account registered -> Acc:8352
 5. **Open a Pull Request**
 
 Please ensure:
-- ✅ All **58 tests pass** (`pytest tests/ -v`)
+- ✅ All **139 tests pass** (`pytest tests/ -v`)
 - ✅ **New features have tests** covering happy path + edge cases
 - ✅ **No lint errors** (`ruff check .`)
 - ✅ Code follows existing **project conventions**
+- ✅ **All database interactions** go through Repository/Service layer
 
 ---
 
@@ -443,7 +569,7 @@ This project is licensed under the **MIT License**.
 ---
 
 <p align="center">
-  <sub>Made with ❤️ — Python, Flask, FastAPI, and Chart.js</sub>
+  <sub>Made with ❤️ — Python, Flask, FastAPI, SQLAlchemy, and Chart.js</sub>
   <br>
   <sub>Union Bank Management System v2.0.0</sub>
 </p>
@@ -456,6 +582,7 @@ For comprehensive codebase intelligence and architecture documentation, see the 
 
 | File | Description |
 |------|-------------|
+| [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) | Complete architecture document — every module, layer, entity, API, CLI, HTMX flow, database schema, logging, monitoring, testing strategy, deployment, and future roadmap |
 | [`memory.md`](memory.md) | Complete project brain — purpose, tech stack, features, data flow |
 | [`docs/architecture.md`](docs/architecture.md) | System architecture diagram + layered breakdown |
 | [`docs/routes.md`](docs/routes.md) | Full route table (Flask web + FastAPI REST) |

@@ -1,41 +1,39 @@
 """
 admin.py  –  Admin Panel for Union Bank Management System.
 
-Admin credentials are stored in data/admin.json.
-Default → username: simon | password: simon123
+All operations use the DI container (repositories/services) — no direct JSON.
+Default admin credentials: username: simon | password: simon123
 """
 
-import os
 from utils import (
-    load_json, save_json,
     now_str, fmt_currency,
     hash_password, verify_password, validate_password,
-    check_login_locked, record_failed_login, reset_login_attempts,
-    LOGIN_LOCKOUT_MINUTES,
-    ACCOUNTS_FILE, TRANSACTIONS_FILE, ADMIN_FILE,
 )
 from ui import header, divider, success, error, warning, info, prompt_password, GREEN, RED, CYAN, WHITE, YELLOW, BOLD, RESET
 from logger import logger
-from services import get_bank_statistics, process_freeze_account, process_delete_account
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Bootstrap default admin credentials
+#  Bootstrap default admin credentials in SQLite
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _init_admin():
-    if not os.path.exists(ADMIN_FILE):
-        save_json(ADMIN_FILE, {
-            "username": "simon",
-            "password": hash_password("simon123"),
-        })
-    else:
-        creds = load_json(ADMIN_FILE)
-        stored_pwd = creds.get("password", "")
-        if stored_pwd and not stored_pwd.startswith("$2"):
-            logger.info("Migrating plain-text admin password to bcrypt hash.")
-            creds["password"] = hash_password(stored_pwd)
-            save_json(ADMIN_FILE, creds)
+    """Create default admin user in SQLite if none exists."""
+    from container import get_container
+    from domain.entities import AdminUser
+    c = get_container()
+    admin_repo = c.admin_repo()
+
+    existing = admin_repo.get_by_username("simon")
+    if existing is None:
+        admin = AdminUser(
+            username="simon",
+            password=hash_password("simon123"),
+            role="admin",
+        )
+        admin_repo.create(admin)
+        admin_repo.commit()
+        logger.info("Default admin user created in SQLite.")
 
 _init_admin()
 
@@ -44,32 +42,28 @@ class Admin:
 
     def login(self):
         header("ADMIN LOGIN")
-        creds = load_json(ADMIN_FILE)
         username = input("  Username : ").strip()
         password = prompt_password("  Password : ")
 
-        # Check rate limiting for admin
-        lock_key = f"admin_{username}"
-        is_locked, remaining = check_login_locked(lock_key)
-        if is_locked:
-            logger.warning(f"Admin login blocked - locked: {username}")
-            error(f"Admin account locked due to too many failed attempts. Try again in {remaining} minute(s).")
-            divider()
-            return
+        from container import get_container
+        c = get_container()
 
-        if username == creds["username"] and verify_password(password, creds["password"]):
-            reset_login_attempts(lock_key)
+        # Use container's auth service for DB-backed admin login
+        auth_result = c.auth_service().admin_login(username, password)
+
+        if auth_result.success:
             logger.info(f"Admin login successful → '{username}'")
             success("Admin login successful!")
             print()
             self._admin_dashboard()
         else:
-            logger.warning(f"Failed admin login attempt → username='{username}'")
-            remaining_attempts = record_failed_login(lock_key)
-            if remaining_attempts > 0:
-                error(f"Invalid admin credentials. {remaining_attempts} attempt(s) remaining before lockout.")
+            msg = auth_result.message
+            if "locked" in msg.lower():
+                logger.warning(f"Admin login blocked - locked: {username}")
+                error(msg)
             else:
-                error(f"Invalid admin credentials. Admin account locked for {LOGIN_LOCKOUT_MINUTES} minutes.")
+                logger.warning(f"Failed admin login attempt → username='{username}'")
+                error(msg)
             divider()
 
     # ── dashboard ─────────────────────────────────────────────────────────────
@@ -107,30 +101,54 @@ class Admin:
             else:
                 error("Invalid choice.")
 
+    # ── Helper: get an account dict from SQLite via container ─────────────────
+
+    def _get_account_dict(self, acc_no: str) -> dict | None:
+        from container import get_container
+        c = get_container()
+        domain = c.account_repo().get(acc_no)
+        if domain is None:
+            return None
+        return {
+            "account_number": domain.account_number,
+            "name": domain.name,
+            "age": domain.age,
+            "gender": domain.gender,
+            "mobile": domain.mobile,
+            "email": domain.email,
+            "balance": float(domain.balance),
+            "is_active": domain.is_active,
+            "is_frozen": domain.is_frozen,
+            "created_at": str(domain.created_at)[:19],
+        }
+
     # ── 1. view all accounts ──────────────────────────────────────────────────
 
     def _view_all_accounts(self):
         header("ALL ACCOUNTS")
-        accounts = load_json(ACCOUNTS_FILE)
-        if not accounts:
+        from container import get_container
+        c = get_container()
+        domain_accounts = c.admin_service().list_accounts()
+
+        if not domain_accounts:
             info("No accounts found.")
             divider()
             return
 
         print(f"  {BOLD}{'ACC NUMBER':<14} {'NAME':<20} {'BALANCE':>12}  {'STATUS':<10}  CREATED{RESET}")
         print(f"  {CYAN}{"-" * 72}{RESET}")
-        for acc in accounts.values():
-            if acc.get("is_frozen", False):
+        for a in domain_accounts:
+            if a.is_frozen:
                 status_color = RED
                 status = "FROZEN"
-            elif not acc.get("is_active", True):
+            elif not a.is_active:
                 status_color = YELLOW
                 status = "CLOSED"
             else:
                 status_color = GREEN
                 status = "ACTIVE"
-            print(f"  {acc['account_number']:<14} {acc['name']:<20} "
-                  f"{fmt_currency(acc['balance']):>12}  {status_color}{status:<13}{RESET}  {acc.get('created_at','N/A')}")
+            print(f"  {a.account_number:<14} {a.name:<20} "
+                  f"{fmt_currency(float(a.balance)):>12}  {status_color}{status:<13}{RESET}  {str(a.created_at)[:19]}")
         divider()
 
     # ── 2. search account ────────────────────────────────────────────────────
@@ -138,19 +156,18 @@ class Admin:
     def _search_account(self):
         header("SEARCH ACCOUNT")
         query = input("  Enter Account Number or Name : ").strip().lower()
-        accounts = load_json(ACCOUNTS_FILE)
-        results = [
-            a for a in accounts.values()
-            if query in a["account_number"].lower() or query in a["name"].lower()
-        ]
+        from container import get_container
+        c = get_container()
+        results = c.admin_service().search_accounts(query)
+
         if not results:
             info("No matching accounts found.")
         else:
             for a in results:
-                if a.get("is_frozen"):
+                if a.is_frozen:
                     status_color = RED
                     status = "FROZEN"
-                elif a.get("is_active", True):
+                elif a.is_active:
                     status_color = GREEN
                     status = "ACTIVE"
                 else:
@@ -158,14 +175,14 @@ class Admin:
                     status = "CLOSED"
                 print(f"""
   {CYAN}{'─' * 40}{RESET}
-  {CYAN}Account No :{WHITE} {a['account_number']}{RESET}
-  {CYAN}Name       :{WHITE} {a['name']}{RESET}
-  {CYAN}Age        :{WHITE} {a['age']}{RESET}
-  {CYAN}Mobile     :{WHITE} {a['mobile']}{RESET}
-  {CYAN}Email      :{WHITE} {a['email']}{RESET}
-  {CYAN}Balance    :{WHITE} {fmt_currency(a['balance'])}{RESET}
+  {CYAN}Account No :{WHITE} {a.account_number}{RESET}
+  {CYAN}Name       :{WHITE} {a.name}{RESET}
+  {CYAN}Age        :{WHITE} {a.age}{RESET}
+  {CYAN}Mobile     :{WHITE} {a.mobile}{RESET}
+  {CYAN}Email      :{WHITE} {a.email}{RESET}
+  {CYAN}Balance    :{WHITE} {fmt_currency(float(a.balance))}{RESET}
   {CYAN}Status     :{WHITE} {status_color}{status}{RESET}
-  {CYAN}Created    :{WHITE} {a.get('created_at','N/A')}{RESET}
+  {CYAN}Created    :{WHITE} {str(a.created_at)[:19]}{RESET}
   {CYAN}{'─' * 40}{RESET}""")
         divider()
 
@@ -174,20 +191,19 @@ class Admin:
     def _freeze_account(self):
         header("FREEZE / UNFREEZE ACCOUNT")
         acc_no = input("  Enter Account Number : ").strip()
-        accounts = load_json(ACCOUNTS_FILE)
 
-        if acc_no not in accounts:
+        acc = self._get_account_dict(acc_no)
+        if acc is None:
             error("Account not found.")
             divider()
             return
 
-        acc = accounts[acc_no]
-        if not acc.get("is_active", True) and not acc.get("is_frozen", False):
+        if not acc["is_active"] and not acc["is_frozen"]:
             error("Account is permanently closed – cannot modify.")
             divider()
             return
 
-        currently_frozen = acc.get("is_frozen", False)
+        currently_frozen = acc["is_frozen"]
         action = "UNFREEZE" if currently_frozen else "FREEZE"
         action_color = GREEN if currently_frozen else RED
         confirm = input(f"  {action_color}{action}{RESET} account of {CYAN}{acc['name']}{RESET}? (y/n): ").strip().lower()
@@ -196,10 +212,12 @@ class Admin:
             divider()
             return
 
+        from container import get_container
+        c = get_container()
         if currently_frozen:
-            result = process_unfreeze_account(acc_no)
+            result = c.admin_service().unfreeze_account(acc_no, actor="admin")
         else:
-            result = process_freeze_account(acc_no)
+            result = c.admin_service().freeze_account(acc_no, actor="admin")
 
         if result.success:
             success(result.message)
@@ -212,14 +230,13 @@ class Admin:
     def _delete_account(self):
         header("DELETE ACCOUNT")
         acc_no = input("  Enter Account Number to delete : ").strip()
-        accounts = load_json(ACCOUNTS_FILE)
 
-        if acc_no not in accounts:
+        acc = self._get_account_dict(acc_no)
+        if acc is None:
             print("  [!] Account not found.")
             divider()
             return
 
-        acc = accounts[acc_no]
         print(f"\n  {CYAN}Account   :{WHITE} {acc_no}{RESET}")
         print(f"  {CYAN}Name      :{WHITE} {acc['name']}{RESET}")
         print(f"  {CYAN}Balance   :{WHITE} {fmt_currency(acc['balance'])}{RESET}")
@@ -230,7 +247,9 @@ class Admin:
             divider()
             return
 
-        result = process_delete_account(acc_no)
+        from container import get_container
+        c = get_container()
+        result = c.admin_service().delete_account(acc_no, actor="admin")
         if result.success:
             success(result.message)
         else:
@@ -241,7 +260,9 @@ class Admin:
 
     def _bank_statistics(self):
         header("BANK STATISTICS")
-        s = get_bank_statistics()
+        from container import get_container
+        c = get_container()
+        s = c.admin_service().get_statistics()
 
         print(f"""
   {GREEN}{'┌' + '─' * 41 + '┐'}{RESET}
@@ -377,30 +398,47 @@ class Admin:
         else:
             error("Invalid choice.")
 
-    # ── 6. view all transactions (renamed to 8) ─────────────────────────────────
+    # ── 6. view all transactions ─────────────────────────────────────────────
 
     def _view_all_transactions(self):
         header("ALL TRANSACTIONS")
-        txns = load_json(TRANSACTIONS_FILE)
-        if not txns:
+        from container import get_container
+        c = get_container()
+
+        acc_filter = input(f"  {CYAN}Filter by Account Number (or press Enter to show all):{RESET} ").strip()
+
+        if acc_filter:
+            domain_txns = c.transaction_repo().get_by_account(acc_filter)
+        else:
+            domain_txns = c.transaction_repo().get_all()
+
+        if not domain_txns:
             print("  No transactions recorded yet.")
             divider()
             return
 
-        acc_filter = input(f"  {CYAN}Filter by Account Number (or press Enter to show all):{RESET} ").strip()
+        from domain.entities import TransactionType
+
+        # Group transactions by account number (preserving original UX)
+        txns_by_account: dict[str, list] = {}
+        for txn in domain_txns:
+            acc_no = txn.account_number
+            if acc_no not in txns_by_account:
+                txns_by_account[acc_no] = []
+            txns_by_account[acc_no].append(txn)
 
         count = 0
-        for acc_no, records in txns.items():
+        for acc_no, records in txns_by_account.items():
             if acc_filter and acc_no != acc_filter:
                 continue
             print(f"\n  {GREEN}Account: {BOLD}{acc_no}{RESET}")
             print(f"  {CYAN}{"-" * 70}{RESET}")
-            for t in records:
-                sign = "+" if t["type"] in ("DEPOSIT", "TRANSFER_IN") else "-"
+            for txn in records:
+                sign = "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
                 amt_color = GREEN if sign == "+" else RED
-                print(f"  [{t['txn_id']}]  {t['timestamp']}  "
-                      f"{t['type']:<14}  {amt_color}{sign}{fmt_currency(t['amount'])}{RESET}  "
-                      f"Bal: {fmt_currency(t['balance'])}")
+                print(f"  [{txn.txn_id}]  {str(txn.timestamp)[:19]}  "
+                      f"{txn.type.value:<14}  {amt_color}{sign}{fmt_currency(float(txn.amount))}{RESET}  "
+                      f"Bal: {fmt_currency(float(txn.balance))}")
                 count += 1
 
         print(f"\n  {WHITE}Total records shown: {BOLD}{count}{RESET}")
@@ -410,13 +448,17 @@ class Admin:
 
     def _change_admin_password(self):
         header("CHANGE ADMIN PASSWORD")
-        creds = load_json(ADMIN_FILE)
         old = prompt_password("  Current Password : ")
-        if not verify_password(old, creds["password"]):
+
+        from container import get_container
+        c = get_container()
+        admin = c.admin_repo().get_by_username("simon")
+        if not admin or not verify_password(old, admin.password):
             logger.warning("Admin password change failed – wrong current password.")
             error("Incorrect current password.")
             divider()
             return
+
         new = prompt_password("  New Password     : ")
         valid_pwd, pwd_msg = validate_password(new)
         if not valid_pwd:
@@ -428,8 +470,9 @@ class Admin:
             error("Passwords do not match.")
             divider()
             return
-        creds["password"] = hash_password(new)
-        save_json(ADMIN_FILE, creds)
+
+        c.admin_repo().update_password("simon", hash_password(new))
+        c.admin_repo().commit()
         logger.info("Admin password changed successfully.")
         success("Admin password updated successfully!")
         divider()

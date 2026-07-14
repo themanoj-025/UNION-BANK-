@@ -1,5 +1,7 @@
 """
 auth.py  –  Authentication, rate limiting, session management, CSV export, interest calc.
+
+Rate limiting now uses the container's LoginAttemptRepository (SQLite) instead of JSON.
 """
 
 import csv
@@ -9,7 +11,6 @@ from datetime import datetime, timedelta
 
 import bcrypt
 
-from .file_io import load_json, save_json, LOGIN_ATTEMPTS_FILE
 from logger import logger
 from config import settings
 
@@ -40,81 +41,45 @@ def verify_password(password: str, hashed: str) -> bool:
 
 
 # ─────────────────────────────────────────────
-#  Rate limiting
+#  Rate limiting (via container's LoginAttemptRepository)
 # ─────────────────────────────────────────────
 
-def _load_login_attempts() -> dict:
-    """Load login attempt tracking data."""
-    return load_json(LOGIN_ATTEMPTS_FILE)
-
-
-def _save_login_attempts(data: dict) -> None:
-    """Save login attempt tracking data."""
-    save_json(LOGIN_ATTEMPTS_FILE, data)
+def _get_login_attempt_repo():
+    """Get the LoginAttemptRepository from the container."""
+    from container import get_container
+    return get_container().login_attempt_repo()
 
 
 def check_login_locked(acc_no: str) -> tuple:
     """
     Check if an account is locked due to too many failed attempts.
     Returns (is_locked: bool, remaining_minutes: int).
+    Uses SQLite-backed LoginAttemptRepository.
     """
-    attempts = _load_login_attempts()
-    record = attempts.get(acc_no)
-    if not record:
-        return False, 0
-
-    if record["count"] >= MAX_LOGIN_ATTEMPTS:
-        lockout_end = datetime.fromisoformat(record["lockout_until"])
-        if datetime.now() < lockout_end:
-            remaining = int((lockout_end - datetime.now()).total_seconds() // 60)
-            return True, max(1, remaining)
-        else:
-            # Lockout expired, reset
-            del attempts[acc_no]
-            _save_login_attempts(attempts)
-            return False, 0
-    return False, 0
+    repo = _get_login_attempt_repo()
+    return repo.is_locked(acc_no, MAX_LOGIN_ATTEMPTS)
 
 
 def record_failed_login(acc_no: str) -> int:
     """
-    Record a failed login attempt. Returns remaining attempts before lockout.
+    Record a failed login attempt via SQLite repository.
+    Returns remaining attempts before lockout.
     """
-    attempts = _load_login_attempts()
-    now = datetime.now()
+    repo = _get_login_attempt_repo()
+    remaining = repo.record_failure(acc_no, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
+    repo.commit()
 
-    if acc_no not in attempts:
-        attempts[acc_no] = {"count": 0, "first_failed": None, "lockout_until": None}
-
-    record = attempts[acc_no]
-
-    # Reset if lockout has expired
-    if record["lockout_until"]:
-        lockout_end = datetime.fromisoformat(record["lockout_until"])
-        if now >= lockout_end:
-            record["count"] = 0
-            record["first_failed"] = None
-            record["lockout_until"] = None
-
-    record["count"] += 1
-    if record["first_failed"] is None:
-        record["first_failed"] = now.isoformat()
-
-    if record["count"] >= MAX_LOGIN_ATTEMPTS:
-        lockout_until = now + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
-        record["lockout_until"] = lockout_until.isoformat()
+    if remaining <= 0:
         logger.warning(f"Account locked due to {MAX_LOGIN_ATTEMPTS} failed attempts: {acc_no}")
 
-    _save_login_attempts(attempts)
-    return max(0, MAX_LOGIN_ATTEMPTS - record["count"])
+    return remaining
 
 
 def reset_login_attempts(acc_no: str) -> None:
     """Reset login attempts on successful login."""
-    attempts = _load_login_attempts()
-    if acc_no in attempts:
-        del attempts[acc_no]
-        _save_login_attempts(attempts)
+    repo = _get_login_attempt_repo()
+    repo.reset(acc_no)
+    repo.commit()
 
 
 # ─────────────────────────────────────────────

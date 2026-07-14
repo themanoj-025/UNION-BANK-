@@ -1,20 +1,19 @@
 """
 bank.py  -  Bank class: registration, login, all menu loops (with logging).
+
+All persistence flows go through the DI container (repositories/services) —
+no direct JSON reads or writes.
 """
 
 import time as _time
 
 from account import Account
 from utils import (
-    load_json, save_json,
     generate_account_number,
     now_str, fmt_currency,
     hash_password, verify_password,
     validate_email, validate_phone, validate_password, validate_name,
-    check_login_locked, record_failed_login, reset_login_attempts,
     check_session_timeout, get_session_timeout_seconds,
-    LOGIN_LOCKOUT_MINUTES,
-    ACCOUNTS_FILE,
 )
 from ui import (
     header, divider, success, error, warning, info,
@@ -102,50 +101,55 @@ class Bank:
     def login(self):
         header("ACCOUNT LOGIN")
         acc_no = input("  Account Number : ").strip()
+        pwd    = prompt_password("  Password       : ")
 
-        # Check rate limiting
-        is_locked, remaining = check_login_locked(acc_no)
-        if is_locked:
-            logger.warning(f"Login blocked - account locked: {acc_no}")
-            error(f"Account locked due to too many failed attempts. Try again in {remaining} minute(s).")
+        from container import get_container
+        c = get_container()
+
+        # Use the container's auth service for DB-backed authentication
+        auth_result = c.auth_service().customer_login(acc_no, pwd)
+
+        if not auth_result.success:
+            msg = auth_result.message
+            if "locked" in msg.lower():
+                logger.warning(f"Login blocked - account locked: {acc_no}")
+                error(msg)
+            elif "not found" in msg.lower():
+                logger.warning(f"Login failed - account not found: {acc_no}")
+                error("Account not found.")
+            elif "frozen" in msg.lower():
+                logger.warning(f"Login blocked - account frozen: {acc_no}")
+                error("Your account has been frozen. Please contact the bank.")
+            elif "closed" in msg.lower():
+                logger.warning(f"Login blocked - account closed: {acc_no}")
+                error("This account has been closed.")
+            else:
+                logger.warning(f"Login failed - wrong password: Acc:{acc_no}")
+                error(msg)
             divider()
             return
 
-        pwd    = prompt_password("  Password       : ")
-
-        accounts = load_json(ACCOUNTS_FILE)
-        if acc_no not in accounts:
-            logger.warning(f"Login failed - account not found: {acc_no}")
+        # Successful login — load account from DB
+        domain_account = c.account_repo().get(acc_no)
+        if not domain_account:
             error("Account not found.")
             divider()
             return
 
-        data = accounts[acc_no]
+        data = {
+            "account_number": domain_account.account_number,
+            "name": domain_account.name,
+            "age": domain_account.age,
+            "gender": domain_account.gender,
+            "mobile": domain_account.mobile,
+            "email": domain_account.email,
+            "password": domain_account.password,
+            "balance": float(domain_account.balance),
+            "is_active": domain_account.is_active,
+            "is_frozen": domain_account.is_frozen,
+            "created_at": str(domain_account.created_at)[:19],
+        }
 
-        if data.get("is_frozen", False):
-            logger.warning(f"Login blocked - account frozen: {acc_no}")
-            error("Your account has been frozen. Please contact the bank.")
-            divider()
-            return
-
-        if not data.get("is_active", True):
-            logger.warning(f"Login blocked - account closed: {acc_no}")
-            error("This account has been closed.")
-            divider()
-            return
-
-        if not verify_password(pwd, data["password"]):
-            logger.warning(f"Login failed - wrong password: Acc:{acc_no}")
-            remaining_attempts = record_failed_login(acc_no)
-            if remaining_attempts > 0:
-                error(f"Incorrect password. {remaining_attempts} attempt(s) remaining before lockout.")
-            else:
-                error(f"Incorrect password. Account locked for {LOGIN_LOCKOUT_MINUTES} minutes.")
-            divider()
-            return
-
-        # Successful login — reset attempts
-        reset_login_attempts(acc_no)
         logger.info(f"Login successful -> Acc:{acc_no}  Name:{data['name']}")
         success(f"Welcome back, {data['name']}!")
         divider()
@@ -164,12 +168,14 @@ class Bank:
                 logger.info(f"Session timeout -> Acc:{acc.account_number}  Name:{acc.name}")
                 break
 
-            accounts = load_json(ACCOUNTS_FILE)
-            fresh = accounts.get(acc.account_number)
-            if fresh:
-                acc.balance   = fresh["balance"]
-                acc.is_active = fresh.get("is_active", True)
-                acc.is_frozen = fresh.get("is_frozen", False)
+            # Refresh account data directly from SQLite via the container
+            from container import get_container
+            c = get_container()
+            fresh_domain = c.account_repo().get(acc.account_number)
+            if fresh_domain:
+                acc.balance   = float(fresh_domain.balance)
+                acc.is_active = fresh_domain.is_active
+                acc.is_frozen = fresh_domain.is_frozen
 
             if acc.is_frozen:
                 error("Your account has been frozen by admin. Logging out.")

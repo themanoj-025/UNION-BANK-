@@ -6,7 +6,6 @@ import os
 from datetime import datetime, timezone
 
 from utils import (
-    load_json, save_json,
     generate_account_number, generate_transaction_id,
     now_str, fmt_currency,
     get_float, get_int,
@@ -14,15 +13,13 @@ from utils import (
     validate_email, validate_phone, validate_name,
     get_category_choice, export_transactions_to_csv,
     generate_csv_filename, calculate_monthly_interest,
-    load_goals, save_goals, generate_goal_id,
-    ACCOUNTS_FILE, TRANSACTIONS_FILE,
+    generate_goal_id,
 )
 from ui import header, divider, success, error, warning, info, prompt_password, GREEN, RED, CYAN, WHITE, YELLOW, BOLD, RESET
 from logger import logger
 from services import (
     process_deposit, process_withdraw, process_transfer,
     process_close_account, process_apply_interest,
-    create_savings_goal, contribute_to_goal, delete_savings_goal,
 )
 from database import init_db
 
@@ -433,10 +430,27 @@ class Account:
             print(f"     Target date: {goal['target_date']}")
         print()
 
+    def _goals_to_dicts(self, domain_goals) -> list[dict]:
+        """Convert domain SavingsGoal entities to dicts for display."""
+        return [{
+            "goal_id": g.goal_id,
+            "name": g.name,
+            "target_amount": float(g.target_amount),
+            "current_amount": float(g.current_amount),
+            "target_date": g.target_date or "",
+            "created_at": str(g.created_at)[:19],
+            "is_completed": g.is_completed,
+        } for g in domain_goals]
+
     def savings_goals_menu(self):
         """Savings goals management menu."""
+        from container import get_container
+
         while True:
-            goals = load_goals(self.account_number)
+            c = get_container()
+            domain_goals = c.savings_goal_service().list_goals(self.account_number)
+            goals = self._goals_to_dicts(domain_goals)
+
             header("🎯 SAVINGS GOALS")
             if goals:
                 total_saved = sum(g["current_amount"] for g in goals)
@@ -483,32 +497,33 @@ class Account:
             return
         date_str = input("  Target date (YYYY-MM-DD, optional): ").strip()
 
-        goals = load_goals(self.account_number)
-        goal = {
-            "goal_id": generate_goal_id(),
-            "name": name,
-            "target_amount": round(target, 2),
-            "current_amount": 0.0,
-            "target_date": date_str,
-            "created_at": now_str(),
-            "is_completed": False,
-        }
-        goals.append(goal)
-        save_goals(self.account_number, goals)
-        logger.info(f"Savings goal created -> Acc:{self.account_number}  Goal:{name}")
-        success(f"Goal '{name}' created!")
+        from container import get_container
+        c = get_container()
+        result = c.savings_goal_service().create_goal(
+            acc_no=self.account_number,
+            name=name,
+            target_amount=Decimal(str(round(target, 2))),
+            target_date=date_str if date_str else None,
+        )
+        if result.success:
+            logger.info(f"Savings goal created -> Acc:{self.account_number}  Goal:{name}")
+            success(result.message)
+        else:
+            error(result.message)
         divider()
 
     def _contribute_to_goal(self):
-        goals = load_goals(self.account_number)
-        active = [g for g in goals if not g.get("is_completed")]
+        from container import get_container
+        c = get_container()
+        domain_goals = c.savings_goal_service().list_goals(self.account_number)
+        active = [g for g in domain_goals if not g.is_completed]
         if not active:
             error("No active goals to contribute to.")
             return
 
         header("💰 CONTRIBUTE TO GOAL")
         for i, g in enumerate(active, 1):
-            print(f"  {i}. {g['name']} — {fmt_currency(g['current_amount'])} / {fmt_currency(g['target_amount'])}")
+            print(f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}")
         print()
         idx = get_int("  Select goal number: ")
         if idx is None or idx < 1 or idx > len(active):
@@ -516,18 +531,19 @@ class Account:
             return
         goal = active[idx - 1]
 
-        amount = get_float(f"  Amount to contribute to '{goal['name']}': Rs.")
+        amount = get_float(f"  Amount to contribute to '{goal.name}': Rs.")
         if amount is None:
             return
 
-        confirm = input(f"  Contribute {YELLOW}{fmt_currency(amount)}{RESET} to '{goal['name']}'? (y/n): ").strip().lower()
+        confirm = input(f"  Contribute {YELLOW}{fmt_currency(amount)}{RESET} to '{goal.name}'? (y/n): ").strip().lower()
         if confirm != "y":
             warning("Cancelled.")
             return
 
-        result = contribute_to_goal(self.account_number, goal["goal_id"], amount, self.balance)
+        result = c.savings_goal_service().contribute(
+            acc_no=self.account_number, goal_id=goal.goal_id, amount=Decimal(str(amount))
+        )
         if result.success:
-            # Service already deducted from JSON; update in-memory balance
             self.balance -= amount
             success(result.message)
         else:
@@ -536,65 +552,72 @@ class Account:
         divider()
 
     def _edit_goal(self):
-        goals = load_goals(self.account_number)
-        if not goals:
+        from container import get_container
+        c = get_container()
+        domain_goals = c.savings_goal_service().list_goals(self.account_number)
+        if not domain_goals:
             error("No goals to edit.")
             return
 
         header("✏️ EDIT GOAL")
-        for i, g in enumerate(goals, 1):
-            print(f"  {i}. {g['name']} — {fmt_currency(g['current_amount'])} / {fmt_currency(g['target_amount'])}")
+        for i, g in enumerate(domain_goals, 1):
+            print(f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}")
         print()
         idx = get_int("  Select goal number: ")
-        if idx is None or idx < 1 or idx > len(goals):
+        if idx is None or idx < 1 or idx > len(domain_goals):
             error("Invalid selection.")
             return
-        goal = goals[idx - 1]
+        goal = domain_goals[idx - 1]
 
-        name = input(f"  Name [{goal['name']}]: ").strip()
+        name = input(f"  Name [{goal.name}]: ").strip()
         if name:
-            goal['name'] = name
-        target_str = input(f"  Target amount [{goal['target_amount']}]: ").strip()
+            goal.name = name
+        target_str = input(f"  Target amount [{float(goal.target_amount)}]: ").strip()
         if target_str:
             try:
-                goal['target_amount'] = round(float(target_str), 2)
+                goal.target_amount = Decimal(str(round(float(target_str), 2)))
             except ValueError:
                 error("Invalid amount.")
                 return
-        date_str = input(f"  Target date [{goal.get('target_date', '') or 'None'}]: ").strip()
-        goal['target_date'] = date_str
-        goal['is_completed'] = goal['current_amount'] >= goal['target_amount']
+        date_str = input(f"  Target date [{goal.target_date or 'None'}]: ").strip()
+        goal.target_date = date_str if date_str else None
+        goal.is_completed = goal.current_amount >= goal.target_amount
 
-        save_goals(self.account_number, goals)
-        logger.info(f"Goal edited -> Acc:{self.account_number}  Goal:{goal['name']}")
+        c.savings_goal_repo().update(goal)
+        c.savings_goal_repo().commit()
+        logger.info(f"Goal edited -> Acc:{self.account_number}  Goal:{goal.name}")
         success("Goal updated!")
         divider()
 
     def _delete_goal(self):
-        goals = load_goals(self.account_number)
-        if not goals:
+        from container import get_container
+        c = get_container()
+        domain_goals = c.savings_goal_service().list_goals(self.account_number)
+        if not domain_goals:
             error("No goals to delete.")
             return
 
         header("🗑️ DELETE GOAL")
-        for i, g in enumerate(goals, 1):
-            print(f"  {i}. {g['name']} — {fmt_currency(g['current_amount'])} / {fmt_currency(g['target_amount'])}")
+        for i, g in enumerate(domain_goals, 1):
+            print(f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}")
         print()
         idx = get_int("  Select goal number: ")
-        if idx is None or idx < 1 or idx > len(goals):
+        if idx is None or idx < 1 or idx > len(domain_goals):
             error("Invalid selection.")
             return
-        goal = goals[idx - 1]
+        goal = domain_goals[idx - 1]
 
-        confirm = input(f"  Delete '{goal['name']}'? Amount will be refunded. (y/n): ").strip().lower()
+        confirm = input(f"  Delete '{goal.name}'? Amount will be refunded. (y/n): ").strip().lower()
         if confirm != "y":
             warning("Cancelled.")
             return
 
-        result = delete_savings_goal(self.account_number, goal["goal_id"])
+        result = c.savings_goal_service().delete_goal(
+            acc_no=self.account_number, goal_id=goal.goal_id
+        )
         if result.success:
-            if goal["current_amount"] > 0:
-                self.balance += goal["current_amount"]
+            if goal.current_amount > 0:
+                self.balance += float(goal.current_amount)
             success(result.message)
         else:
             error(result.message)

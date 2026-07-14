@@ -1,5 +1,13 @@
 """
 main.py - Entry point for Union Bank Management System
+
+Boot sequence:
+  1. SQLite database (init_db)
+  2. DI Container (repositories, services)
+  3. CLI interface (Bank, Admin)
+
+No JSON files are created or used at startup.
+Fresh installations automatically initialize the database via init_db().
 """
 
 import os
@@ -12,16 +20,7 @@ sys.path.insert(0, BASE_DIR)
 from bank import Bank
 from admin import Admin
 from logger import logger
-from utils import load_json, save_json, ACCOUNTS_FILE, TRANSACTIONS_FILE
 from ui import header, divider, success, error, info, GREEN, CYAN, WHITE, YELLOW, BOLD, RESET
-
-
-# Initialize data files if they do not exist
-def init_files():
-    if not os.path.exists(ACCOUNTS_FILE):
-        save_json(ACCOUNTS_FILE, {})
-    if not os.path.exists(TRANSACTIONS_FILE):
-        save_json(TRANSACTIONS_FILE, {})
 
 
 def main_menu():
@@ -68,5 +67,5 @@ def main_menu():
 
 
 if __name__ == "__main__":
-    init_files()
+    # Database auto-initializes on first container request
     main_menu()

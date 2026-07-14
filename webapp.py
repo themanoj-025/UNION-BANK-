@@ -41,19 +41,16 @@ from utils import (
     check_login_locked, record_failed_login, reset_login_attempts,
     export_transactions_to_csv, generate_csv_filename,
     calculate_monthly_interest, TRANSACTION_CATEGORIES,
-    load_json, save_json, load_goals, save_goals, generate_goal_id,
-    ACCOUNTS_FILE, TRANSACTIONS_FILE, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
+    MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
     mask_account_number, mask_sensitive_data,
 )
 from account import Account
-from admin import Admin, ADMIN_FILE
+from admin import Admin
 from services import (
     process_deposit, process_withdraw, process_transfer,
     process_close_account, process_apply_interest,
-    process_freeze_account, process_unfreeze_account,
-    process_delete_account, get_bank_statistics,
-    admin_authenticate,
 )
+
 from database import init_db
 
 init_db()
@@ -329,43 +326,35 @@ def login():
             )
             return render_template("login.html")
 
-        accounts = load_json(ACCOUNTS_FILE)
+        from container import get_container
+        c = get_container()
 
-        if acc_no not in accounts:
-            flash("Account not found.", "error")
-            return render_template("login.html")
+        # Use the container's auth service for DB-backed authentication
+        auth_result = c.auth_service().customer_login(acc_no, password)
 
-        data = accounts[acc_no]
-
-        if data.get("is_frozen", False):
-            flash("Your account has been frozen. Please contact the bank.", "error")
-            return render_template("login.html")
-
-        if not data.get("is_active", True):
-            flash("This account has been closed.", "error")
-            return render_template("login.html")
-
-        if not verify_password(password, data["password"]):
-            remaining_attempts = record_failed_login(acc_no)
-            if remaining_attempts > 0:
-                flash(
-                    f"Incorrect password. {remaining_attempts} attempt(s) "
-                    f"remaining before lockout.",
-                    "error",
-                )
+        if not auth_result.success:
+            msg = auth_result.message
+            if "locked" in msg.lower():
+                flash(msg, "error")
+            elif "frozen" in msg.lower():
+                flash("Your account has been frozen. Please contact the bank.", "error")
+            elif "closed" in msg.lower():
+                flash("This account has been closed.", "error")
+            elif "not found" in msg.lower():
+                flash("Account not found.", "error")
             else:
-                flash(
-                    f"Incorrect password. Account locked for "
-                    f"{LOGIN_LOCKOUT_MINUTES} minutes.",
-                    "error",
-                )
+                # Use the auth_service's message directly (it already records the failure)
+                flash(msg, "error")
             return render_template("login.html")
 
-        # Success
-        reset_login_attempts(acc_no)
+        # Success — reset attempts and get name from DB
+        domain_account = c.account_repo().get(acc_no)
+        name = domain_account.name if domain_account else "Customer"
+
         session["account_number"] = acc_no
         session.permanent = True
-        flash(f"Welcome back, {data['name']}!", "success")
+        reset_login_attempts(acc_no)
+        flash(f"Welcome back, {name}!", "success")
         return redirect(url_for("dashboard"))
 
     return render_template("login.html")
@@ -642,9 +631,12 @@ def transfer():
 
         category = request.form.get("category", "General")
 
-        accounts = load_json(ACCOUNTS_FILE)
+        from container import get_container
+        c = get_container()
 
-        if target_acc_no not in accounts:
+        target_domain = c.account_repo().get(target_acc_no)
+
+        if target_domain is None:
             msg = '<div class="flash flash-error">❌ Recipient account not found.</div>'
             if is_htmx:
                 return msg
@@ -658,14 +650,13 @@ def transfer():
             flash("Cannot transfer to your own account.", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
 
-        target_data = accounts[target_acc_no]
-        if target_data.get("is_frozen"):
+        if target_domain.is_frozen:
             msg = '<div class="flash flash-error">❌ Recipient account is frozen.</div>'
             if is_htmx:
                 return msg
             flash("Recipient account is frozen.", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
-        if not target_data.get("is_active", True):
+        if not target_domain.is_active:
             msg = '<div class="flash flash-error">❌ Recipient account is closed.</div>'
             if is_htmx:
                 return msg
@@ -678,6 +669,14 @@ def transfer():
                 return msg
             flash("Insufficient balance!", "error")
             return render_template("transfer.html", acc=acc, recipient=None)
+
+        # Build recipient dict for template
+        target_data = {
+            "account_number": target_domain.account_number,
+            "name": target_domain.name,
+            "is_active": target_domain.is_active,
+            "is_frozen": target_domain.is_frozen,
+        }
 
         # Check if confirmation step
         if "confirm" not in request.form:
@@ -958,7 +957,22 @@ def savings_goals():
     if not acc:
         return redirect(url_for("login"))
 
-    goals = load_goals(acc.account_number)
+    from container import get_container
+    c = get_container()
+    domain_goals = c.savings_goal_service().list_goals(acc.account_number)
+
+    goals = []
+    for g in domain_goals:
+        goals.append({
+            "goal_id": g.goal_id,
+            "name": g.name,
+            "target_amount": float(g.target_amount),
+            "current_amount": float(g.current_amount),
+            "target_date": g.target_date or "",
+            "created_at": str(g.created_at)[:19],
+            "is_completed": g.is_completed,
+        })
+
     total_saved = sum(g["current_amount"] for g in goals)
     total_target = sum(g["target_amount"] for g in goals)
     completed = sum(1 for g in goals if g.get("is_completed"))
@@ -1000,20 +1014,18 @@ def savings_goal_new():
             flash("Invalid target amount. Please enter a positive number.", "error")
             return render_template("savings_goal_form.html", acc=acc)
 
-        goals = load_goals(acc.account_number)
-        goal = {
-            "goal_id": generate_goal_id(),
-            "name": name,
-            "target_amount": round(target_amount, 2),
-            "current_amount": 0.0,
-            "target_date": date_str,
-            "created_at": now_str(),
-            "is_completed": False,
-        }
-        goals.append(goal)
-        save_goals(acc.account_number, goals)
-
-        flash(f"Savings goal '{name}' created!", "success")
+        from container import get_container
+        c = get_container()
+        result = c.savings_goal_service().create_goal(
+            acc_no=acc.account_number,
+            name=name,
+            target_amount=Decimal(str(round(target_amount, 2))),
+            target_date=date_str if date_str else None,
+        )
+        if result.success:
+            flash(result.message, "success")
+        else:
+            flash(result.message, "error")
         return redirect(url_for("savings_goals"))
 
     return render_template("savings_goal_form.html", acc=acc, goal=None)
@@ -1028,9 +1040,10 @@ def savings_goal_edit(goal_id):
     if not acc:
         return redirect(url_for("login"))
 
-    goals = load_goals(acc.account_number)
-    goal = next((g for g in goals if g["goal_id"] == goal_id), None)
-    if not goal:
+    from container import get_container
+    c = get_container()
+    domain_goal = c.savings_goal_repo().get(goal_id)
+    if not domain_goal:
         flash("Goal not found.", "error")
         return redirect(url_for("savings_goals"))
 
@@ -1041,7 +1054,14 @@ def savings_goal_edit(goal_id):
 
         if not name or len(name) < 2:
             flash("Goal name must be at least 2 characters.", "error")
-            return render_template("savings_goal_form.html", acc=acc, goal=goal)
+            return render_template("savings_goal_form.html", acc=acc, goal={
+                "goal_id": domain_goal.goal_id,
+                "name": domain_goal.name,
+                "target_amount": float(domain_goal.target_amount),
+                "current_amount": float(domain_goal.current_amount),
+                "target_date": domain_goal.target_date or "",
+                "is_completed": domain_goal.is_completed,
+            })
 
         try:
             target_amount = float(target_str)
@@ -1049,18 +1069,27 @@ def savings_goal_edit(goal_id):
                 raise ValueError
         except ValueError:
             flash("Invalid target amount.", "error")
-            return render_template("savings_goal_form.html", acc=acc, goal=goal)
+            return render_template("savings_goal_form.html", acc=acc, goal=None)
 
-        goal["name"] = name
-        goal["target_amount"] = round(target_amount, 2)
-        goal["target_date"] = date_str
-        goal["is_completed"] = goal["current_amount"] >= goal["target_amount"]
-        save_goals(acc.account_number, goals)
+        domain_goal.name = name
+        domain_goal.target_amount = Decimal(str(round(target_amount, 2)))
+        domain_goal.target_date = date_str if date_str else None
+        domain_goal.is_completed = domain_goal.current_amount >= domain_goal.target_amount
+        c.savings_goal_repo().update(domain_goal)
+        c.savings_goal_repo().commit()
 
         flash(f"Goal '{name}' updated!", "success")
         return redirect(url_for("savings_goals"))
 
-    return render_template("savings_goal_form.html", acc=acc, goal=goal)
+    goal_dict = {
+        "goal_id": domain_goal.goal_id,
+        "name": domain_goal.name,
+        "target_amount": float(domain_goal.target_amount),
+        "current_amount": float(domain_goal.current_amount),
+        "target_date": domain_goal.target_date or "",
+        "is_completed": domain_goal.is_completed,
+    }
+    return render_template("savings_goal_form.html", acc=acc, goal=goal_dict)
 
 
 @app.route("/savings/<goal_id>/contribute", methods=["POST"])
@@ -1071,12 +1100,6 @@ def savings_goal_contribute(goal_id):
     acc = get_account()
     if not acc:
         return redirect(url_for("login"))
-
-    goals = load_goals(acc.account_number)
-    goal = next((g for g in goals if g["goal_id"] == goal_id), None)
-    if not goal:
-        flash("Goal not found.", "error")
-        return redirect(url_for("savings_goals"))
 
     try:
         amount = float(request.form.get("amount", "0"))
@@ -1090,21 +1113,20 @@ def savings_goal_contribute(goal_id):
         flash("Insufficient balance!", "error")
         return redirect(url_for("savings_goals"))
 
-    # Transfer from account balance to goal
-    acc.balance -= amount
-    acc.save()
-    acc.log_transaction("TRANSFER_OUT", amount,
-                         f"Savings goal: {goal['name']}",
-                         category="Savings")
-
-    goal["current_amount"] += amount
-    if goal["current_amount"] >= goal["target_amount"]:
-        goal["is_completed"] = True
-        flash(f"🎉 Congratulations! You achieved your savings goal '{goal['name']}'!", "success")
+    from container import get_container
+    c = get_container()
+    result = c.savings_goal_service().contribute(
+        acc_no=acc.account_number, goal_id=goal_id, amount=Decimal(str(amount))
+    )
+    if result.success:
+        # Update in-memory balance from the service result
+        domain_account = c.account_repo().get(acc.account_number)
+        if domain_account:
+            acc.balance = float(domain_account.balance)
+        flash(result.message, "success")
     else:
-        flash(f"{fmt_currency(amount)} contributed to '{goal['name']}'!", "success")
+        flash(result.message, "error")
 
-    save_goals(acc.account_number, goals)
     return redirect(url_for("savings_goals"))
 
 
@@ -1117,23 +1139,20 @@ def savings_goal_delete(goal_id):
     if not acc:
         return redirect(url_for("login"))
 
-    goals = load_goals(acc.account_number)
-    goal = next((g for g in goals if g["goal_id"] == goal_id), None)
-    if not goal:
-        flash("Goal not found.", "error")
-        return redirect(url_for("savings_goals"))
+    from container import get_container
+    c = get_container()
+    result = c.savings_goal_service().delete_goal(
+        acc_no=acc.account_number, goal_id=goal_id
+    )
+    if result.success:
+        # Update in-memory balance from the service result
+        domain_account = c.account_repo().get(acc.account_number)
+        if domain_account:
+            acc.balance = float(domain_account.balance)
+        flash(result.message, "info")
+    else:
+        flash(result.message, "error")
 
-    # Refund current amount back to balance
-    if goal["current_amount"] > 0:
-        acc.balance += goal["current_amount"]
-        acc.save()
-        acc.log_transaction("DEPOSIT", goal["current_amount"],
-                             f"Refund from deleted goal: {goal['name']}",
-                             category="Savings")
-
-    goals.remove(goal)
-    save_goals(acc.account_number, goals)
-    flash(f"Goal '{goal['name']}' deleted. Amount refunded.", "info")
     return redirect(url_for("savings_goals"))
 
 
@@ -1574,37 +1593,19 @@ def admin_login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
-        lock_key = f"admin_{username}"
-        is_locked, remaining = check_login_locked(lock_key)
-        if is_locked:
-            flash(
-                f"Admin account locked due to too many failed attempts. "
-                f"Try again in {remaining} minute(s).",
-                "error",
-            )
-            return render_template("admin_login.html")
+        from container import get_container
+        c = get_container()
 
-        result = admin_authenticate(username, password)
-        if result.success:
-            reset_login_attempts(lock_key)
+        # Use container's auth service for DB-backed admin login
+        auth_result = c.auth_service().admin_login(username, password)
+
+        if auth_result.success:
             session["is_admin"] = True
             session.permanent = True
             flash("Admin login successful!", "success")
             return redirect(url_for("admin_dashboard"))
         else:
-            remaining_attempts = record_failed_login(lock_key)
-            if remaining_attempts > 0:
-                flash(
-                    f"Invalid admin credentials. {remaining_attempts} "
-                    f"attempt(s) remaining before lockout.",
-                    "error",
-                )
-            else:
-                flash(
-                    f"Invalid admin credentials. Admin account locked for "
-                    f"{LOGIN_LOCKOUT_MINUTES} minutes.",
-                    "error",
-                )
+            flash(auth_result.message, "error")
             return render_template("admin_login.html")
 
     return render_template("admin_login.html")
@@ -1842,9 +1843,9 @@ def admin_freeze():
             )
 
         if currently_frozen:
-            result = process_unfreeze_account(acc_no)
+            result = c.admin_service().unfreeze_account(acc_no, actor="admin")
         else:
-            result = process_freeze_account(acc_no)
+            result = c.admin_service().freeze_account(acc_no, actor="admin")
 
         flash(result.message, "success" if result.success else "error")
         if result.success:
@@ -1881,7 +1882,7 @@ def admin_delete():
             flash("Please type 'DELETE' to confirm.", "error")
             return render_template("admin_delete.html", preview_acc=acc_dict, acc_no=acc_no)
 
-        result = process_delete_account(acc_no)
+        result = c.admin_service().delete_account(acc_no, actor="admin")
         flash(result.message, "success" if result.success else "error")
         return redirect(url_for("admin_delete"))
 
@@ -1892,7 +1893,9 @@ def admin_delete():
 @admin_required
 def admin_statistics():
     """Bank statistics dashboard with charts."""
-    s = get_bank_statistics()
+    from container import get_container
+    c = get_container()
+    s = c.admin_service().get_statistics()
 
     stats = {
         "total_customers": s["total_customers"],

@@ -659,8 +659,16 @@ class SqlAlchemyLoginAttemptRepository:
         model = self.session.query(LoginAttemptModel).filter_by(key=key).first()
         if model is None or (model.count or 0) < max_attempts:
             return False, 0
-        if model.lockout_until and _utcnow() < model.lockout_until:
-            remaining = int((model.lockout_until - _utcnow()).total_seconds() // 60)
+
+        now = _utcnow()
+        lockout_until = model.lockout_until
+
+        # Handle timezone-naive datetimes (SQLite may strip tzinfo on roundtrip)
+        if lockout_until is not None and lockout_until.tzinfo is None:
+            lockout_until = lockout_until.replace(tzinfo=timezone.utc)
+
+        if lockout_until and now < lockout_until:
+            remaining = int((lockout_until - now).total_seconds() // 60)
             return True, max(1, remaining)
         if model:
             self.session.delete(model)

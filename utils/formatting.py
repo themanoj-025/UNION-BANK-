@@ -7,8 +7,6 @@ import re
 import string
 from datetime import datetime
 
-from .file_io import load_json, ACCOUNTS_FILE
-
 
 # ─────────────────────────────────────────────
 #  Currency formatting
@@ -31,11 +29,16 @@ def now_str() -> str:
 # ─────────────────────────────────────────────
 
 def generate_account_number() -> str:
-    """Return a unique 10-digit account number (as string)."""
-    accounts = load_json(ACCOUNTS_FILE)
+    """Return a unique 10-digit account number (as string).
+
+    Checks uniqueness against the SQLite database via the container.
+    """
+    from container import get_container
+    c = get_container()
+    repo = c.account_repo()
     while True:
         number = str(random.randint(1000000000, 9999999999))
-        if number not in accounts:
+        if not repo.exists(number):
             return number
 
 

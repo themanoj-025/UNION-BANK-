@@ -44,4 +44,3 @@ class TestSmoke:
     def test_import_main(self):
         import main
         assert hasattr(main, "main_menu")
-        assert hasattr(main, "init_files")

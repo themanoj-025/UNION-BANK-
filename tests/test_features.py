@@ -349,7 +349,7 @@ class TestAtomicTransfer:
 
     def _get_total_balance(self) -> float:
         """Compute the total system balance across JSON and SQLite."""
-        from utils import ACCOUNTS_FILE
+        from utils.file_io import ACCOUNTS_FILE
         accounts = load_json(ACCOUNTS_FILE)
         json_total = sum(a["balance"] for a in accounts.values())
 

@@ -29,13 +29,23 @@
         {% set acc_no = session.get('account_number') %}
         <span class="nav-user">👤 {{ acc_no }}</span>
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('loans') }}">Loans</a>
+        <a href="{{ url_for('savings_goals') }}">Savings</a>
         <a href="{{ url_for('statement') }}">Statement</a>
+        <a href="{{ url_for('notifications') }}" class="nav-notif-link">
+          🔔
+          <span id="notif-badge" class="notif-badge"
+                hx-get="{{ url_for('notification_count') }}"
+                hx-trigger="load every:30s"
+                hx-swap="innerHTML">0</span>
+        </a>
         <a href="{{ url_for('profile') }}">Profile</a>
         <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
       {% elif session.get('is_admin') %}
         <span class="nav-user">🛡️ Admin</span>
         <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
         <a href="{{ url_for('admin_accounts') }}">Accounts</a>
+        <a href="{{ url_for('admin_loans') }}">Loans</a>
         <a href="{{ url_for('admin_statistics') }}">Statistics</a>
         <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
       {% else %}

@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}Admin - Loan Management{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🏦 Loan Management</h1>
+    <p class="page-subtitle">Review, approve, or reject loan applications</p>
+  </div>
+</div>
+
+{# ── Statistics Cards ──────────────────────────────── #}
+<div class="grid grid-4" style="margin-bottom: 28px;">
+  <div class="card card-stat">
+    <div class="stat-icon" style="background: rgba(255, 152, 0, 0.15); color: var(--warning);">
+      <span>⏳</span>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.total_pending }}</div>
+      <div class="stat-label">Pending</div>
+    </div>
+  </div>
+  <div class="card card-stat">
+    <div class="stat-icon" style="background: rgba(76, 175, 80, 0.15); color: var(--success);">
+      <span>🟢</span>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.total_active }}</div>
+      <div class="stat-label">Active</div>
+    </div>
+  </div>
+  <div class="card card-stat">
+    <div class="stat-icon" style="background: rgba(33, 150, 243, 0.15); color: #2196f3;">
+      <span>💵</span>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ fmt_currency(stats.total_disbursed) }}</div>
+      <div class="stat-label">Total Disbursed</div>
+    </div>
+  </div>
+  <div class="card card-stat">
+    <div class="stat-icon" style="background: rgba(233, 30, 99, 0.15); color: #e91e63;">
+      <span>📊</span>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ fmt_currency(stats.total_outstanding) }}</div>
+      <div class="stat-label">Outstanding</div>
+    </div>
+  </div>
+</div>
+
+{# ── Status Summary Row ───────────────────────────── #}
+<div class="grid grid-3" style="margin-bottom: 28px; gap: 16px;">
+  <div style="background: #fff8e1; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+    <span style="font-weight: 500;">✅ Approved</span>
+    <span style="font-weight: 700; font-size: 18px;">{{ stats.total_approved }}</span>
+  </div>
+  <div style="background: #e8f5e9; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+    <span style="font-weight: 500;">🔒 Closed</span>
+    <span style="font-weight: 700; font-size: 18px;">{{ stats.total_closed }}</span>
+  </div>
+  <div style="background: #ffebee; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+    <span style="font-weight: 500;">❌ Rejected</span>
+    <span style="font-weight: 700; font-size: 18px;">{{ stats.total_rejected }}</span>
+  </div>
+</div>
+
+{# ── Pending Loans ────────────────────────────────── #}
+<div class="card" style="margin-bottom: 28px;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">⏳ Pending Loan Applications</div>
+      <div class="card-subtitle">{{ pending|length }} application(s) awaiting review</div>
+    </div>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if pending %}
+    <div class="table-container">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Loan ID</th>
+            <th>Account</th>
+            <th>Customer</th>
+            <th>Type</th>
+            <th>Principal</th>
+            <th>Rate</th>
+            <th>Tenure</th>
+            <th>EMI</th>
+            <th>Applied</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for loan in pending %}
+          <tr>
+            <td><code>{{ loan.loan_id }}</code></td>
+            <td><a href="{{ url_for('admin_account_detail', acc_no=loan.account_number) }}">{{ loan.account_number }}</a></td>
+            <td>{{ loan.customer_name }}</td>
+            <td><span class="badge badge-info">{{ loan.loan_type }}</span></td>
+            <td><strong>{{ fmt_currency(loan.principal_amount) }}</strong></td>
+            <td>{{ loan.interest_rate }}%</td>
+            <td>{{ loan.tenure_months }}mo</td>
+            <td>{{ fmt_currency(loan.emi_amount) }}</td>
+            <td class="text-sm">{{ loan.application_date[:10] }}</td>
+            <td>
+              <div class="btn-group" style="gap: 4px;">
+                <form method="POST" action="{{ url_for('admin_loan_approve', loan_id=loan.loan_id) }}" style="display: inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-success" 
+                          onclick="return confirm('Disburse {{ fmt_currency(loan.principal_amount) }} as {{ loan.loan_type }} loan to {{ loan.customer_name }}?')">
+                    ✅ Approve
+                  </button>
+                </form>
+                <button type="button" class="btn btn-sm btn-error" 
+                        onclick="showRejectModal('{{ loan.loan_id }}')">
+                  ❌ Reject
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding: 32px 24px; text-align: center;">
+      <p style="color: var(--text-muted);">🎉 No pending loan applications!</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Reject Modal ─────────────────────────────────── #}
+<div id="reject-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+  <div class="card" style="max-width: 420px; width: 90%;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">❌ Reject Loan</div>
+        <div class="card-subtitle">Provide a reason for rejection</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <form method="POST" id="reject-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label class="form-label">Reason (optional)</label>
+          <textarea name="reason" class="form-input" rows="3" 
+                    placeholder="e.g. Insufficient income, poor credit history..." maxlength="500"></textarea>
+        </div>
+        <div class="btn-group">
+          <button type="submit" class="btn btn-error">
+            <span class="btn-label">❌ Confirm Rejection</span>
+          </button>
+          <button type="button" class="btn btn-outline" onclick="hideRejectModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function showRejectModal(loanId) {
+  document.getElementById("reject-form").action = "/admin/loans/" + loanId + "/reject";
+  document.getElementById("reject-modal").style.display = "flex";
+}
+
+function hideRejectModal() {
+  document.getElementById("reject-modal").style.display = "none";
+}
+
+// Close modal on overlay click
+document.getElementById("reject-modal").addEventListener("click", function(e) {
+  if (e.target === this) hideRejectModal();
+});
+</script>
+
+{# ── All Loans ────────────────────────────────────── #}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">📋 All Loan Applications</div>
+      <div class="card-subtitle">{{ all_loans|length }} total loan(s)</div>
+    </div>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if all_loans %}
+    <div class="table-container">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Loan ID</th>
+            <th>Account</th>
+            <th>Customer</th>
+            <th>Type</th>
+            <th>Principal</th>
+            <th>Paid</th>
+            <th>Remaining</th>
+            <th>Status</th>
+            <th>Applied</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for loan in all_loans %}
+          <tr>
+            <td><code>{{ loan.loan_id }}</code></td>
+            <td><a href="{{ url_for('admin_account_detail', acc_no=loan.account_number) }}">{{ loan.account_number }}</a></td>
+            <td>{{ loan.customer_name }}</td>
+            <td><span class="badge badge-info">{{ loan.loan_type }}</span></td>
+            <td><strong>{{ fmt_currency(loan.principal_amount) }}</strong></td>
+            <td>{{ fmt_currency(loan.amount_paid) }}</td>
+            <td>{{ fmt_currency(loan.remaining_amount) }}</td>
+            <td>
+              {% if loan.status == 'PENDING' %}
+                <span class="badge badge-warning">⏳ Pending</span>
+              {% elif loan.status == 'APPROVED' %}
+                <span class="badge badge-info">✅ Approved</span>
+              {% elif loan.status == 'ACTIVE' %}
+                <span class="badge badge-success">🟢 Active</span>
+              {% elif loan.status == 'CLOSED' %}
+                <span class="badge badge-secondary">🔒 Closed</span>
+              {% elif loan.status == 'REJECTED' %}
+                <span class="badge badge-error">❌ Rejected</span>
+              {% endif %}
+            </td>
+            <td class="text-sm">{{ loan.application_date[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding: 32px 24px; text-align: center;">
+      <p style="color: var(--text-muted);">No loans have been applied yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

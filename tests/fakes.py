@@ -17,7 +17,8 @@ from typing import Optional
 from application.interfaces import KeysetPage
 
 from domain.entities import (
-    Account, AdminUser, LoginAttempt, SavingsGoal,
+    Account, AdminUser, LoginAttempt, Notification,
+    NotificationPreference, SavingsGoal,
     TokenVersion, Transaction, TransactionType,
 )
 
@@ -394,6 +395,102 @@ class FakeTokenVersionRepository:
         version = self._versions.get(account_number, 0) + 1
         self._versions[account_number] = version
         return version
+
+    def commit(self) -> None:
+        pass
+
+    def rollback(self) -> None:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Fake Audit Log Repository
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Fake Notification Repository
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class FakeNotificationRepository:
+    """In-memory notification repository."""
+
+    def __init__(self):
+        self._notifications: list[Notification] = []
+
+    def get(self, notif_id: str) -> Optional[Notification]:
+        for n in self._notifications:
+            if n.notif_id == notif_id:
+                return n
+        return None
+
+    def get_by_account(self, acc_no: str, limit: int = 50) -> list[Notification]:
+        results = [n for n in self._notifications if n.account_number == acc_no]
+        results.sort(key=lambda n: n.created_at, reverse=True)
+        return results[:limit]
+
+    def get_unread_count(self, acc_no: str) -> int:
+        return sum(1 for n in self._notifications
+                   if n.account_number == acc_no and not n.is_read)
+
+    def get_unread(self, acc_no: str, limit: int = 20) -> list[Notification]:
+        results = [n for n in self._notifications
+                   if n.account_number == acc_no and not n.is_read]
+        results.sort(key=lambda n: n.created_at, reverse=True)
+        return results[:limit]
+
+    def create(self, notification: Notification) -> Notification:
+        self._notifications.append(notification)
+        return notification
+
+    def mark_as_read(self, notif_id: str) -> bool:
+        for n in self._notifications:
+            if n.notif_id == notif_id:
+                n.is_read = True
+                return True
+        return False
+
+    def mark_all_as_read(self, acc_no: str) -> int:
+        count = 0
+        for n in self._notifications:
+            if n.account_number == acc_no and not n.is_read:
+                n.is_read = True
+                count += 1
+        return count
+
+    def delete_old(self, days: int = 30) -> int:
+        from datetime import timedelta, timezone
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        old = [n for n in self._notifications if n.created_at < cutoff]
+        for n in old:
+            self._notifications.remove(n)
+        return len(old)
+
+    def commit(self) -> None:
+        pass
+
+    def rollback(self) -> None:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Fake Notification Preference Repository
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class FakeNotificationPreferenceRepository:
+    """In-memory notification preference repository."""
+
+    def __init__(self):
+        self._prefs: dict[str, NotificationPreference] = {}
+
+    def get(self, acc_no: str) -> Optional[NotificationPreference]:
+        return self._prefs.get(acc_no)
+
+    def create_or_update(self, pref: NotificationPreference) -> NotificationPreference:
+        self._prefs[pref.account_number] = pref
+        return pref
 
     def commit(self) -> None:
         pass

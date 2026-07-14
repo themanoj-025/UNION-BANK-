@@ -86,8 +86,9 @@ class Admin:
   ║  4)  Delete Account                      ║
   ║  5)  Bank Statistics                     ║
   ║  6)  View All Transactions               ║
-  ║  7)  Change Admin Password               ║
-  ║  8)  Logout                              ║
+  ║  7)  Loan Management                     ║
+  ║  8)  Change Admin Password               ║
+  ║  9)  Logout                              ║
   ╚══════════════════════════════════════════╝""")
             choice = input("  Enter choice: ").strip()
 
@@ -97,8 +98,9 @@ class Admin:
             elif choice == "4": self._delete_account()
             elif choice == "5": self._bank_statistics()
             elif choice == "6": self._view_all_transactions()
-            elif choice == "7": self._change_admin_password()
-            elif choice == "8":
+            elif choice == "7": self._loan_management()
+            elif choice == "8": self._change_admin_password()
+            elif choice == "9":
                 logger.info("Admin logged out.")
                 print("  Admin logged out.\n")
                 break
@@ -261,7 +263,121 @@ class Admin:
   {GREEN}{'└' + '─' * 41 + '┘'}{RESET}""")
         divider()
 
-    # ── 6. view all transactions ─────────────────────────────────────────────
+    # ── 7. Loan Management ──────────────────────────────────────────────────────
+
+    def _loan_management(self):
+        header("LOAN MANAGEMENT")
+        from container import get_container
+        c = get_container()
+
+        stats = c.loan_service().get_loan_statistics()
+
+        print(f"""
+  {GREEN}{'┌' + '─' * 50 + '┐'}{RESET}
+  {GREEN}│{RESET}  {BOLD}LOAN MANAGEMENT{RESET}{' ' * 33}{GREEN}│{RESET}
+  {GREEN}{'├' + '─' * 50 + '┤'}{RESET}
+  {GREEN}│{RESET}  Pending      : {YELLOW}{stats['total_pending']:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Approved     : {GREEN}{stats['total_approved']:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Active       : {CYAN}{stats['total_active']:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Closed       : {WHITE}{stats['total_closed']:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Rejected     : {RED}{stats['total_rejected']:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Disbursed : {WHITE}{fmt_currency(stats['total_disbursed']):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Outstanding  : {YELLOW}{fmt_currency(stats['total_outstanding']):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}{'└' + '─' * 50 + '┘'}{RESET}""")
+
+        print(f"""
+  1) View Pending Loans
+  2) Approve Loan
+  3) Reject Loan
+  4) View All Loans
+  5) Back""")
+
+        sub = input("  Enter choice: ").strip()
+
+        if sub == "1":
+            pending = c.loan_service().list_pending()
+            if not pending:
+                info("No pending loan applications.")
+            else:
+                for l in pending:
+                    account = c.account_repo().get(l.account_number)
+                    name = account.name if account else "Unknown"
+                    print(f"""
+  {CYAN}{'─' * 55}{RESET}
+  {CYAN}Loan ID      :{WHITE} {l.loan_id}{RESET}
+  {CYAN}Account      :{WHITE} {l.account_number} ({name}){RESET}
+  {CYAN}Type         :{WHITE} {l.loan_type}{RESET}
+  {CYAN}Principal    :{WHITE} {fmt_currency(float(l.principal_amount))}{RESET}
+  {CYAN}Interest     :{WHITE} {l.interest_rate}% p.a.{RESET}
+  {CYAN}Tenure       :{WHITE} {l.tenure_months} months{RESET}
+  {CYAN}EMI          :{WHITE} {fmt_currency(float(l.emi_amount))}/month{RESET}
+  {CYAN}Purpose      :{WHITE} {l.purpose or "N/A"}{RESET}
+  {CYAN}Applied      :{WHITE} {str(l.application_date)[:19]}{RESET}
+  {CYAN}{'─' * 55}{RESET}""")
+            divider()
+
+        elif sub == "2":
+            loan_id = input("  Enter Loan ID to approve: ").strip()
+            loan = c.loan_service().get_loan(loan_id)
+            if not loan:
+                error("Loan not found.")
+            elif loan.status != "PENDING":
+                error(f"Loan is already {loan.status.lower()}.")
+            else:
+                confirm = input(f"  Approve {fmt_currency(float(loan.principal_amount))} {loan.loan_type} loan? (y/n): ").strip().lower()
+                if confirm == "y":
+                    result = c.loan_service().approve_loan(loan_id=loan_id, admin_user="admin")
+                    if result.success:
+                        success(result.message)
+                    else:
+                        error(result.message)
+                else:
+                    warning("Cancelled.")
+            divider()
+
+        elif sub == "3":
+            loan_id = input("  Enter Loan ID to reject: ").strip()
+            reason = input("  Reason for rejection (optional): ").strip()
+            loan = c.loan_service().get_loan(loan_id)
+            if not loan:
+                error("Loan not found.")
+            elif loan.status != "PENDING":
+                error(f"Loan is already {loan.status.lower()}.")
+            else:
+                confirm = input(f"  Reject {loan.loan_type} loan for {loan.account_number}? (y/n): ").strip().lower()
+                if confirm == "y":
+                    result = c.loan_service().reject_loan(loan_id=loan_id, reason=reason, admin_user="admin")
+                    if result.success:
+                        info(result.message)
+                    else:
+                        error(result.message)
+                else:
+                    warning("Cancelled.")
+            divider()
+
+        elif sub == "4":
+            all_loans = c.loan_service().list_all()
+            if not all_loans:
+                info("No loans found.")
+            else:
+                print(f"  {BOLD}{'LOAN ID':<18} {'ACCOUNT':<12} {'TYPE':<14} {'PRINCIPAL':>12} {'STATUS':<12} APPLIED{RESET}")
+                print(f"  {CYAN}{"-" * 72}{RESET}")
+                for l in all_loans:
+                    status_color = {
+                        "PENDING": YELLOW, "APPROVED": GREEN,
+                        "ACTIVE": CYAN, "CLOSED": WHITE, "REJECTED": RED,
+                    }.get(l.status, WHITE)
+                    print(f"  {l.loan_id:<18} {l.account_number:<12} {l.loan_type:<14} "
+                          f"{fmt_currency(float(l.principal_amount)):>12}  "
+                          f"{status_color}{l.status:<12}{RESET} {str(l.application_date)[:10]}")
+            divider()
+
+        elif sub == "5":
+            pass
+        else:
+            error("Invalid choice.")
+
+    # ── 6. view all transactions (renamed to 8) ─────────────────────────────────
 
     def _view_all_transactions(self):
         header("ALL TRANSACTIONS")

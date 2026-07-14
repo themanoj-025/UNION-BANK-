@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🔔 Notifications</h1>
+    <p class="page-subtitle">{{ unread_count }} unread · {{ notifications|length }} total</p>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('notification_preferences') }}" class="btn btn-outline btn-sm">
+      <span class="btn-label">⚙️ Preferences</span>
+    </a>
+    {% if unread_count > 0 %}
+    <form method="POST" action="{{ url_for('notification_mark_all_read') }}" style="display: inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-sm btn-primary">
+        <span class="btn-label">✅ Mark All Read</span>
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="padding: 0;">
+  {% if notifications %}
+  <div class="notification-list">
+    {% for n in notifications %}
+    <div class="notification-item {% if not n.is_read %}unread{% endif %}">
+      <div class="notif-icon">
+        {% if n.type == 'deposit' %}💰
+        {% elif n.type == 'withdraw' %}💸
+        {% elif n.type == 'transfer_sent' %}📤
+        {% elif n.type == 'transfer_received' %}📥
+        {% elif n.type == 'interest' %}📈
+        {% elif n.type == 'loan_approved' %}✅
+        {% elif n.type == 'loan_rejected' %}❌
+        {% elif n.type == 'loan_emi_paid' %}💳
+        {% elif n.type == 'loan_closed' %}🎉
+        {% elif n.type == 'account_frozen' %}🧊
+        {% elif n.type == 'account_unfrozen' %}🔥
+        {% elif n.type == 'welcome' %}👋
+        {% else %}🔔{% endif %}
+      </div>
+      <div class="notif-content">
+        <div class="notif-title">{{ n.title }}</div>
+        <div class="notif-message">{{ n.message }}</div>
+        <div class="notif-meta">
+          <span class="notif-time">{{ n.created_at.strftime('%Y-%m-%d %H:%M') if n.created_at is not string else n.created_at[:16] }}</span>
+          {% if not n.is_read %}
+          <span class="badge badge-primary" style="font-size: 10px;">New</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="notif-actions">
+        {% if not n.is_read %}
+        <form method="POST" action="{{ url_for('notification_mark_read', notif_id=n.notif_id) }}" style="display: inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-sm btn-outline" title="Mark as read">✓</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding: 48px 24px; text-align: center;">
+    <div style="font-size: 48px; margin-bottom: 16px;">🔔</div>
+    <h3 style="margin-bottom: 8px;">No Notifications Yet</h3>
+    <p style="color: var(--text-muted);">You'll receive notifications here when transactions happen.</p>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.notification-list {
+  display: flex;
+  flex-direction: column;
+}
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.2s;
+}
+.notification-item:last-child {
+  border-bottom: none;
+}
+.notification-item:hover {
+  background: var(--gray-50);
+}
+.notification-item.unread {
+  background: rgba(33, 150, 243, 0.04);
+  border-left: 3px solid var(--accent);
+}
+.notif-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.notif-content {
+  flex: 1;
+  min-width: 0;
+}
+.notif-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.notif-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.notif-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.notif-time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.notif-actions {
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+</style>
+{% endblock %}

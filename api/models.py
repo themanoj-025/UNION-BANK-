@@ -211,6 +211,86 @@ class TransactionOut(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  Loan Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class LoanApplyRequest(BaseModel):
+    loan_type: str = Field(..., description="Personal, Home, Vehicle, Education, Business")
+    principal_amount: float = Field(..., gt=0, description="Desired loan amount")
+    interest_rate: float = Field(..., gt=0, le=50, description="Annual interest rate %")
+    tenure_months: int = Field(..., gt=0, le=360, description="Loan tenure in months")
+    purpose: str = Field(default="", max_length=500, description="Purpose of the loan")
+
+
+class EMICalculateRequest(BaseModel):
+    principal: float = Field(..., gt=0, description="Principal amount")
+    annual_rate: float = Field(..., gt=0, le=50, description="Annual interest rate %")
+    tenure_months: int = Field(..., gt=0, le=360, description="Tenure in months")
+
+
+class EMIPreviewData(BaseModel):
+    principal: float
+    annual_rate: float
+    tenure_months: int
+    emi: float
+    total_payable: float
+    total_interest: float
+
+
+class LoanOut(BaseModel):
+    loan_id: str
+    account_number: str
+    loan_type: str
+    principal_amount: float
+    interest_rate: float
+    tenure_months: int
+    emi_amount: float
+    amount_paid: float
+    remaining_amount: float
+    status: str
+    application_date: str
+    approval_date: Optional[str] = None
+    next_emi_date: Optional[str] = None
+    purpose: str = ""
+    admin_notes: str = ""
+    progress_pct: float = 0.0
+    remaining_emis: int = 0
+    is_overdue: bool = False
+
+
+class LoanSummaryData(BaseModel):
+    total_loans: int
+    active_loans: int
+    closed_loans: int
+    total_disbursed: float
+    total_disbursed_formatted: str
+    total_outstanding: float
+    total_outstanding_formatted: str
+    loans: list[LoanOut]
+
+
+class LoanAdminStats(BaseModel):
+    total_pending: int
+    total_approved: int
+    total_active: int
+    total_closed: int
+    total_rejected: int
+    total_disbursed: float
+    total_disbursed_formatted: str
+    total_outstanding: float
+    total_outstanding_formatted: str
+
+
+class LoanPayEMIRequest(BaseModel):
+    amount: Optional[float] = Field(None, gt=0, description="Amount to pay (defaults to full EMI)")
+
+
+class LoanRejectRequest(BaseModel):
+    reason: str = Field(default="", max_length=500, description="Rejection reason")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Savings Goal Models
 # ═══════════════════════════════════════════════════════════════════════════════
 

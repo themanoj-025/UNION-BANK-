@@ -16,16 +16,21 @@ from infrastructure.database import get_session, close_session, init_db
 from infrastructure.repositories import (
     SqlAlchemyAccountRepository,
     SqlAlchemyAdminRepository,
+    SqlAlchemyLoanRepository,
     SqlAlchemyLoginAttemptRepository,
+    SqlAlchemyNotificationPreferenceRepository,
+    SqlAlchemyNotificationRepository,
     SqlAlchemySavingsGoalRepository,
     SqlAlchemyTokenVersionRepository,
     SqlAlchemyTransactionRepository,
     SqlAlchemyAuditLogRepository,
 )
+from application.notifications import LogNotificationSender, NotificationService
 from application.services import (
     AccountService,
     AdminService,
     AuthService,
+    LoanService,
     SavingsGoalService,
     TransactionService,
 )
@@ -60,6 +65,9 @@ class Container:
     def savings_goal_repo(self) -> SqlAlchemySavingsGoalRepository:
         return SqlAlchemySavingsGoalRepository(self.get_session())
 
+    def loan_repo(self) -> SqlAlchemyLoanRepository:
+        return SqlAlchemyLoanRepository(self.get_session())
+
     def login_attempt_repo(self) -> SqlAlchemyLoginAttemptRepository:
         return SqlAlchemyLoginAttemptRepository(self.get_session())
 
@@ -69,6 +77,23 @@ class Container:
     def audit_log_repo(self) -> SqlAlchemyAuditLogRepository:
         return SqlAlchemyAuditLogRepository(self.get_session())
 
+    def notif_repo(self) -> SqlAlchemyNotificationRepository:
+        return SqlAlchemyNotificationRepository(self.get_session())
+
+    def notif_pref_repo(self) -> SqlAlchemyNotificationPreferenceRepository:
+        return SqlAlchemyNotificationPreferenceRepository(self.get_session())
+
+    def notification_sender(self) -> LogNotificationSender:
+        return LogNotificationSender()
+
+    def notification_service(self) -> NotificationService:
+        return NotificationService(
+            notif_repo=self.notif_repo(),
+            pref_repo=self.notif_pref_repo(),
+            account_repo=self.account_repo(),
+            sender=self.notification_sender(),
+        )
+
     # ── Services ───────────────────────────────────────────────────────────
 
     def auth_service(self) -> AuthService:
@@ -77,6 +102,7 @@ class Container:
             admin_repo=self.admin_repo(),
             login_attempt_repo=self.login_attempt_repo(),
             token_version_repo=self.token_version_repo(),
+            notif_service=self.notification_service(),
         )
 
     def account_service(self) -> AccountService:
@@ -87,17 +113,21 @@ class Container:
         )
 
     def transaction_service(self) -> TransactionService:
+        _notif = self.notification_service()
         return TransactionService(
             account_repo=self.account_repo(),
             txn_repo=self.transaction_repo(),
+            notif_service=_notif,
         )
 
     def admin_service(self) -> AdminService:
+        _notif = self.notification_service()
         return AdminService(
             account_repo=self.account_repo(),
             txn_repo=self.transaction_repo(),
             admin_repo=self.admin_repo(),
             audit_log_repo=self.audit_log_repo(),
+            notif_service=_notif,
         )
 
     def savings_goal_service(self) -> SavingsGoalService:
@@ -105,6 +135,16 @@ class Container:
             goal_repo=self.savings_goal_repo(),
             account_repo=self.account_repo(),
             txn_repo=self.transaction_repo(),
+        )
+
+    def loan_service(self) -> LoanService:
+        _notif = self.notification_service()
+        return LoanService(
+            loan_repo=self.loan_repo(),
+            account_repo=self.account_repo(),
+            txn_repo=self.transaction_repo(),
+            audit_log_repo=self.audit_log_repo(),
+            notif_service=_notif,
         )
 
 

@@ -1697,14 +1697,229 @@ tbody tr:last-child td {
   animation: slideIn 0.3s ease;
 }
 
+/* ═══════════════════════════════════════════
+   LOAN MANAGEMENT STYLES
+   ═══════════════════════════════════════════ */
+
+/* ── Page Header ─────────────────────────── */
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Stat Cards (grid variant) ───────────── */
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 768px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .grid-4 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+.card-stat {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  transition: all 0.2s;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.stat-content {
+  min-width: 0;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════
+   NOTIFICATION SYSTEM STYLES
+   ═══════════════════════════════════════════ */
+
+.notif-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #e53935;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: super;
+  margin-left: -4px;
+  box-shadow: 0 1px 4px rgba(229, 57, 53, 0.4);
+}
+
+.nav-notif-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.nav-notif-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+}
+
+/* ── Form Input Unified ───────────────────── */
+
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid var(--gray-300);
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-family: var(--font);
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.3s ease;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12);
+}
+
+.form-input::placeholder {
+  color: var(--gray-400);
+}
+
+select.form-input {
+  cursor: pointer;
+  appearance: auto;
+}
+
+textarea.form-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+/* ── Badges ───────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-success { background: var(--bg-flash-success); color: var(--success); }
+.badge-error   { background: var(--bg-flash-error);   color: var(--danger); }
+.badge-warning { background: var(--bg-flash-warning); color: var(--warning); }
+.badge-info    { background: var(--bg-flash-info);    color: var(--info); }
+.badge-secondary { background: var(--gray-200); color: var(--gray-600); }
+
+/* ── Text Utilities ───────────────────────── */
+
+.text-sm { font-size: 13px; }
+.text-muted { color: var(--text-muted); }
+
+/* ── Progress Bar ─────────────────────────── */
+
+.progress-bar {
+  width: 100%;
+}
+
+/* ── Modal Overlay ────────────────────────── */
+
+.modal-overlay {
+  display: none;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
 /* ── Disabled Form State ─────────────────── */
 
-form.htmx-request .form-control {
+form.htmx-request .form-control,
+form.htmx-request .form-input {
   opacity: 0.6;
   pointer-events: none;
 }
 
-form.htmx-request select.form-control {
+form.htmx-request select.form-control,
+form.htmx-request select.form-input {
   opacity: 0.6;
   pointer-events: none;
 }

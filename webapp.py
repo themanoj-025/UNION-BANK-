@@ -1168,6 +1168,399 @@ def close_account():
     return redirect(url_for("index"))
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Notification Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@app.route("/notifications")
+@login_required
+def notifications():
+    """View all notifications for the logged-in customer."""
+    acc = get_account()
+    if not acc:
+        return redirect(url_for("login"))
+
+    from container import get_container
+    c = get_container()
+    notif_list = c.notif_repo().get_by_account(acc.account_number, limit=100)
+    unread_count = c.notif_repo().get_unread_count(acc.account_number)
+
+    return render_template(
+        "notifications.html",
+        acc=acc,
+        notifications=notif_list,
+        unread_count=unread_count,
+        fmt_currency=fmt_currency,
+    )
+
+
+@app.route("/notifications/mark-read/<notif_id>", methods=["POST"])
+@login_required
+def notification_mark_read(notif_id):
+    """Mark a single notification as read."""
+    from container import get_container
+    c = get_container()
+    c.notif_repo().mark_as_read(notif_id)
+    c.notif_repo().commit()
+    return redirect(url_for("notifications"))
+
+
+@app.route("/notifications/mark-all-read", methods=["POST"])
+@login_required
+def notification_mark_all_read():
+    """Mark all notifications as read for the logged-in customer."""
+    acc = get_account()
+    if not acc:
+        return redirect(url_for("login"))
+
+    from container import get_container
+    c = get_container()
+    count = c.notif_repo().mark_all_as_read(acc.account_number)
+    c.notif_repo().commit()
+    flash(f"{count} notification(s) marked as read.", "info")
+    return redirect(url_for("notifications"))
+
+
+@app.route("/notifications/count")
+@login_required
+def notification_count():
+    """HTMX partial: returns unread notification count for the badge."""
+    acc = get_account()
+    if not acc:
+        return "0"
+    from container import get_container
+    c = get_container()
+    count = c.notif_repo().get_unread_count(acc.account_number)
+    return str(count)
+
+
+@app.route("/notifications/preferences", methods=["GET", "POST"])
+@login_required
+def notification_preferences():
+    """View and update notification preferences."""
+    acc = get_account()
+    if not acc:
+        return redirect(url_for("login"))
+
+    from container import get_container
+    c = get_container()
+
+    if request.method == "POST":
+        kwargs = {
+            "in_app_enabled": request.form.get("in_app_enabled") == "on",
+            "email_enabled": request.form.get("email_enabled") == "on",
+            "sms_enabled": request.form.get("sms_enabled") == "on",
+            "deposit_alerts": request.form.get("deposit_alerts") == "on",
+            "withdraw_alerts": request.form.get("withdraw_alerts") == "on",
+            "transfer_alerts": request.form.get("transfer_alerts") == "on",
+            "interest_alerts": request.form.get("interest_alerts") == "on",
+            "loan_alerts": request.form.get("loan_alerts") == "on",
+            "admin_alerts": request.form.get("admin_alerts") == "on",
+        }
+        result = c.notification_service().update_preferences(
+            acc.account_number, **kwargs
+        )
+        flash(result.message, "success")
+        return redirect(url_for("notification_preferences"))
+
+    prefs = c.notification_service().get_preferences(acc.account_number)
+    return render_template(
+        "notification_preferences.html",
+        acc=acc,
+        prefs=prefs,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Loan Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@app.route("/loans")
+@login_required
+def loans():
+    """View all loans for the logged-in customer."""
+    acc = get_account()
+    if not acc:
+        return redirect(url_for("login"))
+
+    from container import get_container
+    c = get_container()
+    domain_loans = c.loan_service().list_loans(acc.account_number)
+
+    loan_list = []
+    for l in domain_loans:
+        pct = float(l.amount_paid / l.principal_amount * 100) if l.principal_amount > 0 else 0
+        remaining_emis = int(l.remaining_amount / l.emi_amount) + (1 if l.remaining_amount % l.emi_amount > 0 else 0) if l.emi_amount > 0 else 0
+        loan_list.append({
+            "loan_id": l.loan_id,
+            "loan_type": l.loan_type,
+            "principal_amount": float(l.principal_amount),
+            "interest_rate": float(l.interest_rate),
+            "tenure_months": l.tenure_months,
+            "emi_amount": float(l.emi_amount),
+            "amount_paid": float(l.amount_paid),
+            "remaining_amount": float(l.remaining_amount),
+            "status": l.status,
+            "application_date": str(l.application_date)[:19],
+            "approval_date": str(l.approval_date)[:19] if l.approval_date else None,
+            "next_emi_date": str(l.next_emi_date)[:19] if l.next_emi_date else None,
+            "purpose": l.purpose,
+            "progress_pct": round(pct, 1),
+            "remaining_emis": remaining_emis,
+        })
+
+    total_disbursed = sum(float(l.principal_amount) for l in domain_loans if l.status in ("APPROVED", "ACTIVE", "CLOSED"))
+    total_outstanding = sum(float(l.remaining_amount) for l in domain_loans if l.status in ("APPROVED", "ACTIVE"))
+    active_loans = sum(1 for l in domain_loans if l.status in ("APPROVED", "ACTIVE"))
+    closed_loans = sum(1 for l in domain_loans if l.status == "CLOSED")
+    pending_loans = sum(1 for l in domain_loans if l.status == "PENDING")
+
+    summary = {
+        "total_loans": len(domain_loans),
+        "active_loans": active_loans,
+        "closed_loans": closed_loans,
+        "pending_loans": pending_loans,
+        "total_disbursed": round(total_disbursed, 2),
+        "total_outstanding": round(total_outstanding, 2),
+    }
+
+    return render_template(
+        "loans.html",
+        acc=acc,
+        loans=loan_list,
+        summary=summary,
+        fmt_currency=fmt_currency,
+    )
+
+
+@app.route("/loans/apply", methods=["GET", "POST"])
+@login_required
+@rate_limit(limit=5, per_seconds=60)
+def loan_apply():
+    """Apply for a new loan."""
+    acc = get_account()
+    if not acc:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        loan_type = request.form.get("loan_type", "").strip()
+        try:
+            principal = float(request.form.get("principal_amount", "0"))
+            interest_rate = float(request.form.get("interest_rate", "0"))
+            tenure = int(request.form.get("tenure_months", "0"))
+        except ValueError:
+            flash("Invalid input. Please check your values.", "error")
+            return render_template("loan_apply.html", acc=acc, fmt_currency=fmt_currency)
+
+        purpose = request.form.get("purpose", "").strip()
+
+        from container import get_container
+        c = get_container()
+
+        # Calculate EMI preview first
+        preview = c.loan_service().calculate_emi_preview(principal, interest_rate, tenure)
+
+        # Check if showing confirmation
+        if "confirm" not in request.form:
+            return render_template(
+                "loan_apply.html",
+                acc=acc,
+                fmt_currency=fmt_currency,
+                preview=preview,
+                loan_type=loan_type,
+                principal_amount=principal,
+                interest_rate=interest_rate,
+                tenure_months=tenure,
+                purpose=purpose,
+            )
+
+        result = c.loan_service().apply_loan(
+            acc_no=acc.account_number,
+            loan_type=loan_type,
+            principal_amount=Decimal(str(principal)),
+            interest_rate=Decimal(str(interest_rate)),
+            tenure_months=tenure,
+            purpose=purpose,
+        )
+        if result.success:
+            flash(result.message, "success")
+            return redirect(url_for("loans"))
+        else:
+            flash(result.message, "error")
+            return render_template("loan_apply.html", acc=acc, fmt_currency=fmt_currency)
+
+    return render_template("loan_apply.html", acc=acc, fmt_currency=fmt_currency)
+
+
+@app.route("/loans/<loan_id>/pay-emi", methods=["POST"])
+@login_required
+@rate_limit(limit=10, per_seconds=60)
+def loan_pay_emi(loan_id):
+    """Pay the monthly EMI for a loan."""
+    acc = get_account()
+    if not acc:
+        return redirect(url_for("login"))
+
+    try:
+        amount = request.form.get("amount", "")
+        decimal_amount = Decimal(amount) if amount else None
+    except (ValueError, TypeError):
+        decimal_amount = None
+
+    from container import get_container
+    c = get_container()
+    result = c.loan_service().pay_emi(
+        acc_no=acc.account_number, loan_id=loan_id, amount=decimal_amount
+    )
+    if result.success:
+        flash(result.message, "success")
+    else:
+        flash(result.message, "error")
+
+    return redirect(url_for("loans"))
+
+
+@app.route("/loans/<loan_id>")
+@login_required
+def loan_detail(loan_id):
+    """View detailed information for a specific loan."""
+    acc = get_account()
+    if not acc:
+        return redirect(url_for("login"))
+
+    from container import get_container
+    c = get_container()
+    loan = c.loan_service().get_loan(loan_id)
+
+    if not loan or loan.account_number != acc.account_number:
+        flash("Loan not found.", "error")
+        return redirect(url_for("loans"))
+
+    pct = float(loan.amount_paid / loan.principal_amount * 100) if loan.principal_amount > 0 else 0
+    remaining_emis = int(loan.remaining_amount / loan.emi_amount) + (1 if loan.remaining_amount % loan.emi_amount > 0 else 0) if loan.emi_amount > 0 else 0
+
+    loan_dict = {
+        "loan_id": loan.loan_id,
+        "account_number": loan.account_number,
+        "loan_type": loan.loan_type,
+        "principal_amount": float(loan.principal_amount),
+        "interest_rate": float(loan.interest_rate),
+        "tenure_months": loan.tenure_months,
+        "emi_amount": float(loan.emi_amount),
+        "amount_paid": float(loan.amount_paid),
+        "remaining_amount": float(loan.remaining_amount),
+        "status": loan.status,
+        "application_date": str(loan.application_date)[:19],
+        "approval_date": str(loan.approval_date)[:19] if loan.approval_date else None,
+        "next_emi_date": str(loan.next_emi_date)[:19] if loan.next_emi_date else None,
+        "purpose": loan.purpose,
+        "admin_notes": loan.admin_notes,
+        "progress_pct": round(pct, 1),
+        "remaining_emis": remaining_emis,
+    }
+
+    return render_template(
+        "loan_detail.html",
+        acc=acc,
+        loan=loan_dict,
+        fmt_currency=fmt_currency,
+    )
+
+
+# ── Admin: Loan Management Routes ─────────────────────────────────────────────
+
+
+@app.route("/admin/loans")
+@admin_required
+def admin_loans():
+    """Admin loan management dashboard."""
+    from container import get_container
+    c = get_container()
+
+    stats = c.loan_service().get_loan_statistics()
+    pending = c.loan_service().list_pending()
+    all_loans = c.loan_service().list_all()
+
+    pending_list = []
+    for l in pending:
+        # Get customer name
+        account = c.account_repo().get(l.account_number)
+        customer_name = account.name if account else "Unknown"
+        pending_list.append({
+            "loan_id": l.loan_id,
+            "account_number": l.account_number,
+            "customer_name": customer_name,
+            "loan_type": l.loan_type,
+            "principal_amount": float(l.principal_amount),
+            "interest_rate": float(l.interest_rate),
+            "tenure_months": l.tenure_months,
+            "emi_amount": float(l.emi_amount),
+            "purpose": l.purpose,
+            "application_date": str(l.application_date)[:19],
+        })
+
+    all_list = []
+    for l in all_loans:
+        account = c.account_repo().get(l.account_number)
+        customer_name = account.name if account else "Unknown"
+        all_list.append({
+            "loan_id": l.loan_id,
+            "account_number": l.account_number,
+            "customer_name": customer_name,
+            "loan_type": l.loan_type,
+            "principal_amount": float(l.principal_amount),
+            "interest_rate": float(l.interest_rate),
+            "tenure_months": l.tenure_months,
+            "emi_amount": float(l.emi_amount),
+            "amount_paid": float(l.amount_paid),
+            "remaining_amount": float(l.remaining_amount),
+            "status": l.status,
+            "application_date": str(l.application_date)[:19],
+            "approval_date": str(l.approval_date)[:19] if l.approval_date else None,
+        })
+
+    return render_template(
+        "admin_loans.html",
+        stats=stats,
+        pending=pending_list,
+        all_loans=all_list,
+        fmt_currency=fmt_currency,
+    )
+
+
+@app.route("/admin/loans/<loan_id>/approve", methods=["POST"])
+@admin_required
+def admin_loan_approve(loan_id):
+    """Approve a pending loan application."""
+    from container import get_container
+    c = get_container()
+    result = c.loan_service().approve_loan(loan_id=loan_id, admin_user="admin")
+    if result.success:
+        flash(result.message, "success")
+    else:
+        flash(result.message, "error")
+    return redirect(url_for("admin_loans"))
+
+
+@app.route("/admin/loans/<loan_id>/reject", methods=["POST"])
+@admin_required
+def admin_loan_reject(loan_id):
+    """Reject a pending loan application."""
+    reason = request.form.get("reason", "").strip()
+    from container import get_container
+    c = get_container()
+    result = c.loan_service().reject_loan(
+        loan_id=loan_id, reason=reason, admin_user="admin"
+    )
+    if result.success:
+        flash(result.message, "info" if not reason else "warning")
+    else:
+        flash(result.message, "error")
+    return redirect(url_for("admin_loans"))
+
+
 # ── Admin routes ─────────────────────────────────────────────────────────────
 
 @app.route("/admin/login", methods=["GET", "POST"])

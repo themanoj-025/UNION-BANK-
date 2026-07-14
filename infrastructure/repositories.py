@@ -17,13 +17,14 @@ from sqlalchemy.orm import Session
 from application.interfaces import KeysetPage
 
 from domain.entities import (
-    Account, AdminUser, LoginAttempt, SavingsGoal,
+    Account, AdminUser, Loan, LoginAttempt, Notification,
+    NotificationPreference, SavingsGoal,
     Transaction, TransactionType, TokenVersion,
 )
 from .persistence import (
-    AccountModel, TransactionModel, SavingsGoalModel,
-    AdminModel, LoginAttemptModel, TokenVersionModel,
-    AuditLogModel,
+    AccountModel, LoanModel, NotificationModel, NotificationPreferenceModel,
+    TransactionModel, SavingsGoalModel, AdminModel, LoginAttemptModel,
+    TokenVersionModel, AuditLogModel,
 )
 
 
@@ -482,6 +483,129 @@ class SqlAlchemySavingsGoalRepository:
         self.session.rollback()
 
 
+def _map_loan(model: LoanModel) -> Loan:
+    return Loan(
+        loan_id=model.loan_id,
+        account_number=model.account_number,
+        loan_type=model.loan_type,
+        principal_amount=model.principal_amount,
+        interest_rate=model.interest_rate,
+        tenure_months=model.tenure_months,
+        emi_amount=model.emi_amount,
+        amount_paid=model.amount_paid,
+        remaining_amount=model.remaining_amount,
+        status=model.status,
+        application_date=model.application_date,
+        approval_date=model.approval_date,
+        next_emi_date=model.next_emi_date,
+        purpose=model.purpose or "",
+        admin_notes=model.admin_notes or "",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Loan Repository
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class SqlAlchemyLoanRepository:
+    """Loan repository backed by SQLAlchemy + SQLite."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def get(self, loan_id: str) -> Optional[Loan]:
+        model = self.session.query(LoanModel).filter_by(loan_id=loan_id).first()
+        return _map_loan(model) if model else None
+
+    def get_by_account(self, acc_no: str) -> list[Loan]:
+        models = self.session.query(LoanModel).filter_by(
+            account_number=acc_no
+        ).order_by(LoanModel.application_date.desc()).all()
+        return [_map_loan(m) for m in models]
+
+    def get_all_pending(self) -> list[Loan]:
+        models = self.session.query(LoanModel).filter_by(
+            status="PENDING"
+        ).order_by(LoanModel.application_date.asc()).all()
+        return [_map_loan(m) for m in models]
+
+    def get_all_active(self) -> list[Loan]:
+        models = self.session.query(LoanModel).filter(
+            LoanModel.status.in_(["APPROVED", "ACTIVE"])
+        ).order_by(LoanModel.application_date.desc()).all()
+        return [_map_loan(m) for m in models]
+
+    def get_all(self) -> list[Loan]:
+        models = self.session.query(LoanModel).order_by(
+            LoanModel.application_date.desc()
+        ).all()
+        return [_map_loan(m) for m in models]
+
+    def create(self, loan: Loan) -> Loan:
+        model = LoanModel(
+            loan_id=loan.loan_id,
+            account_number=loan.account_number,
+            loan_type=loan.loan_type,
+            principal_amount=loan.principal_amount,
+            interest_rate=loan.interest_rate,
+            tenure_months=loan.tenure_months,
+            emi_amount=loan.emi_amount,
+            amount_paid=loan.amount_paid,
+            remaining_amount=loan.remaining_amount,
+            status=loan.status,
+            application_date=loan.application_date,
+            approval_date=loan.approval_date,
+            next_emi_date=loan.next_emi_date,
+            purpose=loan.purpose,
+            admin_notes=loan.admin_notes,
+        )
+        self.session.add(model)
+        return loan
+
+    def update(self, loan: Loan) -> Loan:
+        model = self.session.query(LoanModel).filter_by(loan_id=loan.loan_id).first()
+        if model:
+            model.loan_type = loan.loan_type
+            model.principal_amount = loan.principal_amount
+            model.interest_rate = loan.interest_rate
+            model.tenure_months = loan.tenure_months
+            model.emi_amount = loan.emi_amount
+            model.amount_paid = loan.amount_paid
+            model.remaining_amount = loan.remaining_amount
+            model.status = loan.status
+            model.approval_date = loan.approval_date
+            model.next_emi_date = loan.next_emi_date
+            model.purpose = loan.purpose
+            model.admin_notes = loan.admin_notes
+        return loan
+
+    def count_by_status(self, status: str) -> int:
+        return self.session.query(LoanModel).filter_by(status=status).count()
+
+    def total_disbursed(self) -> Decimal:
+        result = self.session.query(
+            func.sum(LoanModel.principal_amount)
+        ).filter(
+            LoanModel.status.in_(["APPROVED", "ACTIVE", "CLOSED"])
+        ).scalar()
+        return result or Decimal("0.00")
+
+    def total_outstanding(self) -> Decimal:
+        result = self.session.query(
+            func.sum(LoanModel.remaining_amount)
+        ).filter(
+            LoanModel.status.in_(["APPROVED", "ACTIVE"])
+        ).scalar()
+        return result or Decimal("0.00")
+
+    def commit(self) -> None:
+        self.session.commit()
+
+    def rollback(self) -> None:
+        self.session.rollback()
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Login Attempt Repository
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -581,6 +705,161 @@ class SqlAlchemyTokenVersionRepository:
         else:
             model.version += 1
         return model.version
+
+    def commit(self) -> None:
+        self.session.commit()
+
+    def rollback(self) -> None:
+        self.session.rollback()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Notification Repository
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _map_notification(model: NotificationModel) -> Notification:
+    return Notification(
+        notif_id=model.notif_id,
+        account_number=model.account_number,
+        type=model.type,
+        title=model.title,
+        message=model.message,
+        is_read=model.is_read,
+        created_at=model.created_at,
+        related_txn_id=model.related_txn_id,
+    )
+
+
+class SqlAlchemyNotificationRepository:
+    """In-app notification repository backed by SQLAlchemy + SQLite."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def get(self, notif_id: str) -> Optional[Notification]:
+        model = self.session.query(NotificationModel).filter_by(notif_id=notif_id).first()
+        return _map_notification(model) if model else None
+
+    def get_by_account(self, acc_no: str, limit: int = 50) -> list[Notification]:
+        models = self.session.query(NotificationModel).filter_by(
+            account_number=acc_no
+        ).order_by(NotificationModel.created_at.desc()).limit(limit).all()
+        return [_map_notification(m) for m in models]
+
+    def get_unread_count(self, acc_no: str) -> int:
+        return self.session.query(NotificationModel).filter_by(
+            account_number=acc_no, is_read=False
+        ).count()
+
+    def get_unread(self, acc_no: str, limit: int = 20) -> list[Notification]:
+        models = self.session.query(NotificationModel).filter_by(
+            account_number=acc_no, is_read=False
+        ).order_by(NotificationModel.created_at.desc()).limit(limit).all()
+        return [_map_notification(m) for m in models]
+
+    def create(self, notification: Notification) -> Notification:
+        model = NotificationModel(
+            notif_id=notification.notif_id,
+            account_number=notification.account_number,
+            type=notification.type,
+            title=notification.title,
+            message=notification.message,
+            is_read=notification.is_read,
+            created_at=notification.created_at or _utcnow(),
+            related_txn_id=notification.related_txn_id,
+        )
+        self.session.add(model)
+        return notification
+
+    def mark_as_read(self, notif_id: str) -> bool:
+        model = self.session.query(NotificationModel).filter_by(notif_id=notif_id).first()
+        if model is None:
+            return False
+        model.is_read = True
+        return True
+
+    def mark_all_as_read(self, acc_no: str) -> int:
+        count = self.session.query(NotificationModel).filter_by(
+            account_number=acc_no, is_read=False
+        ).update({"is_read": True})
+        return count
+
+    def delete_old(self, days: int = 30) -> int:
+        from datetime import timedelta
+        cutoff = _utcnow() - timedelta(days=days)
+        deleted = self.session.query(NotificationModel).filter(
+            NotificationModel.created_at < cutoff
+        ).delete()
+        return deleted
+
+    def commit(self) -> None:
+        self.session.commit()
+
+    def rollback(self) -> None:
+        self.session.rollback()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Notification Preference Repository
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class SqlAlchemyNotificationPreferenceRepository:
+    """Notification preferences repository backed by SQLAlchemy + SQLite."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def get(self, acc_no: str) -> Optional[NotificationPreference]:
+        model = self.session.query(NotificationPreferenceModel).filter_by(
+            account_number=acc_no
+        ).first()
+        if model is None:
+            return None
+        return NotificationPreference(
+            account_number=model.account_number,
+            in_app_enabled=model.in_app_enabled,
+            email_enabled=model.email_enabled,
+            sms_enabled=model.sms_enabled,
+            deposit_alerts=model.deposit_alerts,
+            withdraw_alerts=model.withdraw_alerts,
+            transfer_alerts=model.transfer_alerts,
+            interest_alerts=model.interest_alerts,
+            loan_alerts=model.loan_alerts,
+            admin_alerts=model.admin_alerts,
+            updated_at=model.updated_at,
+        )
+
+    def create_or_update(self, pref: NotificationPreference) -> NotificationPreference:
+        model = self.session.query(NotificationPreferenceModel).filter_by(
+            account_number=pref.account_number
+        ).first()
+        if model is None:
+            model = NotificationPreferenceModel(
+                account_number=pref.account_number,
+                in_app_enabled=pref.in_app_enabled,
+                email_enabled=pref.email_enabled,
+                sms_enabled=pref.sms_enabled,
+                deposit_alerts=pref.deposit_alerts,
+                withdraw_alerts=pref.withdraw_alerts,
+                transfer_alerts=pref.transfer_alerts,
+                interest_alerts=pref.interest_alerts,
+                loan_alerts=pref.loan_alerts,
+                admin_alerts=pref.admin_alerts,
+            )
+            self.session.add(model)
+        else:
+            model.in_app_enabled = pref.in_app_enabled
+            model.email_enabled = pref.email_enabled
+            model.sms_enabled = pref.sms_enabled
+            model.deposit_alerts = pref.deposit_alerts
+            model.withdraw_alerts = pref.withdraw_alerts
+            model.transfer_alerts = pref.transfer_alerts
+            model.interest_alerts = pref.interest_alerts
+            model.loan_alerts = pref.loan_alerts
+            model.admin_alerts = pref.admin_alerts
+        return pref
 
     def commit(self) -> None:
         self.session.commit()

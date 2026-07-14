@@ -49,6 +49,51 @@ def generate_goal_id() -> str:
     return "GOAL-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 
+def generate_loan_id() -> str:
+    """Generate a unique loan ID like LON-XXXXXXXX."""
+    return "LON-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+
+def generate_notification_id() -> str:
+    """Generate a unique notification ID like NTF-XXXXXXXX."""
+    return "NTF-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  EMI Calculator
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def calculate_emi(principal: float, annual_rate: float, tenure_months: int) -> float:
+    """Calculate EMI using the standard formula.
+
+    EMI = P × r × (1+r)^n / ((1+r)^n - 1)
+
+    Where:
+        P = Principal amount
+        r = Monthly interest rate (annual_rate / 12 / 100)
+        n = Number of monthly installments
+
+    Args:
+        principal:     Loan principal amount.
+        annual_rate:   Annual interest rate in percent (e.g. 10.5 for 10.5%%).
+        tenure_months: Loan tenure in months.
+
+    Returns:
+        Monthly EMI amount rounded to 2 decimal places.
+    """
+    if principal <= 0 or annual_rate <= 0 or tenure_months <= 0:
+        return 0.0
+
+    monthly_rate = annual_rate / 12 / 100
+    if monthly_rate == 0:
+        return round(principal / tenure_months, 2)
+
+    emi = principal * monthly_rate * ((1 + monthly_rate) ** tenure_months) / \
+          (((1 + monthly_rate) ** tenure_months) - 1)
+    return round(emi, 2)
+
+
 # ─────────────────────────────────────────────
 #  CLI input helpers
 # ─────────────────────────────────────────────

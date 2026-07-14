@@ -143,6 +143,6 @@ def atomic_session() -> Generator[Session, None, None]:
 
 def init_db():
     """Create all tables if they don't exist."""
-    from .persistence import AccountModel, TransactionModel, SavingsGoalModel, AdminModel, LoginAttemptModel, TokenVersionModel, AuditLogModel  # noqa: F401
+    from .persistence import AccountModel, LoanModel, NotificationModel, NotificationPreferenceModel, TransactionModel, SavingsGoalModel, AdminModel, LoginAttemptModel, TokenVersionModel, AuditLogModel  # noqa: F401
     engine = get_engine()
     ModelBase.metadata.create_all(bind=engine)

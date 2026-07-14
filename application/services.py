@@ -8,7 +8,7 @@ Services depend only on repository protocols — never on concrete DB code.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Generator, Optional
 
@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from domain.entities import (
     Account,
     AdminUser,
+    Loan,
     SavingsGoal,
     ServiceResult,
     TokenVersion,
@@ -30,6 +31,7 @@ from .interfaces import (
     AdminRepositoryProtocol,
     AuditLogRepositoryProtocol,
     KeysetPage,
+    LoanRepositoryProtocol,
     LoginAttemptRepositoryProtocol,
     SavingsGoalRepositoryProtocol,
     TokenVersionRepositoryProtocol,
@@ -37,7 +39,10 @@ from .interfaces import (
 )
 
 from utils.auth import hash_password, verify_password, calculate_monthly_interest
-from utils.formatting import fmt_currency, generate_account_number, generate_transaction_id, generate_goal_id
+from utils.formatting import (
+    fmt_currency, generate_account_number,
+    generate_transaction_id, generate_goal_id, generate_loan_id, calculate_emi,
+)
 
 
 def _utcnow() -> datetime:
@@ -67,11 +72,13 @@ class AuthService:
         admin_repo: AdminRepositoryProtocol,
         login_attempt_repo: LoginAttemptRepositoryProtocol,
         token_version_repo: Optional[TokenVersionRepositoryProtocol] = None,
+        notif_service: Optional = None,
     ):
         self.account_repo = account_repo
         self.admin_repo = admin_repo
         self.login_attempt_repo = login_attempt_repo
         self.token_version_repo = token_version_repo
+        self.notif_service = notif_service
 
     def customer_login(self, acc_no: str, password: str) -> ServiceResult:
         """Authenticate a customer login."""
@@ -134,6 +141,14 @@ class AuthService:
         )
         self.account_repo.create(account)
         self.account_repo.commit()
+
+        # Send welcome notification
+        if self.notif_service:
+            try:
+                self.notif_service.notify_welcome(acc_no)
+            except Exception:
+                pass
+
         return ServiceResult(
             success=True,
             message=f"Account created successfully! Account number: {acc_no}",
@@ -253,9 +268,11 @@ class TransactionService:
         self,
         account_repo: AccountRepositoryProtocol,
         txn_repo: TransactionRepositoryProtocol,
+        notif_service: Optional = None,
     ):
         self.account_repo = account_repo
         self.txn_repo = txn_repo
+        self.notif_service = notif_service
 
     def deposit(self, acc_no: str, amount: Decimal, category: str = "General") -> ServiceResult:
         if amount <= 0:
@@ -282,6 +299,15 @@ class TransactionService:
         )
         self.txn_repo.create(txn)
         self.account_repo.commit()
+
+        # Send notification
+        if self.notif_service and account:
+            try:
+                self.notif_service.notify_deposit(
+                    acc_no, amount, account.balance, txn.txn_id
+                )
+            except Exception:
+                pass
 
         return ServiceResult(
             success=True,
@@ -321,6 +347,15 @@ class TransactionService:
         )
         self.txn_repo.create(txn)
         self.account_repo.commit()
+
+        # Send notification
+        if self.notif_service and account:
+            try:
+                self.notif_service.notify_withdraw(
+                    acc_no, amount, account.balance, txn.txn_id
+                )
+            except Exception:
+                pass
 
         return ServiceResult(
             success=True,
@@ -394,6 +429,18 @@ class TransactionService:
         self.txn_repo.create(receiver_txn)
         self.account_repo.commit()
 
+        # Send notifications
+        if self.notif_service:
+            try:
+                self.notif_service.notify_transfer_sent(
+                    sender_acc_no, amount, receiver_acc_no, sender.balance, sender_txn.txn_id
+                )
+                self.notif_service.notify_transfer_received(
+                    receiver_acc_no, amount, sender_acc_no, receiver.balance, receiver_txn.txn_id
+                )
+            except Exception:
+                pass
+
         return TransferResult(
             success=True,
             sender_balance=sender.balance,
@@ -431,6 +478,15 @@ class TransactionService:
         )
         self.txn_repo.create(txn)
         self.account_repo.commit()
+
+        # Send notification
+        if self.notif_service and account:
+            try:
+                self.notif_service.notify_interest(
+                    acc_no, interest, account.balance, txn.txn_id
+                )
+            except Exception:
+                pass
 
         return ServiceResult(
             success=True,
@@ -498,11 +554,13 @@ class AdminService:
         txn_repo: TransactionRepositoryProtocol,
         admin_repo: AdminRepositoryProtocol,
         audit_log_repo: Optional[AuditLogRepositoryProtocol] = None,
+        notif_service: Optional = None,
     ):
         self.account_repo = account_repo
         self.txn_repo = txn_repo
         self.admin_repo = admin_repo
         self.audit_log_repo = audit_log_repo
+        self.notif_service = notif_service
 
     def _audit_log(self, actor: str, action: str, target: Optional[str] = None,
                    details: Optional[str] = None, ip_address: Optional[str] = None,
@@ -540,6 +598,16 @@ class AdminService:
             details=f"Frozen account for {account.name}",
             reason=reason,
         )
+
+        # Send notification
+        if self.notif_service:
+            try:
+                self.notif_service.notify_account_frozen(
+                    acc_no, reason=reason or ""
+                )
+            except Exception:
+                pass
+
         return ServiceResult(success=True, message=f"Account {acc_no} ({account.name}) has been frozen.")
 
     def unfreeze_account(self, acc_no: str, actor: str = "admin",
@@ -559,6 +627,14 @@ class AdminService:
             details=f"Unfrozen account for {account.name}",
             reason=reason,
         )
+
+        # Send notification
+        if self.notif_service:
+            try:
+                self.notif_service.notify_account_unfrozen(acc_no)
+            except Exception:
+                pass
+
         return ServiceResult(success=True, message=f"Account {acc_no} ({account.name}) has been unfrozen.")
 
     def delete_account(self, acc_no: str, actor: str = "admin",
@@ -624,6 +700,401 @@ class AdminService:
             details="Admin password changed",
         )
         return ServiceResult(success=True, message="Admin password changed successfully.")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Loan Service
+# ═══════════════════════════════════════════════════════════════════════════════
+
+LOAN_TYPES = ["Personal", "Home", "Vehicle", "Education", "Business"]
+
+# Default interest rates and max tenures per loan type
+LOAN_PRODUCTS = {
+    "Personal":  {"max_rate": 15.0, "min_rate": 10.0, "max_tenure": 60},
+    "Home":      {"max_rate": 10.0, "min_rate": 7.0,  "max_tenure": 360},
+    "Vehicle":   {"max_rate": 12.0, "min_rate": 8.0,  "max_tenure": 84},
+    "Education": {"max_rate": 11.0, "min_rate": 7.5,  "max_tenure": 120},
+    "Business":  {"max_rate": 18.0, "min_rate": 12.0, "max_tenure": 120},
+}
+
+
+class LoanService:
+    """Loan management use-cases (apply, approve, reject, pay EMI, view)."""
+
+    def __init__(
+        self,
+        loan_repo: LoanRepositoryProtocol,
+        account_repo: AccountRepositoryProtocol,
+        txn_repo: TransactionRepositoryProtocol,
+        audit_log_repo: Optional[AuditLogRepositoryProtocol] = None,
+        notif_service: Optional = None,
+    ):
+        self.loan_repo = loan_repo
+        self.account_repo = account_repo
+        self.txn_repo = txn_repo
+        self.audit_log_repo = audit_log_repo
+        self.notif_service = notif_service
+
+    def _audit_log(self, actor: str, action: str, target: Optional[str] = None,
+                   details: Optional[str] = None) -> None:
+        if self.audit_log_repo:
+            self.audit_log_repo.log(
+                actor=actor, action=action, target=target, details=details,
+            )
+            self.audit_log_repo.commit()
+
+    # ── Getters ────────────────────────────────────────────────────────────────
+
+    def list_loans(self, acc_no: str) -> list[Loan]:
+        return self.loan_repo.get_by_account(acc_no)
+
+    def get_loan(self, loan_id: str) -> Optional[Loan]:
+        return self.loan_repo.get(loan_id)
+
+    def list_pending(self) -> list[Loan]:
+        return self.loan_repo.get_all_pending()
+
+    def list_active(self) -> list[Loan]:
+        return self.loan_repo.get_all_active()
+
+    def list_all(self) -> list[Loan]:
+        return self.loan_repo.get_all()
+
+    def get_loan_statistics(self) -> dict:
+        return {
+            "total_pending": self.loan_repo.count_by_status("PENDING"),
+            "total_approved": self.loan_repo.count_by_status("APPROVED"),
+            "total_active": self.loan_repo.count_by_status("ACTIVE"),
+            "total_closed": self.loan_repo.count_by_status("CLOSED"),
+            "total_rejected": self.loan_repo.count_by_status("REJECTED"),
+            "total_disbursed": float(self.loan_repo.total_disbursed()),
+            "total_outstanding": float(self.loan_repo.total_outstanding()),
+        }
+
+    # ── Apply for loan ──────────────────────────────────────────────────────────
+
+    def apply_loan(
+        self,
+        acc_no: str,
+        loan_type: str,
+        principal_amount: Decimal,
+        interest_rate: Decimal,
+        tenure_months: int,
+        purpose: str = "",
+    ) -> ServiceResult:
+        """Apply for a new loan."""
+        # Validate account
+        account = self.account_repo.get(acc_no)
+        if account is None:
+            return ServiceResult(success=False, message="Account not found.")
+        if not account.can_transact:
+            return ServiceResult(success=False, message="Account is frozen or closed.")
+
+        # Validate loan type
+        if loan_type not in LOAN_TYPES:
+            return ServiceResult(
+                success=False,
+                message=f"Invalid loan type. Choose from: {', '.join(LOAN_TYPES)}",
+            )
+
+        # Validate principal
+        min_principal = 1000
+        max_principal = 10000000  # 1 Crore
+        if principal_amount < min_principal:
+            return ServiceResult(
+                success=False,
+                message=f"Minimum loan amount is {fmt_currency(min_principal)}.",
+            )
+        if principal_amount > max_principal:
+            return ServiceResult(
+                success=False,
+                message=f"Maximum loan amount is {fmt_currency(max_principal)}.",
+            )
+
+        # Validate tenure
+        product = LOAN_PRODUCTS.get(loan_type, {})
+        max_tenure = product.get("max_tenure", 60)
+        if tenure_months < 1 or tenure_months > max_tenure:
+            return ServiceResult(
+                success=False,
+                message=f"Tenure must be between 1 and {max_tenure} months for {loan_type} loans.",
+            )
+
+        # Validate interest rate
+        min_rate = product.get("min_rate", 5.0)
+        max_rate = product.get("max_rate", 20.0)
+        if interest_rate < Decimal(str(min_rate)) or interest_rate > Decimal(str(max_rate)):
+            return ServiceResult(
+                success=False,
+                message=f"Interest rate must be between {min_rate}% and {max_rate}% for {loan_type} loans.",
+            )
+
+        # Calculate EMI
+        emi = Decimal(str(calculate_emi(
+            float(principal_amount), float(interest_rate), tenure_months
+        )))
+
+        now = _utcnow()
+        loan = Loan(
+            loan_id=generate_loan_id(),
+            account_number=acc_no,
+            loan_type=loan_type,
+            principal_amount=principal_amount,
+            interest_rate=interest_rate,
+            tenure_months=tenure_months,
+            emi_amount=emi,
+            amount_paid=Decimal("0.00"),
+            remaining_amount=principal_amount,
+            status="PENDING",
+            application_date=now,
+            purpose=purpose,
+        )
+        self.loan_repo.create(loan)
+        self.loan_repo.commit()
+
+        # Audit log
+        self._audit_log(
+            actor=acc_no, action="loan_apply", target=loan.loan_id,
+            details=f"Applied for {loan_type} loan of {fmt_currency(float(principal_amount))}",
+        )
+
+        return ServiceResult(
+            success=True,
+            message=f"Loan application submitted! Your EMI would be {fmt_currency(float(emi))}/month.",
+            data={
+                "loan_id": loan.loan_id,
+                "emi_amount": float(emi),
+            },
+        )
+
+    # ── Admin: Approve loan ─────────────────────────────────────────────────────
+
+    def approve_loan(self, loan_id: str, admin_user: str = "admin") -> ServiceResult:
+        """Approve a pending loan and disburse funds."""
+        loan = self.loan_repo.get(loan_id)
+        if loan is None:
+            return ServiceResult(success=False, message="Loan not found.")
+        if loan.status != "PENDING":
+            return ServiceResult(
+                success=False,
+                message=f"Loan is already {loan.status.lower()}. Only pending loans can be approved.",
+            )
+
+        account = self.account_repo.get(loan.account_number)
+        if account is None:
+            return ServiceResult(success=False, message="Customer account not found.")
+        if not account.can_transact:
+            return ServiceResult(success=False, message="Customer account is frozen or closed.")
+
+        now = _utcnow()
+        # Calculate first EMI date (30 days from now)
+        first_emi_date = now + timedelta(days=30)
+
+        # Update loan status
+        loan.status = "ACTIVE"
+        loan.approval_date = now
+        loan.next_emi_date = first_emi_date
+        self.loan_repo.update(loan)
+
+        # Disburse funds to account
+        account.balance += loan.principal_amount
+        self.account_repo.update(account)
+
+        # Create disbursement transaction
+        txn = Transaction(
+            txn_id=generate_transaction_id(),
+            account_number=loan.account_number,
+            type=TransactionType.LOAN_DISBURSEMENT,
+            amount=loan.principal_amount,
+            balance=account.balance,
+            description=f"{loan.loan_type} loan disbursement ({loan.loan_id})",
+            category="Loan",
+        )
+        self.txn_repo.create(txn)
+        self.loan_repo.commit()
+
+        # Audit log
+        self._audit_log(
+            actor=admin_user, action="loan_approve", target=loan_id,
+            details=f"Approved {loan.loan_type} loan of {fmt_currency(float(loan.principal_amount))} for {loan.account_number}",
+        )
+
+        # Send notification
+        if self.notif_service:
+            try:
+                self.notif_service.notify_loan_approved(
+                    loan.account_number, loan.principal_amount,
+                    loan.loan_type, loan.loan_id,
+                )
+            except Exception:
+                pass
+
+        return ServiceResult(
+            success=True,
+            message=f"Loan approved! {fmt_currency(float(loan.principal_amount))} disbursed to account {loan.account_number}.",
+            data={"balance": float(account.balance)},
+        )
+
+    # ── Admin: Reject loan ──────────────────────────────────────────────────────
+
+    def reject_loan(self, loan_id: str, reason: str = "",
+                    admin_user: str = "admin") -> ServiceResult:
+        """Reject a pending loan application."""
+        loan = self.loan_repo.get(loan_id)
+        if loan is None:
+            return ServiceResult(success=False, message="Loan not found.")
+        if loan.status != "PENDING":
+            return ServiceResult(
+                success=False,
+                message=f"Loan is already {loan.status.lower()}. Only pending loans can be rejected.",
+            )
+
+        loan.status = "REJECTED"
+        if reason:
+            loan.admin_notes = reason
+        self.loan_repo.update(loan)
+        self.loan_repo.commit()
+
+        # Audit log
+        self._audit_log(
+            actor=admin_user, action="loan_reject", target=loan_id,
+            details=f"Rejected {loan.loan_type} loan: {reason or 'No reason provided'}",
+        )
+
+        # Send notification
+        if self.notif_service:
+            try:
+                self.notif_service.notify_loan_rejected(
+                    loan.account_number, loan.loan_type, loan.loan_id, reason
+                )
+            except Exception:
+                pass
+
+        return ServiceResult(
+            success=True,
+            message=f"Loan application rejected." + (f" Reason: {reason}" if reason else ""),
+        )
+
+    # ── Pay EMI ─────────────────────────────────────────────────────────────────
+
+    def pay_emi(self, acc_no: str, loan_id: str, amount: Optional[Decimal] = None) -> ServiceResult:
+        """Pay the monthly EMI for a loan.
+
+        If amount is None, pays the full EMI amount.
+        """
+        loan = self.loan_repo.get(loan_id)
+        if loan is None:
+            return ServiceResult(success=False, message="Loan not found.")
+        if loan.status not in ("APPROVED", "ACTIVE"):
+            return ServiceResult(
+                success=False,
+                message=f"Loan is {loan.status.lower()}. Only active loans can receive payments.",
+            )
+        if loan.account_number != acc_no:
+            return ServiceResult(success=False, message="Loan does not belong to this account.")
+
+        account = self.account_repo.get(acc_no)
+        if account is None:
+            return ServiceResult(success=False, message="Account not found.")
+        if not account.can_transact:
+            return ServiceResult(success=False, message="Account is frozen or closed.")
+
+        payment = amount if amount is not None else loan.emi_amount
+        if payment <= 0:
+            return ServiceResult(success=False, message="Payment amount must be positive.")
+
+        if payment > account.balance:
+            return ServiceResult(
+                success=False,
+                message=f"Insufficient balance. Available: {fmt_currency(float(account.balance))}",
+            )
+
+        remaining_debt = loan.remaining_amount
+        actual_payment = min(payment, remaining_debt)
+
+        # Deduct from account
+        account.balance -= actual_payment
+        self.account_repo.update(account)
+
+        # Update loan
+        loan.amount_paid += actual_payment
+        loan.remaining_amount -= actual_payment
+
+        # Update next EMI date (+30 days)
+        if loan.next_emi_date:
+            loan.next_emi_date = loan.next_emi_date + timedelta(days=30)
+        else:
+            loan.next_emi_date = _utcnow() + timedelta(days=30)
+
+        # Check if loan is fully paid
+        if loan.remaining_amount <= 0:
+            loan.status = "CLOSED"
+            loan.remaining_amount = Decimal("0.00")
+            loan.next_emi_date = None
+
+        self.loan_repo.update(loan)
+
+        # Create repayment transaction
+        txn = Transaction(
+            txn_id=generate_transaction_id(),
+            account_number=acc_no,
+            type=TransactionType.LOAN_REPAYMENT,
+            amount=actual_payment,
+            balance=account.balance,
+            description=f"EMI payment for {loan.loan_type} loan ({loan.loan_id})",
+            category="Loan",
+        )
+        self.txn_repo.create(txn)
+        self.loan_repo.commit()
+
+        is_closed = loan.status == "CLOSED"
+        msg = f"EMI of {fmt_currency(float(actual_payment))} paid for {loan.loan_type} loan."
+        if is_closed:
+            msg += " 🎉 Loan fully paid off! Congratulations!"
+
+        # Send notification
+        if self.notif_service:
+            try:
+                self.notif_service.notify_emi_paid(
+                    acc_no, actual_payment, loan.loan_type, loan.loan_id,
+                    loan.remaining_amount,
+                )
+                if is_closed:
+                    self.notif_service.notify_loan_closed(
+                        acc_no, loan.loan_type, loan.loan_id
+                    )
+            except Exception:
+                pass
+
+        return ServiceResult(
+            success=True,
+            message=msg,
+            data={
+                "amount_paid": float(actual_payment),
+                "remaining_amount": float(loan.remaining_amount),
+                "balance": float(account.balance),
+                "is_closed": is_closed,
+            },
+        )
+
+    # ── Calculate EMI preview (no application) ──────────────────────────────────
+
+    def calculate_emi_preview(
+        self, principal: float, annual_rate: float, tenure_months: int
+    ) -> dict:
+        """Calculate EMI preview without creating an application."""
+        emi = calculate_emi(principal, annual_rate, tenure_months)
+        total_payable = round(emi * tenure_months, 2)
+        total_interest = round(total_payable - principal, 2)
+
+        return {
+            "principal": principal,
+            "annual_rate": annual_rate,
+            "tenure_months": tenure_months,
+            "emi": emi,
+            "total_payable": total_payable,
+            "total_interest": total_interest,
+        }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -16,7 +16,10 @@ from typing import Any, Generic, Optional, Protocol, TypeVar, runtime_checkable
 from domain.entities import (
     Account,
     AdminUser,
+    Loan,
     LoginAttempt,
+    Notification,
+    NotificationPreference,
     SavingsGoal,
     TokenVersion,
     Transaction,
@@ -238,6 +241,97 @@ class TokenVersionRepositoryProtocol(Protocol):
     def commit(self) -> None: ...
 
     def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Loan Repository Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class LoanRepositoryProtocol(Protocol):
+    """Interface for loan data access."""
+
+    def get(self, loan_id: str) -> Optional[Loan]: ...
+
+    def get_by_account(self, acc_no: str) -> list[Loan]: ...
+
+    def get_all_pending(self) -> list[Loan]: ...
+
+    def get_all_active(self) -> list[Loan]: ...
+
+    def get_all(self) -> list[Loan]: ...
+
+    def create(self, loan: Loan) -> Loan: ...
+
+    def update(self, loan: Loan) -> Loan: ...
+
+    def count_by_status(self, status: str) -> int: ...
+
+    def total_disbursed(self) -> Decimal: ...
+
+    def total_outstanding(self) -> Decimal: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Notification Repository Protocols
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class NotificationRepositoryProtocol(Protocol):
+    """Interface for in-app notification data access."""
+
+    def get(self, notif_id: str) -> Optional[Notification]: ...
+
+    def get_by_account(self, acc_no: str, limit: int = 50) -> list[Notification]: ...
+
+    def get_unread_count(self, acc_no: str) -> int: ...
+
+    def get_unread(self, acc_no: str, limit: int = 20) -> list[Notification]: ...
+
+    def create(self, notification: Notification) -> Notification: ...
+
+    def mark_as_read(self, notif_id: str) -> bool: ...
+
+    def mark_all_as_read(self, acc_no: str) -> int: ...
+
+    def delete_old(self, days: int = 30) -> int: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+@runtime_checkable
+class NotificationPreferenceRepositoryProtocol(Protocol):
+    """Interface for notification preference data access."""
+
+    def get(self, acc_no: str) -> Optional[NotificationPreference]: ...
+
+    def create_or_update(self, pref: NotificationPreference) -> NotificationPreference: ...
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Notification Sender Protocol
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@runtime_checkable
+class NotificationSenderProtocol(Protocol):
+    """Interface for sending real-time notifications via email/SMS."""
+
+    def send_email(self, to_email: str, subject: str, body: str) -> bool: ...
+
+    def send_sms(self, to_phone: str, message: str) -> bool: ...
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

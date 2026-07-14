@@ -96,6 +96,41 @@ class TransactionModel(ModelBase):
         return f"<TransactionModel {self.txn_id} ({self.type} {self.amount})>"
 
 
+class LoanModel(ModelBase):
+    """SQLAlchemy model for loans."""
+
+    __tablename__ = "loans"
+
+    __table_args__ = (
+        Index("idx_loans_account_status", "account_number", "status"),
+        Index("idx_loans_status_next_emi", "status", "next_emi_date"),
+    )
+
+    loan_id = Column(String(20), primary_key=True)
+    account_number = Column(
+        String(10),
+        ForeignKey("accounts.account_number", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    loan_type = Column(String(20), nullable=False, default="Personal")
+    principal_amount = Column(Numeric(14, 2), nullable=False)
+    interest_rate = Column(Numeric(5, 2), nullable=False)
+    tenure_months = Column(Integer, nullable=False)
+    emi_amount = Column(Numeric(14, 2), nullable=False)
+    amount_paid = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
+    remaining_amount = Column(Numeric(14, 2), nullable=False)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)
+    application_date = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    approval_date = Column(DateTime(timezone=True), nullable=True)
+    next_emi_date = Column(DateTime(timezone=True), nullable=True)
+    purpose = Column(String(500), nullable=False, default="")
+    admin_notes = Column(String(500), nullable=True, default="")
+
+    def __repr__(self) -> str:
+        return f"<LoanModel {self.loan_id}: {self.loan_type} {self.principal_amount}>"
+
+
 class SavingsGoalModel(ModelBase):
     """SQLAlchemy model for savings goals."""
 
@@ -157,6 +192,55 @@ class TokenVersionModel(ModelBase):
     account_number = Column(String(10), primary_key=True)
     version = Column(Integer, nullable=False, default=0)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
+class NotificationModel(ModelBase):
+    """SQLAlchemy model for in-app notifications."""
+
+    __tablename__ = "notifications"
+
+    __table_args__ = (
+        Index("idx_notif_account_read", "account_number", "is_read"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    notif_id = Column(String(24), nullable=False, unique=True, index=True)
+    account_number = Column(
+        String(10),
+        ForeignKey("accounts.account_number", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    type = Column(String(30), nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    message = Column(String(1000), nullable=False)
+    is_read = Column(Boolean, nullable=False, default=False, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, index=True)
+    related_txn_id = Column(String(20), nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<NotificationModel {self.notif_id}: {self.type}>"
+
+
+class NotificationPreferenceModel(ModelBase):
+    """SQLAlchemy model for notification channel preferences."""
+
+    __tablename__ = "notification_preferences"
+
+    account_number = Column(String(10), ForeignKey("accounts.account_number", ondelete="CASCADE"), primary_key=True)
+    in_app_enabled = Column(Boolean, nullable=False, default=True)
+    email_enabled = Column(Boolean, nullable=False, default=True)
+    sms_enabled = Column(Boolean, nullable=False, default=False)
+    deposit_alerts = Column(Boolean, nullable=False, default=True)
+    withdraw_alerts = Column(Boolean, nullable=False, default=True)
+    transfer_alerts = Column(Boolean, nullable=False, default=True)
+    interest_alerts = Column(Boolean, nullable=False, default=True)
+    loan_alerts = Column(Boolean, nullable=False, default=True)
+    admin_alerts = Column(Boolean, nullable=False, default=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow)
+
+    def __repr__(self) -> str:
+        return f"<NotificationPreferenceModel {self.account_number}>"
 
 
 class AuditLogModel(ModelBase):

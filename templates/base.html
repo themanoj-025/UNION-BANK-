@@ -89,10 +89,48 @@
         setTimeout(function() { el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 300); }, 4000);
       });
     });
+
+    // Global loading overlay for page-level HTMX navigations
+    (function() {
+      const overlay = document.getElementById('htmx-global-overlay');
+      if (!overlay) return;
+
+      // Show overlay only for navigations (not inline form submissions)
+      // We detect this by checking if hx-target targets a major content area
+      let showOverlayTimer = null;
+
+      document.addEventListener('htmx:beforeRequest', function(evt) {
+        const target = evt.detail.target;
+        if (!target) return;
+        const targetId = target.id || '';
+        // Show overlay for page-level swaps (balance-card, search-results, content areas)
+        if (targetId === 'balance-card-container' || targetId === 'search-results') {
+          showOverlayTimer = setTimeout(function() {
+            overlay.classList.add('htmx-request');
+          }, 200); // slight delay to avoid flash for fast requests
+        }
+      });
+
+      document.addEventListener('htmx:afterRequest', function(evt) {
+        if (showOverlayTimer) {
+          clearTimeout(showOverlayTimer);
+          showOverlayTimer = null;
+        }
+        overlay.classList.remove('htmx-request');
+      });
+    })();
   </script>
 
   {# ── CSRF meta tag for HTMX ─────────────────── #}
   <meta name="csrf-token" content="{{ csrf_token() }}">
+
+  {# ── Global Loading Overlay ──────────────────── #}
+  <div id="htmx-global-overlay" class="htmx-loading-overlay htmx-indicator">
+    <div class="spinner-wrap">
+      <div class="spinner spinner-lg spinner-white" style="color: var(--accent);"></div>
+      <div class="spinner-text">Loading…</div>
+    </div>
+  </div>
 
   {# ── Theme Toggle Script ─────────────────── #}
   <script>

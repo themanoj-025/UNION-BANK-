@@ -171,41 +171,47 @@ class Account:
 
     def mini_statement(self):
         header("MINI STATEMENT  (Last 5 transactions)")
-        txns    = load_json(TRANSACTIONS_FILE)
-        records = txns.get(self.account_number, [])
-        last5   = records[-5:]
-        if not last5:
+        from container import get_container
+        c = get_container()
+        # Use the modern transaction service via transaction_repo
+        from domain.entities import TransactionType
+        records = []
+        for txn in c.transaction_repo().get_mini(self.account_number, limit=5):
+            sign = "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
+            color = GREEN if sign == "+" else RED
+            cat = txn.category or ""
+            ts = str(txn.timestamp)[:19] if txn.timestamp else ""
+            print(f"  {ts}  |  {txn.type.value:<14}  |  "
+                  f"{color}{sign}{fmt_currency(float(txn.amount))}{RESET}  |  Bal: {fmt_currency(float(txn.balance))}")
+            if cat:
+                print(f"  {'':>12}[{cat}]")
+        if not records:
             info("No transactions found.")
-        else:
-            for t in reversed(last5):
-                sign = "+" if t["type"] in ("DEPOSIT", "TRANSFER_IN") else "-"
-                color = GREEN if sign == "+" else RED
-                cat = t.get("category", "")
-                print(f"  {t['timestamp']}  |  {t['type']:<14}  |  "
-                      f"{color}{sign}{fmt_currency(t['amount'])}{RESET}  |  Bal: {fmt_currency(t['balance'])}")
-                if cat:
-                    print(f"  {'':>12}[{cat}]")
         divider()
         logger.info(f"Mini statement viewed -> Acc:{self.account_number}")
 
     def full_statement(self):
         header("FULL TRANSACTION HISTORY")
-        txns    = load_json(TRANSACTIONS_FILE)
-        records = txns.get(self.account_number, [])
+        from container import get_container
+        c = get_container()
+        from domain.entities import TransactionType
+        records = c.transaction_repo().get_by_account(self.account_number)
         if not records:
             info("No transactions found.")
         else:
-            for t in records:
-                sign = "+" if t["type"] in ("DEPOSIT", "TRANSFER_IN") else "-"
+            # Show oldest first for full statement
+            for txn in reversed(records):
+                sign = "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
                 color = GREEN if sign == "+" else RED
-                cat = t.get("category", "")
-                print(f"  [{t['txn_id']}]  {t['timestamp']}  |  "
-                      f"{t['type']:<14}  |  {color}{sign}{fmt_currency(t['amount'])}{RESET}  |  "
-                      f"Bal: {fmt_currency(t['balance'])}")
+                cat = txn.category or ""
+                ts = str(txn.timestamp)[:19] if txn.timestamp else ""
+                print(f"  [{txn.txn_id}]  {ts}  |  "
+                      f"{txn.type.value:<14}  |  {color}{sign}{fmt_currency(float(txn.amount))}{RESET}  |  "
+                      f"Bal: {fmt_currency(float(txn.balance))}")
                 if cat and cat != "General":
                     print(f"    {CYAN}    Category: {cat}{RESET}")
-                if t.get("description"):
-                    print(f"    {CYAN}    Note: {t['description']}{RESET}")
+                if txn.description:
+                    print(f"    {CYAN}    Note: {txn.description}{RESET}")
         divider()
         logger.info(f"Full statement viewed -> Acc:{self.account_number}")
 
@@ -259,8 +265,11 @@ class Account:
         header("TRANSFER FUNDS")
         target_acc_no = input("  Enter recipient account number : ").strip()
 
-        accounts = load_json(ACCOUNTS_FILE)
-        if target_acc_no not in accounts:
+        from container import get_container
+        c = get_container()
+        target_account = c.account_repo().get(target_acc_no)
+
+        if target_account is None:
             error("Recipient account not found.")
             divider()
             return
@@ -269,23 +278,22 @@ class Account:
             divider()
             return
 
-        target_data = accounts[target_acc_no]
-        if target_data.get("is_frozen"):
+        if target_account.is_frozen:
             error("Recipient account is frozen.")
             divider()
             return
-        if not target_data.get("is_active", True):
+        if not target_account.is_active:
             error("Recipient account is closed.")
             divider()
             return
 
-        print(f"  {CYAN}Recipient : {BOLD}{target_data['name']}{RESET}")
+        print(f"  {CYAN}Recipient : {BOLD}{target_account.name}{RESET}")
         amount = get_float("  Enter amount to transfer : Rs.")
         if amount is None:
             return
 
         category = get_category_choice()
-        confirm = input(f"  Confirm transfer of {YELLOW}{fmt_currency(amount)}{RESET} to {CYAN}{target_data['name']}{RESET}? (y/n): ")
+        confirm = input(f"  Confirm transfer of {YELLOW}{fmt_currency(amount)}{RESET} to {CYAN}{target_account.name}{RESET}? (y/n): ")
         if confirm.lower() != "y":
             warning("Transfer cancelled.")
             divider()
@@ -300,7 +308,7 @@ class Account:
 
         if result.success:
             self.balance = result.sender_balance
-            success(f"{fmt_currency(amount)} transferred to {target_data['name']} successfully!")
+            success(f"{fmt_currency(amount)} transferred to {target_account.name} successfully!")
             print(f"  {GREEN}Your New Balance : {BOLD}{fmt_currency(self.balance)}{RESET}")
         else:
             error(result.error_message)
@@ -385,14 +393,28 @@ class Account:
     def export_csv(self):
         """Export full transaction history to CSV."""
         header("EXPORT TO CSV")
-        txns = load_json(TRANSACTIONS_FILE)
-        records = txns.get(self.account_number, [])
+        from container import get_container
+        c = get_container()
+        from domain.entities import TransactionType
+        domain_txns = c.transaction_repo().get_by_account(self.account_number)
+        records = []
+        for txn in domain_txns:
+            sign = "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
+            records.append({
+                "txn_id": txn.txn_id,
+                "timestamp": str(txn.timestamp)[:19],
+                "type": txn.type.value,
+                "amount": float(txn.amount),
+                "balance": float(txn.balance),
+                "description": txn.description,
+                "category": txn.category or "General",
+            })
         if not records:
             info("No transactions to export.")
             divider()
             return
         filename = generate_csv_filename(self.account_number)
-        export_transactions_to_csv(self.account_number, records, filename)
+        export_transactions_to_csv(self.account_number, records[-100:], filename)
         success(f"Statement exported to: {filename}")
         logger.info(f"CSV exported -> Acc:{self.account_number}  File:{filename}")
         divider()

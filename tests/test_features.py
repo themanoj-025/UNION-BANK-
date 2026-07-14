@@ -26,11 +26,15 @@ from utils import (
     LOGIN_LOCKOUT_MINUTES,
     SESSION_TIMEOUT_SECONDS,
     SAVINGS_INTEREST_RATE,
-    load_json,
-    save_json,
     now_str,
     fmt_currency,
+)
+from utils.file_io import (
+    load_json,
+    save_json,
     LOGIN_ATTEMPTS_FILE,
+    ACCOUNTS_FILE,
+    TRANSACTIONS_FILE,
 )
 from ui import prompt_password
 from account import Account

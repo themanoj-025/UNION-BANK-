@@ -307,7 +307,7 @@ class TestAtomicTransfer:
 
     def _setup_accounts(self, tmp_data_dir):
         """Create two test accounts with known balances."""
-        from utils import ACCOUNTS_FILE, TRANSACTIONS_FILE
+        from utils.file_io import ACCOUNTS_FILE, TRANSACTIONS_FILE
 
         sender_data = {
             "account_number": self.SENDER,

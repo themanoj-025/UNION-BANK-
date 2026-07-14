@@ -198,8 +198,7 @@ def seed_data(fast_mode: bool = True):
 
     # Track existing account numbers to avoid collisions
     if os.path.exists(ACCOUNTS_FILE):
-        from utils import load_json
-        existing = load_json(ACCOUNTS_FILE)
+from utils.file_io import load_json, save_json
         used_account_numbers.update(existing.keys())
         print(f"  Found {len(existing)} existing accounts - avoiding collisions")
 
@@ -308,8 +307,6 @@ def seed_data(fast_mode: bool = True):
             print(f"  [{i+1:>5,}/{NUM_ACCOUNTS:,}] accounts generated ({pct:.0f}%) - {elapsed:.1f}s")
 
     # ── Write to files ───────────────────────────────────────────────────────
-    from utils import save_json
-
     print(f"\n  Writing accounts to {ACCOUNTS_FILE}...")
     save_json(ACCOUNTS_FILE, accounts)
 

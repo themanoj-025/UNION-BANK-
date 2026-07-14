@@ -250,7 +250,7 @@ def get_cache() -> Cache:
     if _cache_instance is None:
         from config import settings
 
-        redis_url = getattr(settings, "REDIS_URL", None) or getattr(settings, "CACHE_URL", None)
+        redis_url = getattr(settings, "REDIS_URL", None)
         if redis_url:
             # Parse redis:// URL
             try:

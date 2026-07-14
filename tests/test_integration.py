@@ -400,7 +400,7 @@ class TestAuthFlow:
 class TestPagination:
 
     def test_paginated_transactions(self, c):
-        """Verify pagination works correctly via the real SQLite DB."""
+        """Verify offset-based pagination works correctly via the real SQLite DB."""
         repo = c.account_repo()
         svc = c.transaction_service()
 
@@ -427,3 +427,58 @@ class TestPagination:
             acc_no="1000000001", page=2, per_page=20
         )
         assert len(page2) == 5
+
+    def test_keyset_pagination_roundtrip(self, c):
+        """Verify keyset cursor-based pagination works end-to-end.
+
+        Creates 15 transactions and pages through them with limit=5,
+        verifying that has_more is correct and the cursor advances properly.
+        """
+        repo = c.account_repo()
+        svc = c.transaction_service()
+
+        account = Account(
+            account_number="1000000001", name="Keyset Test",
+            balance=Decimal("0.00"), password="pw",
+        )
+        repo.create(account)
+        repo.commit()
+
+        # Create 15 deposits (timestamps will be slightly different due to DB precision)
+        for i in range(15):
+            svc.deposit("1000000001", Decimal("50.00"))
+
+        # Page 1: should get 5 items, has_more=True
+        page1 = svc.get_paginated_keyset(
+            acc_no="1000000001", limit=5
+        )
+        assert len(page1.items) == 5
+        assert page1.has_more is True
+        assert page1.cursor is not None
+        assert page1.cursor_key == "timestamp"
+
+        # Page 2: should get 5 items, has_more=True
+        page2 = svc.get_paginated_keyset(
+            acc_no="1000000001", limit=5, cursor=page1.cursor
+        )
+        assert len(page2.items) == 5
+        assert page2.has_more is True
+
+        # Page 3: should get 5 items, has_more=False
+        page3 = svc.get_paginated_keyset(
+            acc_no="1000000001", limit=5, cursor=page2.cursor
+        )
+        assert len(page3.items) == 5
+        assert page3.has_more is False
+
+        # Page 4: should get 0 items
+        page4 = svc.get_paginated_keyset(
+            acc_no="1000000001", limit=5, cursor=page3.cursor
+        )
+        assert len(page4.items) == 0
+        assert page4.has_more is False
+
+        # Items should be in reverse chronological order (most recent first)
+        timestamps = [t.timestamp for t in page1.items]
+        for i in range(1, len(timestamps)):
+            assert timestamps[i - 1] >= timestamps[i] or timestamps[i] is None

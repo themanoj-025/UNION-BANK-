@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, Numeric, String, ForeignKey, Text,
+    Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text,
 )
 from sqlalchemy.orm import relationship
 
@@ -28,12 +28,19 @@ class AccountModel(ModelBase):
 
     __tablename__ = "accounts"
 
+    __table_args__ = (
+        # Composite index: count active/frozen/closed accounts efficiently
+        Index("idx_accounts_status", "is_active", "is_frozen"),
+        # Composite index: search accounts by name + account_number
+        Index("idx_accounts_name_number", "name", "account_number"),
+    )
+
     account_number = Column(String(10), primary_key=True)
     name = Column(String(100), nullable=False, index=True)
     age = Column(Integer, nullable=False, default=18)
     gender = Column(String(20), nullable=False, default="")
     mobile = Column(String(15), nullable=False, default="")
-    email = Column(String(100), nullable=False, default="")
+    email = Column(String(100), nullable=False, default="", index=True)  # Index for get_by_email
     password = Column(String(128), nullable=False)
     balance = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
     is_active = Column(Boolean, nullable=False, default=True)
@@ -59,6 +66,13 @@ class TransactionModel(ModelBase):
     """SQLAlchemy model for transaction records."""
 
     __tablename__ = "transactions"
+
+    __table_args__ = (
+        # Composite index: the single most common query — transactions for an account ordered by timestamp
+        Index("idx_txns_account_ts", "account_number", "timestamp"),
+        # Composite index: date-range queries filtered by type
+        Index("idx_txns_ts_type", "timestamp", "type"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     txn_id = Column(String(20), nullable=False, unique=True, index=True)

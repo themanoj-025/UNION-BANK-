@@ -8,9 +8,10 @@ and the infrastructure layer. No concrete DB code lives here.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Protocol, runtime_checkable
+from typing import Any, Generic, Optional, Protocol, TypeVar, runtime_checkable
 
 from domain.entities import (
     Account,
@@ -20,6 +21,37 @@ from domain.entities import (
     TokenVersion,
     Transaction,
 )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Shared types
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class KeysetPage(Generic[T]):
+    """A page of results returned by keyset (cursor-based) pagination.
+
+    Attributes:
+        items:       The items on this page.
+        cursor:      Opaque cursor value to pass to the next page request.
+                     Use the last item's timestamp for cursor-based pagination.
+        has_more:    True if there are more results beyond this page.
+        cursor_key:  The name of the field used as the cursor (e.g. 'timestamp').
+    """
+    items: list[T] = field(default_factory=list)
+    cursor: Any = None
+    has_more: bool = False
+    cursor_key: str = "timestamp"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Repository Protocols
+# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -102,6 +134,16 @@ class TransactionRepositoryProtocol(Protocol):
         to_date: Optional[datetime] = None,
         txn_type: Optional[str] = None,
     ) -> tuple[list[Transaction], int]: ...
+
+    def get_paginated_keyset(
+        self,
+        acc_no: Optional[str] = None,
+        limit: int = 20,
+        cursor: Optional[datetime] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        txn_type: Optional[str] = None,
+    ) -> KeysetPage[Transaction]: ...
 
     def commit(self) -> None: ...
 

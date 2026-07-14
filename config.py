@@ -83,6 +83,12 @@ class Config:
     # ── Interest ──────────────────────────────────────────────────────────────
     SAVINGS_INTEREST_RATE: float = 3.5  # % per annum
 
+    # ── Cache (Redis) ─────────────────────────────────────────────────────────
+    REDIS_URL: Optional[str] = field(
+        default_factory=lambda: _optional_env("REDIS_URL")
+    )
+    CACHE_DEFAULT_TTL: int = int(os.environ.get("CACHE_DEFAULT_TTL", "120"))
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     CORS_ALLOWED_ORIGINS: list[str] = field(
         default_factory=lambda: (

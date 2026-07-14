@@ -29,6 +29,7 @@ from .interfaces import (
     AccountRepositoryProtocol,
     AdminRepositoryProtocol,
     AuditLogRepositoryProtocol,
+    KeysetPage,
     LoginAttemptRepositoryProtocol,
     SavingsGoalRepositoryProtocol,
     TokenVersionRepositoryProtocol,
@@ -452,6 +453,33 @@ class TransactionService:
     ) -> tuple[list[Transaction], int]:
         return self.txn_repo.get_paginated(
             acc_no=acc_no, page=page, per_page=per_page,
+            from_date=from_date, to_date=to_date, txn_type=txn_type,
+        )
+
+    def get_paginated_keyset(
+        self,
+        acc_no: Optional[str] = None,
+        limit: int = 20,
+        cursor: Optional[datetime] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        txn_type: Optional[str] = None,
+    ) -> KeysetPage[Transaction]:
+        """Keyset (cursor-based) pagination — more efficient than OFFSET on large datasets.
+
+        Args:
+            acc_no:     Optional account filter.
+            limit:      Max items to return (default 20).
+            cursor:     Timestamp cursor from the previous page (None = first page).
+            from_date:  Optional start date filter.
+            to_date:    Optional end date filter.
+            txn_type:   Optional transaction type filter.
+
+        Returns:
+            KeysetPage with items, next_cursor, and has_more flag.
+        """
+        return self.txn_repo.get_paginated_keyset(
+            acc_no=acc_no, limit=limit, cursor=cursor,
             from_date=from_date, to_date=to_date, txn_type=txn_type,
         )
 

@@ -14,6 +14,8 @@ from typing import Optional
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from application.interfaces import KeysetPage
+
 from domain.entities import (
     Account, AdminUser, LoginAttempt, SavingsGoal,
     Transaction, TransactionType, TokenVersion,
@@ -316,6 +318,54 @@ class SqlAlchemyTransactionRepository:
         ).offset(offset).limit(per_page).all()
 
         return [_map_transaction(m) for m in models], total
+
+    def get_paginated_keyset(
+        self,
+        acc_no: Optional[str] = None,
+        limit: int = 20,
+        cursor: Optional[datetime] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        txn_type: Optional[str] = None,
+    ) -> KeysetPage[Transaction]:
+        """Keyset (cursor-based) pagination for transactions.
+
+        Instead of OFFSET/LIMIT (which degrades on large datasets), this
+        uses WHERE timestamp < :cursor to fetch the next page. The cursor
+        is the timestamp of the last item in the previous page.
+
+        Returns a KeysetPage with items, next cursor, and has_more flag.
+        """
+        query = self.session.query(TransactionModel)
+
+        if acc_no:
+            query = query.filter(TransactionModel.account_number == acc_no)
+        if from_date:
+            query = query.filter(TransactionModel.timestamp >= from_date)
+        if to_date:
+            query = query.filter(TransactionModel.timestamp <= to_date)
+        if txn_type:
+            query = query.filter(TransactionModel.type == txn_type)
+
+        # Keyset: fetch one more than needed to determine has_more
+        fetch_limit = limit + 1
+        if cursor is not None:
+            query = query.filter(TransactionModel.timestamp < cursor)
+
+        models = query.order_by(
+            TransactionModel.timestamp.desc()
+        ).limit(fetch_limit).all()
+
+        has_more = len(models) > limit
+        items = [_map_transaction(m) for m in models[:limit]]
+        next_cursor = items[-1].timestamp if items else None
+
+        return KeysetPage(
+            items=items,
+            cursor=next_cursor,
+            has_more=has_more,
+            cursor_key="timestamp",
+        )
 
     def commit(self) -> None:
         self.session.commit()

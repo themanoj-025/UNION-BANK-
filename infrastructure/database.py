@@ -124,6 +124,7 @@ def close_session():
 @contextmanager
 def atomic_session() -> Generator[Session, None, None]:
     """Provide a transactional scope — commits on success, rolls back on exception."""
+    get_engine()  # Ensure engine and session maker are initialized
     session = _session_maker()
     try:
         yield session

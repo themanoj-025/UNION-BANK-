@@ -14,6 +14,8 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Optional
 
+from application.interfaces import KeysetPage
+
 from domain.entities import (
     Account, AdminUser, LoginAttempt, SavingsGoal,
     TokenVersion, Transaction, TransactionType,
@@ -181,6 +183,46 @@ class FakeTransactionRepository:
         to_date: Optional[datetime] = None,
         txn_type: Optional[str] = None,
     ) -> tuple[list[Transaction], int]:
+        filtered = self._filter_txns(acc_no, from_date, to_date, txn_type)
+        filtered.sort(key=lambda t: t.timestamp or _utcnow(), reverse=True)
+        total = len(filtered)
+        start = (page - 1) * per_page
+        return filtered[start:start + per_page], total
+
+    def get_paginated_keyset(
+        self,
+        acc_no: Optional[str] = None,
+        limit: int = 20,
+        cursor: Optional[datetime] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        txn_type: Optional[str] = None,
+    ) -> KeysetPage[Transaction]:
+        filtered = self._filter_txns(acc_no, from_date, to_date, txn_type)
+        filtered.sort(key=lambda t: t.timestamp or _utcnow(), reverse=True)
+
+        if cursor is not None:
+            filtered = [t for t in filtered if t.timestamp and t.timestamp < cursor]
+
+        has_more = len(filtered) > limit
+        items = filtered[:limit]
+        next_cursor = items[-1].timestamp if items else None
+
+        return KeysetPage(
+            items=items,
+            cursor=next_cursor,
+            has_more=has_more,
+            cursor_key="timestamp",
+        )
+
+    def _filter_txns(
+        self,
+        acc_no: Optional[str] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        txn_type: Optional[str] = None,
+    ) -> list[Transaction]:
+        """Filter transactions by optional criteria."""
         filtered = list(self._transactions)
         if acc_no:
             filtered = [t for t in filtered if t.account_number == acc_no]
@@ -190,11 +232,7 @@ class FakeTransactionRepository:
             filtered = [t for t in filtered if (t.timestamp or _utcnow()) <= to_date]
         if txn_type:
             filtered = [t for t in filtered if t.type.value == txn_type]
-
-        filtered.sort(key=lambda t: t.timestamp or _utcnow(), reverse=True)
-        total = len(filtered)
-        start = (page - 1) * per_page
-        return filtered[start:start + per_page], total
+        return filtered
 
     def commit(self) -> None:
         pass

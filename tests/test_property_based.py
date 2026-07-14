@@ -229,11 +229,18 @@ def test_transfer_preserves_total_balance(
     ),
 )
 def test_interest_monotonicity(acc_no, balance):
-    """Interest is always >= 0 and strictly positive for positive balances.
+    """Interest is always >= 0 and strictly positive for sufficiently large balances.
 
-    Property: balance > 0  ⇒  interest > 0
+    Property: balance >= MIN_INTEREST_BALANCE  ⇒  interest > 0
               balance = 0  ⇒  interest = 0
+
+    Note: Very small balances (< ~3.43 at 3.5% APR) produce 0 monthly interest
+    due to 2-decimal-place rounding, which is correct behavior.
     """
+    # At 3.5% APR, the minimum balance to produce >= 0.01 in monthly interest
+    # is 0.01 / (0.035 / 12) ≈ 3.43. We use 10.00 for a safe margin.
+    MIN_INTEREST_BALANCE = Decimal("10.00")
+
     repo = FakeAccountRepository()
     txn_repo = FakeTransactionRepository()
     service = TransactionService(repo, txn_repo)
@@ -243,12 +250,22 @@ def test_interest_monotonicity(acc_no, balance):
 
     result = service.apply_interest(acc_no)
 
-    if balance > 0:
-        assert result.success is True
-        assert result.data["interest"] > 0, f"Interest should be > 0 for balance {balance}"
+    if balance >= MIN_INTEREST_BALANCE:
+        assert result.success is True, (
+            f"Interest should succeed for balance {balance}"
+        )
+        assert result.data["interest"] > 0, (
+            f"Interest should be > 0 for balance {balance}"
+        )
         updated = repo.get(acc_no)
         assert updated.balance > balance
+    elif balance > 0:
+        # Small positive balance may or may not earn interest depending on rounding
+        # Either outcome is valid — we just check the invariants hold
+        if result.success:
+            assert result.data["interest"] >= 0
     else:
+        # Zero balance always produces "no interest"
         assert result.success is False
         assert "no interest" in result.message.lower()
 

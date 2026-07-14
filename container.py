@@ -126,6 +126,7 @@ def reset_container():
     """Reset the DI container and close all active sessions (useful for testing)."""
     global _container
     # Close any existing session before resetting
-    from infrastructure.database import close_session
+    from infrastructure.database import close_session, reset_engine
     close_session()
+    reset_engine()
     _container = None

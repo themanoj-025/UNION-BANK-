@@ -35,7 +35,8 @@ from tests.fakes import (
     FakeTransactionRepository,
 )
 
-from utils.auth import hash_password
+# Pre-computed bcrypt hash for "TestPass1" — avoids slow bcrypt in property-based tests
+_BCRYPT_TEST_HASH = "$2b$12$LJ3m4ys3Lk0TSwHnbfOMqeM5YsgCJTiEP6Kj.EXON7pE0uuo1VcuS"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -82,7 +83,7 @@ def _make_account(acc_no: str, balance: Decimal) -> Account:
         gender="Other",
         mobile="9876543210",
         email="prop@test.com",
-        password=hash_password("TestPass1"),
+        password=_BCRYPT_TEST_HASH,
         balance=balance,
         is_active=True,
         is_frozen=False,

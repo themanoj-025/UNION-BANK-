@@ -11,6 +11,7 @@ Usage:
 
 import os
 import random
+import secrets
 import string
 import sys
 import time
@@ -163,9 +164,14 @@ def generate_txn_id() -> str:
 
 
 def generate_account_number(used: set) -> str:
-    """Generate a unique 10-digit account number not in `used`."""
+    """Generate a unique 10-digit account number not in `used`.
+
+    Uses secrets.randbelow for a uniform distribution over the 10-digit
+    space (1,000,000,000 – 9,999,999,999). The `used` set tracks
+    previously-issued numbers to guarantee uniqueness within this run.
+    """
     while True:
-        num = str(random.randint(1000000000, 9999999999))
+        num = str(secrets.randbelow(9_000_000_000) + 1_000_000_000)
         if num not in used:
             used.add(num)
             return num
@@ -177,11 +183,22 @@ def seed_data(fast_mode: bool = True):
     """
     Generate sample data and write directly to SQLite via the repository layer.
 
+    Uses SQLAlchemy metadata drop_all/create_all to reset the database —
+    portable across all OSes and avoids Windows WAL-file-locking issues.
+
     Args:
         fast_mode: If True, use a single pre-computed bcrypt hash for all accounts
                    (much faster, ~2 seconds vs ~15 seconds for 5000 accounts).
     """
-    from infrastructure.database import init_db, get_session, close_session, reset_engine
+    from infrastructure.database import (
+        init_db, get_session, close_session, reset_engine, ModelBase, get_engine,
+    )
+    from infrastructure.persistence import (
+        AccountModel, AdminModel, LoanModel, LoginAttemptModel,
+        NotificationModel, RefreshTokenModel, SavingsGoalModel,
+        TokenVersionModel, TransactionModel, NotificationPreferenceModel,
+        AuditLogModel,
+    )
     from infrastructure.repositories import (
         SqlAlchemyAccountRepository,
         SqlAlchemyTransactionRepository,
@@ -192,20 +209,12 @@ def seed_data(fast_mode: bool = True):
     print(f"  Seeding {NUM_ACCOUNTS:,} sample accounts...")
     print(f"  {'=' * 50}\n")
 
-    # Wipe the database file for a clean slate
+    # Reset engine and drop + recreate all tables (portable, avoids Windows file-locking)
     reset_engine()
-    db_file = os.path.join(settings.DATA_DIR, "union_bank.db")
-    for f in [db_file, db_file + "-wal", db_file + "-shm"]:
-        if os.path.exists(f):
-            os.remove(f)
-            print(f"  Removed old database: {f}")
-
-    # Create fresh tables
-    init_db()
-
-    session = get_session()
-    account_repo = SqlAlchemyAccountRepository(session)
-    txn_repo = SqlAlchemyTransactionRepository(session)
+    engine = get_engine()
+    ModelBase.metadata.drop_all(bind=engine)
+    ModelBase.metadata.create_all(bind=engine)
+    print("  Fresh database tables created via SQLAlchemy metadata.\n")
 
     # Pre-compute password hash
     if fast_mode:
@@ -214,6 +223,10 @@ def seed_data(fast_mode: bool = True):
     else:
         print(f"  Hashing password '{DEFAULT_PASSWORD}' for each account...")
         hashed_password = None
+
+    session = get_session()
+    account_repo = SqlAlchemyAccountRepository(session)
+    txn_repo = SqlAlchemyTransactionRepository(session)
 
     used_account_numbers = set()
     start_time = time.time()

@@ -32,8 +32,17 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# ── Observability helpers ──────────────────────────────────────────────────
+# ── Project path setup (MUST be before any src/ imports) ─────────────────────
 import secrets
+_SRC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+# ── Observability helpers ──────────────────────────────────────────────────
 from logger import logger, set_request_id, get_request_id, clear_context
 from infrastructure.metrics import MetricsMiddleware, metrics_response
 
@@ -46,15 +55,6 @@ from api.common import (
 
 # ── V2 API router (envelope-wrapped endpoints) ───────────────────────────────
 from api.v2 import router as v2_router
-
-# ── Project path setup ──────────────────────────────────────────────────────
-# Ensure src/ directory is on the path so all imports resolve correctly
-_SRC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, BASE_DIR)
 
 # ── Import existing business logic ───────────────────────────────────────────
 from utils import (

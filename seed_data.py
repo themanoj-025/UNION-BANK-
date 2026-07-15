@@ -163,20 +163,6 @@ def generate_txn_id() -> str:
     return "TXN-" + "".join(random.choices(_TXN_CHARS, k=8))
 
 
-def generate_account_number(used: set) -> str:
-    """Generate a unique 10-digit account number not in `used`.
-
-    Uses secrets.randbelow for a uniform distribution over the 10-digit
-    space (1,000,000,000 – 9,999,999,999). The `used` set tracks
-    previously-issued numbers to guarantee uniqueness within this run.
-    """
-    while True:
-        num = str(secrets.randbelow(9_000_000_000) + 1_000_000_000)
-        if num not in used:
-            used.add(num)
-            return num
-
-
 # ── Main seeding function ────────────────────────────────────────────────────
 
 def seed_data(fast_mode: bool = True):
@@ -186,23 +172,22 @@ def seed_data(fast_mode: bool = True):
     Uses SQLAlchemy metadata drop_all/create_all to reset the database —
     portable across all OSes and avoids Windows WAL-file-locking issues.
 
+    IMPORTANT: Uses raw session.add() for AccountModel objects and updates
+    them in-place to avoid the `autoflush=False` identity-map issue where
+    repo.update() would create a duplicate INSERT for pending objects.
+
     Args:
         fast_mode: If True, use a single pre-computed bcrypt hash for all accounts
                    (much faster, ~2 seconds vs ~15 seconds for 5000 accounts).
     """
     from infrastructure.database import (
-        init_db, get_session, close_session, reset_engine, ModelBase, get_engine,
-    )
-    from infrastructure.persistence import (
-        AccountModel, AdminModel, LoanModel, LoginAttemptModel,
-        NotificationModel, RefreshTokenModel, SavingsGoalModel,
-        TokenVersionModel, TransactionModel, NotificationPreferenceModel,
-        AuditLogModel,
+        get_session, close_session, reset_engine, ModelBase, get_engine,
     )
     from infrastructure.repositories import (
-        SqlAlchemyAccountRepository,
         SqlAlchemyTransactionRepository,
     )
+    from infrastructure.mappers import map_account_to_model
+    from infrastructure.persistence import AccountModel, TransactionModel
     from domain.entities import Account, Transaction, TransactionType
 
     print(f"\n  {'=' * 50}")
@@ -225,7 +210,8 @@ def seed_data(fast_mode: bool = True):
         hashed_password = None
 
     session = get_session()
-    account_repo = SqlAlchemyAccountRepository(session)
+    # Use repos for transaction creation (cleaner), use raw session for accounts
+    # to avoid the autoflush=False identity-map issue with repo.update()
     txn_repo = SqlAlchemyTransactionRepository(session)
 
     used_account_numbers = set()
@@ -244,7 +230,11 @@ def seed_data(fast_mode: bool = True):
         created_date = random_date(START_DATE, END_DATE - timedelta(days=30))
         pwd_hash = hashed_password if fast_mode else hash_password(DEFAULT_PASSWORD)
 
-        acc_no = generate_account_number(used_account_numbers)
+        # Generate unique account number using a Python set
+        acc_no = str(secrets.randbelow(9_000_000_000) + 1_000_000_000)
+        while acc_no in used_account_numbers:
+            acc_no = str(secrets.randbelow(9_000_000_000) + 1_000_000_000)
+        used_account_numbers.add(acc_no)
 
         account = Account(
             account_number=acc_no,
@@ -260,7 +250,12 @@ def seed_data(fast_mode: bool = True):
             created_at=created_date,
             updated_at=created_date,
         )
-        account_repo.create(account)
+
+        # Map to ORM model and add to session directly (not via repo)
+        # This gives us a reference to the model to update balance later
+        data = map_account_to_model(account)
+        account_model = AccountModel(**data)
+        session.add(account_model)
 
         # Generate transactions
         num_txns = random.randint(MIN_TXNS_PER_ACCOUNT, MAX_TXNS_PER_ACCOUNT)
@@ -305,19 +300,25 @@ def seed_data(fast_mode: bool = True):
             )
             txn_repo.create(txn)
 
-        account.balance = running_balance
-        account_repo.update(account)
+        # Update the account model's balance directly (avoids repo.update()
+        # which would create a duplicate INSERT with autoflush=False)
+        account_model.balance = running_balance
 
         if (i + 1) % 500 == 0 or i == 0:
             elapsed = time.time() - start_time
             pct = (i + 1) / NUM_ACCOUNTS * 100
             print(f"  [{i+1:>5,}/{NUM_ACCOUNTS:,}] accounts generated ({pct:.0f}%) - {elapsed:.1f}s")
 
-    account_repo.commit()
+    session.commit()
 
     total_txns = txn_repo.count()
-    total_accounts = account_repo.count()
-    total_balance = float(account_repo.total_balance())
+    total_accounts = session.query(AccountModel).count()
+    from sqlalchemy import func
+    total_balance = float(
+        session.query(func.sum(AccountModel.balance))
+        .filter(AccountModel.is_active.is_(True), AccountModel.is_frozen.is_(False))
+        .scalar() or Decimal("0.00")
+    )
     elapsed = time.time() - start_time
 
     close_session()

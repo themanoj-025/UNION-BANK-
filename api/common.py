@@ -30,9 +30,6 @@ JWT_ALGORITHM = settings.JWT_ALGORITHM
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
 
-# Refresh token storage (in-memory for now; backed by DB for production)
-_refresh_tokens: dict[str, dict] = {}
-
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Security scheme (shared between v1 and v2)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -59,6 +56,18 @@ def _get_verifying_key() -> str:
     return JWT_SECRET
 
 
+def _get_token_version(account_number: str) -> int:
+    """Fetch the current token version for an account from the DB."""
+    try:
+        from container import get_container
+        c = get_container()
+        return c.token_version_repo().get_version(account_number)
+    except Exception:
+        from logger import logger
+        logger.warning("Failed to fetch token version", exc_info=True)
+        return 0
+
+
 def _generate_refresh_token_id() -> str:
     """Generate a unique refresh token ID."""
     import uuid
@@ -70,6 +79,8 @@ def create_token(subject: str, role: str, token_type: str = "access") -> str:
 
     Access tokens are short-lived (default 15 minutes).
     Refresh tokens live longer (default 7 days).
+
+    Access tokens include a token_version claim for invalidation on password change.
     """
     now = datetime.now(timezone.utc)
     if token_type == "refresh":
@@ -84,6 +95,11 @@ def create_token(subject: str, role: str, token_type: str = "access") -> str:
         "iat": now,
         "exp": expiry,
     }
+
+    # Only access tokens carry the token_version (refresh tokens are validated via DB)
+    if token_type == "access":
+        payload["token_version"] = _get_token_version(subject)
+
     return jwt.encode(payload, _get_signing_key(), algorithm=JWT_ALGORITHM)
 
 
@@ -107,18 +123,37 @@ def decode_token(token: str) -> dict:
 
 
 def create_token_pair(subject: str, role: str) -> dict:
-    """Create an access + refresh token pair."""
+    """Create an access + refresh token pair.
+
+    The refresh token is persisted in the DB (not just in-memory),
+    enabling revocation, expiry tracking, and rotation.
+    """
     access_token = create_token(subject, role, token_type="access")
     refresh_token_id = _generate_refresh_token_id()
     refresh_token = create_token(subject + ":" + refresh_token_id, role, token_type="refresh")
 
     now = datetime.now(timezone.utc)
-    _refresh_tokens[refresh_token_id] = {
-        "account_number": subject,
-        "role": role,
-        "expires_at": now + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS),
-        "revoked_at": None,
-    }
+    expires_at = now + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+
+    # Persist refresh token in the DB
+    try:
+        from container import get_container
+        from domain.entities import RefreshToken
+        c = get_container()
+        token_entity = RefreshToken(
+            token_id=refresh_token_id,
+            account_number=subject,
+            role=role,
+            expires_at=expires_at,
+        )
+        c.refresh_token_repo().create(token_entity)
+        c.refresh_token_repo().commit()
+    except Exception:
+        from logger import logger
+        logger.warning(
+            "Failed to persist refresh token — falling back to memory-only",
+            exc_info=True,
+        )
 
     return {
         "access_token": access_token,
@@ -131,10 +166,14 @@ def create_token_pair(subject: str, role: str) -> dict:
 
 def revoke_refresh_token(refresh_token_id: str) -> bool:
     """Revoke a refresh token so it can no longer be used."""
-    if refresh_token_id in _refresh_tokens:
-        _refresh_tokens[refresh_token_id]["revoked_at"] = datetime.now(timezone.utc)
-        return True
-    return False
+    try:
+        from container import get_container
+        c = get_container()
+        return c.refresh_token_repo().revoke(refresh_token_id)
+    except Exception:
+        from logger import logger
+        logger.warning("Failed to revoke refresh token", exc_info=True)
+        return False
 
 
 def verify_refresh_token(refresh_token: str) -> Optional[dict]:
@@ -149,13 +188,36 @@ def verify_refresh_token(refresh_token: str) -> Optional[dict]:
             return None
         account_number, token_id = sub.rsplit(":", 1)
 
-        token_data = _refresh_tokens.get(token_id)
-        if token_data is None or token_data["revoked_at"] is not None:
+        # Check DB for the refresh token
+        from container import get_container
+        c = get_container()
+        token_data = c.refresh_token_repo().get(token_id)
+        if token_data is None or token_data.revoked_at is not None:
             return None
 
         return {"account_number": account_number, "role": payload.get("role")}
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Token version validation helpers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _check_token_version(payload: dict) -> None:
+    """Check that the token's version matches the current version in the DB.
+
+    This invalidates all existing JWTs when a password is changed.
+    """
+    token_version = payload.get("token_version", 0)
+    current_version = _get_token_version(payload.get("sub", ""))
+    if token_version != current_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been invalidated. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -173,6 +235,10 @@ async def get_current_customer(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Customer access required.",
         )
+
+    # Validate token version (invalidates JWTs on password change)
+    _check_token_version(payload)
+
     acc_no = payload.get("sub")
     from container import get_container
     domain_account = get_container().account_repo().get(acc_no)
@@ -188,7 +254,6 @@ async def get_current_customer(
         "gender": domain_account.gender,
         "mobile": domain_account.mobile,
         "email": domain_account.email,
-        "password": domain_account.password,
         "balance": float(domain_account.balance),
         "is_active": domain_account.is_active,
         "is_frozen": domain_account.is_frozen,
@@ -206,6 +271,10 @@ async def get_current_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required.",
         )
+
+    # Validate token version (invalidates JWTs on password change)
+    _check_token_version(payload)
+
     return {"username": payload.get("sub")}
 
 

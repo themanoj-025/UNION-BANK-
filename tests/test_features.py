@@ -480,7 +480,7 @@ class TestAtomicTransfer:
         self._setup_accounts(tmp_data_dir)
 
         from database import atomic_close_account, get_db_balance
-        from models import AccountModel as DbAccount
+        from infrastructure.persistence import AccountModel as DbAccount
         from database import get_session
 
         result = atomic_close_account(self.SENDER)

@@ -7,24 +7,6 @@
 
 services:
 
-  web:
-    # Remove volume mounts in production (code is baked into the image)
-    volumes:
-      - union_bank_data:/app/data
-    # Restart more aggressively
-    restart: always
-    # No port mapping — put behind a reverse proxy (nginx/traefik) instead
-    ports: []
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-
   api:
     volumes:
       - union_bank_data:/app/data

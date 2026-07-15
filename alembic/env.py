@@ -13,7 +13,7 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_DIR))
 
 # Import our models for autogenerate support
-from models import Base  # noqa: E402
+from infrastructure.database import ModelBase as Base  # noqa: E402
 
 # Alembic Config
 config = context.config

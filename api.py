@@ -34,12 +34,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 # ── Observability helpers ──────────────────────────────────────────────────
 import secrets
-from logger import set_request_id, get_request_id, clear_context
+from logger import logger, set_request_id, get_request_id, clear_context
 from infrastructure.metrics import MetricsMiddleware, metrics_response
 
 # ── Shared JWT auth helpers (used by v1 and v2 routers) ───────────────────
 from api.common import (
-    get_current_customer, get_current_admin, get_account_status,
+    get_current_customer, get_current_admin, get_account_status as _get_account_status,
     create_token_pair, verify_refresh_token,
     revoke_refresh_token, _get_verifying_key,
 )
@@ -48,6 +48,11 @@ from api.common import (
 from api.v2 import router as v2_router
 
 # ── Project path setup ──────────────────────────────────────────────────────
+# Ensure src/ directory is on the path so all imports resolve correctly
+_SRC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
@@ -58,10 +63,6 @@ from utils import (
     validate_password, validate_name,
     calculate_monthly_interest, TRANSACTION_CATEGORIES,
     MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
-)
-from services import (
-    process_deposit, process_withdraw, process_transfer,
-    process_close_account, process_apply_interest,
 )
 from database import init_db
 
@@ -169,6 +170,51 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# ── CSRF Protection Middleware ───────────────────────────────────────────────
+class CSRFProtectMiddleware(BaseHTTPMiddleware):
+    """Validate Origin/Referer on state-changing requests (defense in depth).
+
+    Since the API uses Bearer tokens in Authorization headers (not cookies),
+    it is inherently immune to traditional CSRF attacks. This middleware adds
+    an extra layer of defense by logging suspicious cross-origin requests.
+
+    To enable strict blocking (not recommended for Bearer-token APIs):
+        settings.ENABLE_CSRF_BLOCK = True
+    """
+    SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method not in self.SAFE_METHODS:
+            origin = request.headers.get("Origin", "")
+            referer = request.headers.get("Referer", "")
+
+            if origin or referer:
+                allowed_origins = set(settings.CORS_ALLOWED_ORIGINS)
+                is_valid = False
+                if origin in allowed_origins:
+                    is_valid = True
+                if referer:
+                    for allowed in allowed_origins:
+                        if referer.startswith(allowed):
+                            is_valid = True
+                            break
+                if not is_valid:
+                    logger.warning(
+                        "Cross-origin request blocked",
+                        extra={
+                            "method": request.method,
+                            "path": request.url.path,
+                            "origin": origin or "(missing)",
+                            "referer": referer or "(missing)",
+                        }
+                    )
+
+        response = await call_next(request)
+        return response
+
+app.add_middleware(CSRFProtectMiddleware)
+
+
 # ── CORS — restricted to configured origins ──────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -179,6 +225,10 @@ app.add_middleware(
 )
 
 # Mount the V2 router
+# Note: V2 endpoints handle their own errors via _err() helper raising HTTPException
+# with the ApiResponse dict as the detail. We do NOT register global exception handlers
+# here because they would override FastAPI's default error format for V1 endpoints
+# (which the frontend expects as {"detail": "message"}).
 app.include_router(v2_router)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -205,6 +255,7 @@ class RegisterRequest(BaseModel):
 class AdminLoginRequest(BaseModel):
     username: str = Field(..., description="Admin username")
     password: str = Field(..., min_length=1, description="Admin password")
+    totp_code: Optional[str] = Field(None, min_length=6, max_length=6, description="TOTP code (required if 2FA is enabled)")
 
 
 class TokenResponse(BaseModel):
@@ -295,6 +346,7 @@ class TransactionOut(BaseModel):
     description: str
     category: str
     target_account: Optional[str] = None
+    account_number: Optional[str] = None  # For admin views that show transactions across accounts
 
 
 class AccountListItem(BaseModel):
@@ -333,9 +385,12 @@ class HealthResponse(BaseModel):
 #  Auth Endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@app.post("/api/auth/login", response_model=TokenResponse)
+@app.post("/api/auth/login", response_model=TokenResponse, deprecated=True)
 @limiter.limit("10/minute")
 def customer_login(request: Request, req: LoginRequest):
+    response = Response()
+    response.headers["Sunset"] = "Sat, 31 Jan 2027 23:59:59 GMT"
+    response.headers["Deprecation"] = "true"
     """Authenticate a customer and return a JWT access + refresh token pair."""
     from container import get_container
     c = get_container()
@@ -391,25 +446,20 @@ def customer_register(request: Request, req: RegisterRequest):
             detail="Passwords do not match.",
         )
 
-    acc_no = generate_account_number()
-    data = {
-        "account_number": acc_no,
-        "name": req.name,
-        "age": req.age,
-        "gender": req.gender,
-        "mobile": req.mobile,
-        "email": req.email,
-        "password": hash_password(req.password),
-        "balance": 0.0,
-        "is_active": True,
-        "is_frozen": False,
-        "created_at": now_str(),
-    }
-    account = Account(data)
-    account.save()
+    from container import get_container
+    c = get_container()
+    result = c.auth_service().customer_register(
+        name=req.name, age=req.age, gender=req.gender,
+        mobile=req.mobile, email=req.email, password=req.password,
+    )
+    if not result.success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.message,
+        )
 
     return MessageResponse(
-        message=f"Account created successfully! Account number: {acc_no}",
+        message=result.message,
     )
 
 
@@ -425,6 +475,22 @@ def admin_login(request: Request, req: AdminLoginRequest):
         if "locked" in auth_result.message.lower():
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=auth_result.message)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=auth_result.message)
+
+    # Check TOTP 2FA if enabled
+    admin_user = c.admin_repo().get_by_username(req.username)
+    if admin_user and admin_user.totp_enabled:
+        if not req.totp_code:
+            raise HTTPException(
+                status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+                detail="Two-factor authentication is enabled. Please provide your TOTP code.",
+            )
+        import pyotp
+        totp = pyotp.TOTP(admin_user.totp_secret)
+        if not totp.verify(req.totp_code, valid_window=1):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid TOTP code.",
+            )
 
     tokens = create_token_pair(subject=req.username, role="admin")
     return TokenResponse(
@@ -581,13 +647,8 @@ def close_account(
             detail="Please type 'CLOSE' to confirm.",
         )
 
-    if not verify_password(req.password, customer["password"]):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect password.",
-        )
-
-    result = process_close_account(acc_no, req.password, customer["password"])
+    from container import get_container
+    result = get_container().account_service().close_account(acc_no, req.password)
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
@@ -623,7 +684,10 @@ def deposit_money(
 ):
     """Deposit money into the authenticated customer's account."""
     acc_no = customer["account_number"]
-    result = process_deposit(acc_no, req.amount, req.category)
+    from container import get_container
+    result = get_container().transaction_service().deposit(
+        acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
+    )
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
@@ -639,7 +703,10 @@ def withdraw_money(
 ):
     """Withdraw money from the authenticated customer's account."""
     acc_no = customer["account_number"]
-    result = process_withdraw(acc_no, req.amount, req.category)
+    from container import get_container
+    result = get_container().transaction_service().withdraw(
+        acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
+    )
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
@@ -688,16 +755,10 @@ def transfer_funds(
             detail="Recipient account is closed.",
         )
 
-    if req.amount > float(sender.balance):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient balance. Available: {fmt_currency(float(sender.balance))}",
-        )
-
-    result = process_transfer(
+    result = c.transaction_service().transfer(
         sender_acc_no=acc_no,
         receiver_acc_no=target_acc_no,
-        amount=req.amount,
+        amount=Decimal(str(req.amount)),
         category=req.category,
     )
 
@@ -731,6 +792,7 @@ def get_full_statement(request: Request, customer: dict = Depends(get_current_cu
             description=t.description,
             category=t.category,
             target_account=t.target_account,
+            account_number=t.account_number,
         )
         for t in domain_txns
     ]
@@ -754,6 +816,7 @@ def get_mini_statement(request: Request, customer: dict = Depends(get_current_cu
             description=t.description,
             category=t.category,
             target_account=t.target_account,
+            account_number=t.account_number,
         )
         for t in domain_txns
     ]
@@ -1022,7 +1085,7 @@ def apply_interest(request: Request, customer: dict = Depends(get_current_custom
     if not domain_account:
         raise HTTPException(status_code=404, detail="Account not found.")
 
-    result = process_apply_interest(acc_no, float(domain_account.balance))
+    result = get_container().transaction_service().apply_interest(acc_no)
     if not result.success:
         if "No interest" in result.message:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -1037,11 +1100,33 @@ def apply_interest(request: Request, customer: dict = Depends(get_current_custom
 
 @app.get("/api/admin/accounts", response_model=list[AccountListItem])
 @limiter.limit("30/minute")
-def admin_view_accounts(request: Request, admin: dict = Depends(get_current_admin)):
-    """View all registered accounts (admin only)."""
+def admin_view_accounts(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
+    admin: dict = Depends(get_current_admin),
+):
+    """View all registered accounts with pagination (admin only)."""
     from container import get_container
+    from infrastructure.cache import get_cache
+
+    cache = get_cache()
+    cache_key = f"admin:accounts:page:{page}:per:{per_page}"
+
+    # Try cache first
+    cached = cache.get_json(cache_key)
+    if cached is not None:
+        return [AccountListItem(**item) for item in cached]
+
     domain_accounts = get_container().admin_service().list_accounts()
-    return [
+
+    # Paginate in memory (acceptable for admin panels with moderate account counts)
+    total = len(domain_accounts)
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_accounts = domain_accounts[start:end]
+
+    result = [
         AccountListItem(
             account_number=a.account_number,
             name=a.name,
@@ -1054,8 +1139,13 @@ def admin_view_accounts(request: Request, admin: dict = Depends(get_current_admi
             gender=a.gender,
             created_at=str(a.created_at)[:19],
         )
-        for a in domain_accounts
+        for a in page_accounts
     ]
+
+    # Cache for 60 seconds (stale data acceptable for admin list views)
+    cache.set_json(cache_key, [item.model_dump() for item in result], ttl=60)
+
+    return result
 
 
 @app.get("/api/admin/accounts/search", response_model=list[AccountListItem])
@@ -1063,12 +1153,29 @@ def admin_view_accounts(request: Request, admin: dict = Depends(get_current_admi
 def admin_search_accounts(
     request: Request,
     q: str = Query(..., min_length=1, description="Search by account number or name"),
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     admin: dict = Depends(get_current_admin),
 ):
     """Search accounts by account number or name (admin only)."""
     from container import get_container
+    from infrastructure.cache import get_cache
+
+    cache = get_cache()
+    cache_key = f"admin:accounts:search:{q}:page:{page}:per:{per_page}"
+
+    cached = cache.get_json(cache_key)
+    if cached is not None:
+        return [AccountListItem(**item) for item in cached]
+
     domain_accounts = get_container().admin_service().search_accounts(q)
-    return [
+
+    total = len(domain_accounts)
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_accounts = domain_accounts[start:end]
+
+    result = [
         AccountListItem(
             account_number=a.account_number,
             name=a.name,
@@ -1081,8 +1188,12 @@ def admin_search_accounts(
             gender=a.gender,
             created_at=str(a.created_at)[:19],
         )
-        for a in domain_accounts
+        for a in page_accounts
     ]
+
+    cache.set_json(cache_key, [item.model_dump() for item in result], ttl=60)
+
+    return result
 
 
 @app.post("/api/admin/accounts/{acc_no}/freeze", response_model=MessageResponse)
@@ -1164,39 +1275,47 @@ def admin_statistics(request: Request, admin: dict = Depends(get_current_admin))
     )
 
 
-@app.get("/api/admin/transactions")
+@app.get("/api/admin/transactions", response_model=list[TransactionOut])
 @limiter.limit("30/minute")
 def admin_view_transactions(
     request: Request,
     account: Optional[str] = Query(None, description="Filter by account number"),
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(50, ge=1, le=500, description="Items per page"),
     admin: dict = Depends(get_current_admin),
 ):
-    """View all transactions, optionally filtered by account (admin only)."""
+    """View all transactions, optionally filtered by account (admin only).
+
+    Returns a flat array (not grouped by account) for easier client-side processing.
+    Use the `account_number` field to group on the client side.
+    Paginated via offset-based pagination.
+    """
     from container import get_container
-    repo = get_container().transaction_repo()
+    c = get_container()
 
     if account:
-        domain_txns = repo.get_by_account(account)
+        domain_txns, total = c.transaction_service().get_paginated_transactions(
+            acc_no=account, page=page, per_page=per_page
+        )
     else:
-        domain_txns = repo.get_all()
+        domain_txns, total = c.transaction_service().get_paginated_transactions(
+            page=page, per_page=per_page
+        )
 
-    result = {}
-    for t in domain_txns:
-        acc_no = t.account_number
-        if acc_no not in result:
-            result[acc_no] = []
-        result[acc_no].append({
-            "txn_id": t.txn_id,
-            "timestamp": str(t.timestamp)[:19],
-            "type": t.type.value,
-            "amount": float(t.amount),
-            "balance": float(t.balance),
-            "description": t.description,
-            "category": t.category,
-            "target_account": t.target_account,
-        })
-
-    return result
+    return [
+        TransactionOut(
+            txn_id=t.txn_id,
+            timestamp=str(t.timestamp)[:19],
+            type=t.type.value,
+            amount=float(t.amount),
+            balance=float(t.balance),
+            description=t.description,
+            category=t.category,
+            target_account=t.target_account,
+            account_number=t.account_number,
+        )
+        for t in domain_txns
+    ]
 
 
 @app.put("/api/admin/password", response_model=MessageResponse)
@@ -1254,7 +1373,8 @@ def refresh_token(request: Request, req: RefreshRequest):
             _, old_token_id = old_sub.rsplit(":", 1)
             revoke_refresh_token(old_token_id)
     except Exception:
-        pass
+        from logger import logger
+        logger.warning("Failed to revoke old refresh token during rotation", exc_info=True)
 
     tokens = create_token_pair(subject=result["account_number"], role=result["role"])
     return TokenResponse(
@@ -1263,6 +1383,131 @@ def refresh_token(request: Request, req: RefreshRequest):
         role=result["role"],
         expires_in=tokens["expires_in"],
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TOTP 2FA Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TOTPSetupResponse(BaseModel):
+    secret: str
+    qr_uri: str
+    manual: str
+
+
+class TOTPVerifyRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=6, description="6-digit TOTP code")
+
+
+class TOTPStatusResponse(BaseModel):
+    enabled: bool
+
+
+@app.get("/api/admin/2fa/status", response_model=TOTPStatusResponse)
+@limiter.limit("30/minute")
+def admin_totp_status(request: Request, admin: dict = Depends(get_current_admin)):
+    """Check if 2FA is enabled for the current admin."""
+    username = admin.get("username")
+    from container import get_container
+    c = get_container()
+    admin_user = c.admin_repo().get_by_username(username)
+    return TOTPStatusResponse(enabled=bool(admin_user and admin_user.totp_enabled))
+
+
+@app.get("/api/admin/2fa/setup", response_model=TOTPSetupResponse)
+@limiter.limit("5/minute")
+def admin_totp_setup(request: Request, admin: dict = Depends(get_current_admin)):
+    """Generate a new TOTP secret and provisioning URI for the admin user."""
+    import pyotp
+    username = admin.get("username")
+
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    provisioning_uri = totp.provisioning_uri(
+        name=username,
+        issuer_name="Union Bank Admin",
+    )
+
+    # Store the secret temporarily (not enabled until verified)
+    from container import get_container
+    c = get_container()
+    admin_user = c.admin_repo().get_by_username(username)
+    if admin_user:
+        c.admin_repo().update_totp(username, secret, False)
+        c.admin_repo().commit()
+
+    return TOTPSetupResponse(
+        secret=secret,
+        qr_uri=provisioning_uri,
+        manual=f"otpauth://totp/Union%20Bank%20Admin:{username}?secret={secret}&issuer=Union%20Bank%20Admin",
+    )
+
+
+@app.post("/api/admin/2fa/verify", response_model=MessageResponse)
+@limiter.limit("10/minute")
+def admin_totp_verify(
+    request: Request,
+    req: TOTPVerifyRequest,
+    admin: dict = Depends(get_current_admin),
+):
+    """Verify a TOTP code to enable 2FA for the admin account."""
+    import pyotp
+    username = admin.get("username")
+
+    from container import get_container
+    c = get_container()
+    admin_user = c.admin_repo().get_by_username(username)
+    if not admin_user or not admin_user.totp_secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No TOTP secret generated. Call GET /api/admin/2fa/setup first.",
+        )
+
+    totp = pyotp.TOTP(admin_user.totp_secret)
+    if not totp.verify(req.code, valid_window=1):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid TOTP code. Please try again.",
+        )
+
+    c.admin_repo().update_totp(username, admin_user.totp_secret, True)
+    c.admin_repo().commit()
+
+    return MessageResponse(message="Two-factor authentication enabled successfully.")
+
+
+@app.post("/api/admin/2fa/disable", response_model=MessageResponse)
+@limiter.limit("5/minute")
+def admin_totp_disable(
+    request: Request,
+    req: TOTPVerifyRequest,
+    admin: dict = Depends(get_current_admin),
+):
+    """Disable 2FA for the admin account (requires current TOTP code)."""
+    import pyotp
+    username = admin.get("username")
+
+    from container import get_container
+    c = get_container()
+    admin_user = c.admin_repo().get_by_username(username)
+    if not admin_user or not admin_user.totp_secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="2FA is not enabled.",
+        )
+
+    totp = pyotp.TOTP(admin_user.totp_secret)
+    if not totp.verify(req.code, valid_window=1):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid TOTP code.",
+        )
+
+    c.admin_repo().update_totp(username, None, False)
+    c.admin_repo().commit()
+
+    return MessageResponse(message="Two-factor authentication disabled.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1281,6 +1526,29 @@ def list_categories(request: Request):
 def health_check(request: Request):
     """Health check endpoint."""
     return HealthResponse()
+
+
+@app.get("/api/healthz")
+def liveness_probe():
+    """Kubernetes liveness probe — returns 200 if the process is alive."""
+    return {"status": "alive"}
+
+
+@app.get("/api/readyz")
+def readiness_probe():
+    """Kubernetes readiness probe — checks database connectivity."""
+    from sqlalchemy import text
+    from infrastructure.database import get_session
+    try:
+        session = get_session()
+        session.execute(text("SELECT 1"))
+        return {"status": "ready", "database": "connected"}
+    except Exception as e:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not ready", "database": str(e)},
+        )
 
 
 @app.get("/metrics")

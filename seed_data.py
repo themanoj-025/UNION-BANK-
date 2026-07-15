@@ -1,12 +1,12 @@
 """
 seed_data.py  –  Generate ~5,000 sample accounts with transaction history.
 
+Writes directly to SQLite via the repository layer (no JSON files).
+
 Usage:
     python seed_data.py         # (takes ~10-15 seconds due to bcrypt)
-    python seed_data.py --fast  # (uses pre-computed hash, ~2 seconds)
-
-WARNING: This will OVERWRITE existing accounts.json and transactions.json.
-Backups are automatically created (.bak files) by the save_json function.
+    python seed_data.py --slow  # (hashes each password individually, ~15 seconds)
+    python seed_data.py --fast  # (pre-computed hash, ~2 seconds — default)
 """
 
 import os
@@ -15,13 +15,23 @@ import string
 import sys
 import time
 from datetime import datetime, timedelta
+from decimal import Decimal
 
-# Ensure project root is importable
+# Ensure project root and src/ are importable
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, BASE_DIR)
+_SRC_DIR = os.path.join(BASE_DIR, "src")
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
 
-from utils import hash_password, TRANSACTION_CATEGORIES
+# Set testing-friendly env vars so Config doesn't require real secrets
+os.environ.setdefault("UNION_BANK_TESTING", "1")
+os.environ.setdefault("JWT_SECRET", "seed-data-secret")
+os.environ.setdefault("FLASK_SECRET_KEY", "seed-data-flask-key")
 
+from utils.hashing import hash_password
+from config import settings
 
 # ── Configuration ────────────────────────────────────────────────────────────
 NUM_ACCOUNTS = 5000
@@ -31,8 +41,7 @@ DEFAULT_PASSWORD = "Seed@123"
 START_DATE = datetime(2025, 8, 1)  # 10 months of history
 END_DATE = datetime(2026, 6, 2)
 
-ACCOUNTS_FILE = os.path.join(BASE_DIR, "data", "accounts.json")
-TRANSACTIONS_FILE = os.path.join(BASE_DIR, "data", "transactions.json")
+TRANSACTION_CATEGORIES = settings.TRANSACTION_CATEGORIES
 
 
 # ── Indian names data ────────────────────────────────────────────────────────
@@ -94,16 +103,10 @@ LAST_NAMES = [
 ]
 
 GENDERS = ["Male", "Female"]
-CITIES = [
-    "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Ahmedabad", "Chennai", "Kolkata",
-    "Pune", "Jaipur", "Surat", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane",
-    "Bhopal", "Visakhapatnam", "Pimpri-Chinchwad", "Patna", "Vadodara",
-]
 
 TRANSACTION_TYPES = ["DEPOSIT", "WITHDRAW", "TRANSFER_OUT", "TRANSFER_IN"]
-TXN_WEIGHTS = [0.40, 0.30, 0.15, 0.15]  # 40% deposits, 30% withdrawals, etc.
+TXN_WEIGHTS = [0.40, 0.30, 0.15, 0.15]
 
-# Map transaction types to likely categories
 TYPE_CATEGORY_MAP = {
     "DEPOSIT":       ["Salary", "Savings", "Investment", "General"],
     "WITHDRAW":      ["Food & Dining", "Transport", "Shopping", "Bills & Utilities",
@@ -130,20 +133,18 @@ TRANSFER_IN_DESCRIPTIONS = [
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def random_date(start: datetime, end: datetime) -> datetime:
-    """Generate a random datetime between start and end."""
     delta = end - start
     random_seconds = random.randint(0, int(delta.total_seconds()))
     return start + timedelta(seconds=random_seconds)
 
 
 def generate_phone() -> str:
-    """Generate a valid Indian mobile number (10 digits, starts with 6-9)."""
     return str(random.randint(6, 9)) + "".join([str(random.randint(0, 9)) for _ in range(9)])
 
 
 def generate_email(name: str) -> str:
-    """Generate a plausible email from a name."""
     name_clean = name.lower().replace(" ", ".")
     domains = ["gmail.com", "yahoo.com", "outlook.com", "rediffmail.com", "hotmail.com", "email.com"]
     domain = random.choice(domains)
@@ -154,104 +155,103 @@ def generate_email(name: str) -> str:
     return f"{name_clean}@{domain}"
 
 
-def generate_account_number(used_numbers: set) -> str:
-    """Generate a unique 10-digit account number."""
-    while True:
-        num = str(random.randint(1000000000, 9999999999))
-        if num not in used_numbers:
-            used_numbers.add(num)
-            return num
-
-
 _TXN_CHARS = string.ascii_uppercase + string.digits
 
+
 def generate_txn_id() -> str:
-    """Generate a unique transaction ID."""
     return "TXN-" + "".join(random.choices(_TXN_CHARS, k=8))
+
+
+def generate_account_number(used: set) -> str:
+    """Generate a unique 10-digit account number not in `used`."""
+    while True:
+        num = str(random.randint(1000000000, 9999999999))
+        if num not in used:
+            used.add(num)
+            return num
 
 
 # ── Main seeding function ────────────────────────────────────────────────────
 
 def seed_data(fast_mode: bool = True):
     """
-    Generate sample data and write to accounts.json and transactions.json.
+    Generate sample data and write directly to SQLite via the repository layer.
 
     Args:
         fast_mode: If True, use a single pre-computed bcrypt hash for all accounts
                    (much faster, ~2 seconds vs ~15 seconds for 5000 accounts).
     """
+    from infrastructure.database import init_db, get_session, close_session, reset_engine
+    from infrastructure.repositories import (
+        SqlAlchemyAccountRepository,
+        SqlAlchemyTransactionRepository,
+    )
+    from domain.entities import Account, Transaction, TransactionType
+
     print(f"\n  {'=' * 50}")
     print(f"  Seeding {NUM_ACCOUNTS:,} sample accounts...")
     print(f"  {'=' * 50}\n")
 
-    # Pre-compute password hash (or use fast mode)
+    # Wipe the database file for a clean slate
+    reset_engine()
+    db_file = os.path.join(settings.DATA_DIR, "union_bank.db")
+    for f in [db_file, db_file + "-wal", db_file + "-shm"]:
+        if os.path.exists(f):
+            os.remove(f)
+            print(f"  Removed old database: {f}")
+
+    # Create fresh tables
+    init_db()
+
+    session = get_session()
+    account_repo = SqlAlchemyAccountRepository(session)
+    txn_repo = SqlAlchemyTransactionRepository(session)
+
+    # Pre-compute password hash
     if fast_mode:
         print("  Fast mode: using single hash for all accounts")
         hashed_password = hash_password(DEFAULT_PASSWORD)
     else:
         print(f"  Hashing password '{DEFAULT_PASSWORD}' for each account...")
-        hashed_password = None  # Will hash per-account
+        hashed_password = None
 
-    accounts = {}
-    transactions = {}
     used_account_numbers = set()
-
-    # Track existing account numbers to avoid collisions
-    if os.path.exists(ACCOUNTS_FILE):
-from utils.file_io import load_json, save_json
-        used_account_numbers.update(existing.keys())
-        print(f"  Found {len(existing)} existing accounts - avoiding collisions")
-
     start_time = time.time()
 
     for i in range(NUM_ACCOUNTS):
-        # Pick name
         gender = random.choice(GENDERS)
         first_name = random.choice(FIRST_NAMES_MALE if gender == "Male" else FIRST_NAMES_FEMALE)
         last_name = random.choice(LAST_NAMES)
         full_name = f"{first_name} {last_name}"
 
-        # Generate account number
-        acc_no = generate_account_number(used_account_numbers)
-
-        # Personal details
         age = random.randint(18, 75)
         mobile = generate_phone()
         email = generate_email(full_name)
-        # Initial balance between ₹500 and ₹5,00,000
         initial_balance = round(random.uniform(500, 500000), 2)
-
-        # Created date (random over the past 10 months)
         created_date = random_date(START_DATE, END_DATE - timedelta(days=30))
-        created_str = created_date.strftime("%Y-%m-%d %H:%M:%S")
+        pwd_hash = hashed_password if fast_mode else hash_password(DEFAULT_PASSWORD)
 
-        # Hash password
-        if fast_mode:
-            pwd_hash = hashed_password
-        else:
-            pwd_hash = hash_password(DEFAULT_PASSWORD)
+        acc_no = generate_account_number(used_account_numbers)
 
-        # Build account record
-        accounts[acc_no] = {
-            "account_number": acc_no,
-            "name": full_name,
-            "age": age,
-            "gender": gender,
-            "mobile": mobile,
-            "email": email,
-            "password": pwd_hash,
-            "balance": initial_balance,
-            "is_active": True,
-            "is_frozen": False,
-            "created_at": created_str,
-        }
+        account = Account(
+            account_number=acc_no,
+            name=full_name,
+            age=age,
+            gender=gender,
+            mobile=mobile,
+            email=email,
+            password=pwd_hash,
+            balance=Decimal(str(initial_balance)),
+            is_active=True,
+            is_frozen=False,
+            created_at=created_date,
+            updated_at=created_date,
+        )
+        account_repo.create(account)
 
-        # Generate transactions for this account
+        # Generate transactions
         num_txns = random.randint(MIN_TXNS_PER_ACCOUNT, MAX_TXNS_PER_ACCOUNT)
-        acc_transactions = []
-        running_balance = initial_balance
-
-        # Generate dates spread across the account's lifetime
+        running_balance = Decimal(str(initial_balance))
         txn_dates = sorted([random_date(created_date, END_DATE) for _ in range(num_txns)])
 
         for txn_date in txn_dates:
@@ -259,79 +259,68 @@ from utils.file_io import load_json, save_json
             category = random.choice(TYPE_CATEGORY_MAP[txn_type])
 
             if txn_type == "DEPOSIT":
-                amount = round(random.uniform(500, 100000), 2)
+                amount = Decimal(str(round(random.uniform(500, 100000), 2)))
                 running_balance += amount
                 description = random.choice(DEPOSIT_DESCRIPTIONS)
             elif txn_type == "WITHDRAW":
-                max_wd = max(100, running_balance * 0.3)  # Don't withdraw more than 30%
-                amount = round(random.uniform(50, min(max_wd, 50000)), 2)
+                max_wd = max(Decimal("100"), running_balance * Decimal("0.3"))
+                amount = min(Decimal(str(round(random.uniform(50, 50000), 2))), max_wd)
                 running_balance -= amount
                 description = random.choice(WITHDRAW_DESCRIPTIONS)
             elif txn_type == "TRANSFER_OUT":
-                max_tr = max(100, running_balance * 0.5)
-                amount = round(random.uniform(100, min(max_tr, 25000)), 2)
+                max_tr = max(Decimal("100"), running_balance * Decimal("0.5"))
+                amount = min(Decimal(str(round(random.uniform(100, 25000), 2))), max_tr)
                 running_balance -= amount
                 description = random.choice(TRANSFER_OUT_DESCRIPTIONS)
-            else:  # TRANSFER_IN
-                amount = round(random.uniform(500, 50000), 2)
+            else:
+                amount = Decimal(str(round(random.uniform(500, 50000), 2)))
                 running_balance += amount
                 description = random.choice(TRANSFER_IN_DESCRIPTIONS)
 
-            running_balance = round(running_balance, 2)
             if running_balance < 0:
-                running_balance = 0  # Safety net
+                running_balance = Decimal("0")
 
-            txn_record = {
-                "txn_id": generate_txn_id(),
-                "type": txn_type,
-                "amount": amount,
-                "description": description,
-                "balance": running_balance,
-                "timestamp": txn_date.strftime("%Y-%m-%d %H:%M:%S"),
-                "category": category,
-            }
-            # Only add target_account for transfers (simulated)
-            if txn_type in ("TRANSFER_OUT", "TRANSFER_IN"):
-                txn_record["target_account"] = "XXXXXXXXXX"
+            txn = Transaction(
+                txn_id=generate_txn_id(),
+                account_number=acc_no,
+                type=TransactionType(txn_type),
+                amount=amount,
+                balance=running_balance,
+                description=description,
+                category=category,
+                timestamp=txn_date,
+            )
+            txn_repo.create(txn)
 
-            acc_transactions.append(txn_record)
+        account.balance = running_balance
+        account_repo.update(account)
 
-        # Update final balance
-        accounts[acc_no]["balance"] = running_balance
-        transactions[acc_no] = acc_transactions
-
-        # Progress indicator
         if (i + 1) % 500 == 0 or i == 0:
             elapsed = time.time() - start_time
             pct = (i + 1) / NUM_ACCOUNTS * 100
             print(f"  [{i+1:>5,}/{NUM_ACCOUNTS:,}] accounts generated ({pct:.0f}%) - {elapsed:.1f}s")
 
-    # ── Write to files ───────────────────────────────────────────────────────
-    print(f"\n  Writing accounts to {ACCOUNTS_FILE}...")
-    save_json(ACCOUNTS_FILE, accounts)
+    account_repo.commit()
 
-    print(f"  Writing transactions to {TRANSACTIONS_FILE}...")
-    save_json(TRANSACTIONS_FILE, transactions)
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-    total_txns = sum(len(v) for v in transactions.values())
-    total_balance = sum(a["balance"] for a in accounts.values())
+    total_txns = txn_repo.count()
+    total_accounts = account_repo.count()
+    total_balance = float(account_repo.total_balance())
     elapsed = time.time() - start_time
+
+    close_session()
 
     print(f"\n  {'=' * 50}")
     print(f"  Seeding Complete!")
     print(f"  {'=' * 50}")
-    print(f"     Accounts      : {len(accounts):>8,}")
+    print(f"     Accounts      : {total_accounts:>8,}")
     print(f"     Transactions  : {total_txns:>8,}")
-    print(f"     Avg txns/acct : {total_txns / len(accounts):>8.1f}")
+    if total_accounts:
+        print(f"     Avg txns/acct : {total_txns / total_accounts:>8.1f}")
     print(f"     Total balance : Rs.{total_balance:>12,.2f}")
     print(f"     Time taken    : {elapsed:>8.1f}s")
-    # print(f"     Default pwd   : {DEFAULT_PASSWORD}")  # Redacted for security
     print(f"  {'=' * 50}\n")
 
 
-# ── Entry point ──────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
-    fast_mode = "--slow" not in sys.argv  # Fast by default (--slow for per-account hashing)
+    fast_mode = "--slow" not in sys.argv
     seed_data(fast_mode=fast_mode)

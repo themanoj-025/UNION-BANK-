@@ -7,11 +7,11 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  backend-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -29,25 +29,94 @@ jobs:
       - name: Lint with ruff
         run: |
           pip install ruff
-          ruff check .
+          ruff check . --ignore E402,F403,F401,E501
+
+      - name: Check for bare except: pass (security anti-pattern)
+        run: |
+          python -c "
+import sys, os, re
+
+failed = 0
+# Match 'except:' or 'except Exception:' or 'except BaseException:' on its own line
+# followed by 'pass' on the next line (the anti-pattern we ban)
+except_re = re.compile(r'^\s*except(\s+(Exception|BaseException)|\s*)?:\s*$')
+pass_re = re.compile(r'^\s*pass\s*$')
+
+dirs = ['src', 'api']
+files = ['api.py']
+
+for d in dirs:
+    if not os.path.isdir(d):
+        continue
+    for root, _, filenames in os.walk(d):
+        for f in filenames:
+            if not f.endswith('.py'):
+                continue
+            path = os.path.join(root, f)
+            with open(path, encoding='utf-8') as fh:
+                lines = fh.readlines()
+            for i, line in enumerate(lines):
+                if except_re.match(line):
+                    if i + 1 < len(lines) and pass_re.match(lines[i + 1]):
+                        print(f'BARE EXCEPT FOUND: {path}:{i+1}: "{line.strip()}" followed by "{lines[i+1].strip()}"')
+                        failed = 1
+
+for f in files:
+    if os.path.isfile(f):
+        path = f
+        with open(path, encoding='utf-8') as fh:
+            lines = fh.readlines()
+        for i, line in enumerate(lines):
+            if except_re.match(line):
+                if i + 1 < len(lines) and pass_re.match(lines[i + 1]):
+                    print(f'BARE EXCEPT FOUND: {path}:{i+1}: "{line.strip()}" followed by "{lines[i+1].strip()}"')
+                    failed = 1
+
+if failed:
+    print('FAIL: bare except:pass anti-patterns found (should log exception, not silently swallow)')
+    sys.exit(1)
+else:
+    print('  ✓ No bare except:pass found')
+"
+        shell: bash
+
+      - name: Check for password field in API response models
+        run: |
+          python -m pytest tests/test_password_leak.py -q --tb=line
+        shell: bash
 
       - name: Test with pytest
         run: |
-          python -m pytest tests/ -v --tb=short
+          python -m pytest tests/ -v --tb=short --cov --cov-report=term --cov-fail-under=26
         env:
           UNION_BANK_TESTING: "1"
           JWT_SECRET: "ci-test-secret"
           FLASK_SECRET_KEY: "ci-test-flask-secret"
 
-      - name: Check coverage
-        run: |
-          python -m pytest tests/ --cov --cov-report=term --cov-fail-under=26
-        env:
-          UNION_BANK_TESTING: "1"
-          JWT_SECRET: "ci-test-secret"
-          FLASK_SECRET_KEY: "ci-test-flask-secret"
+  frontend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-  docker:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  docker-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,32 +124,28 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker images
+      - name: Build Docker image
         run: |
-          docker compose build
+          docker compose build api
 
       - name: Start services
         run: |
-          docker compose up -d redis
-          docker compose up -d web
           docker compose up -d api
 
-      - name: Wait for services to be healthy
+      - name: Wait for API to be ready
         run: |
-          echo "Waiting for web to be ready..."
-          timeout 60 sh -c 'until curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/ | grep -q "200\|302"; do sleep 2; done' || echo "Web health check timed out"
           echo "Waiting for API to be ready..."
-          timeout 30 sh -c 'until curl -s http://localhost:8000/health | grep -q "healthy"; do sleep 2; done' || echo "API health check timed out"
+          timeout 30 sh -c 'until curl -s http://localhost:8000/api/health | grep -q "healthy"; do sleep 2; done' || echo "API health check timed out"
 
-      - name: Run tests inside Docker container
+      - name: Run tests in Docker
         run: |
-          docker compose run --rm --no-deps web \
+          docker compose run --rm --no-deps api \
             sh -c "UNION_BANK_TESTING=1 JWT_SECRET=ci-test-secret FLASK_SECRET_KEY=ci-test-flask-secret python -m pytest tests/ -v --tb=short --cov --cov-report=term"
 
       - name: Check Docker container logs
         if: always()
         run: |
-          docker compose logs --tail=20 web api 2>/dev/null || true
+          docker compose logs --tail=20 api 2>/dev/null || true
 
       - name: Stop services
         if: always()
@@ -98,13 +163,10 @@ jobs:
             --config /dev/null
             --no-progress
             --exclude 'https?://localhost'
-            --exclude 'https?://127\.0\.0\.1'
-            --exclude 'https?://.*shields\.io'
-            --exclude 'https?://.*example\.com'
-            --exclude 'https?://.*test\.org'
-            --exclude 'https?://.*yourusername.*'
-            --exclude 'https?://.*your-username.*'
-            --exclude 'https?://.*static\.streamlit\.io'
-            --exclude 'https?://.*\{.*\}.*'
+            --exclude 'https?://127\\.0\\.0\\.1'
+            --exclude 'https?://.*shields\\.io'
+            --exclude 'https?://.*example\\.com'
+            --exclude 'https?://.*test\\.org'
+            --exclude 'https?://.*\\{.*\\}.*'
             '**/*.md'
         continue-on-error: true

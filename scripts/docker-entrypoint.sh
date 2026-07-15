@@ -8,7 +8,6 @@
 #    3. Start the application server
 #
 #  Usage:
-#    ENTRYPOINT_TARGET=web    → starts gunicorn (Flask)
 #    ENTRYPOINT_TARGET=api    → starts uvicorn  (FastAPI)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -72,8 +71,8 @@ echo -e "  ${BOLD}   🏦  Union Bank Management System${NC}"
 echo -e "  ${BOLD}═══════════════════════════════════════════${NC}"
 echo ""
 
-case "${ENTRYPOINT_TARGET:-web}" in
-    api)
+case "${ENTRYPOINT_TARGET:-api}" in
+    api|*)
         info "Starting FastAPI server (uvicorn) on port 8000…"
         exec uvicorn \
             api:app \
@@ -82,15 +81,5 @@ case "${ENTRYPOINT_TARGET:-web}" in
             --workers "${UVICORN_WORKERS:-4}" \
             --proxy-headers \
             --forwarded-allow-ips '*'
-        ;;
-    web|*)
-        info "Starting Flask server (gunicorn) on port 5000…"
-        exec gunicorn \
-            --bind 0.0.0.0:5000 \
-            --workers "${GUNICORN_WORKERS:-4}" \
-            --timeout 120 \
-            --access-logfile - \
-            --error-logfile - \
-            webapp:app
         ;;
 esac

@@ -6,11 +6,11 @@ python:
 
 web:
   - changed-files:
-      - any-glob-to-any-file: ['templates/**', 'static/**']
+      - any-glob-to-any-file: ['Union Bank frontend/**']
 
 api:
   - changed-files:
-      - any-glob-to-any-file: ['api.py', 'webapp.py']
+      - any-glob-to-any-file: ['api.py', 'api/v2.py']
 
 cli:
   - changed-files:

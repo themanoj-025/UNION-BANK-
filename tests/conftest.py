@@ -22,9 +22,15 @@ os.environ.setdefault("JWT_SECRET", "test-secret-not-for-prod")
 os.environ.setdefault("FLASK_SECRET_KEY", "test-flask-secret-for-testing")
 os.environ.setdefault("UNION_BANK_TESTING", "1")
 
-# Ensure project root is in path for imports
+# Ensure project root and src/ are in path for imports
+# src/ takes priority over root (inserted second at position 0) so that src/ modules
+# (container, utils, domain, application, infrastructure) are found before any
+# root-level shadow files. Root-level modules (api/, main.py) are still resolvable
+# as fallback since root is at sys.path[1].
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SRC_DIR = PROJECT_ROOT / "src"
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(SRC_DIR))
 
 import pytest
 

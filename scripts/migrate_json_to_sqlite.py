@@ -30,12 +30,14 @@ from utils import (
 )
 from logger import logger
 from database import get_session, close_session
-from repositories import (
-    AccountRepository, TransactionRepository,
-    AdminRepository, SavingsGoalRepository,
-    LoginAttemptRepository,
+from infrastructure.repositories import (
+    SqlAlchemyAccountRepository,
+    SqlAlchemyTransactionRepository,
+    SqlAlchemyAdminRepository,
+    SqlAlchemySavingsGoalRepository,
+    SqlAlchemyLoginAttemptRepository,
 )
-from models import (
+from infrastructure.persistence import (
     AccountModel, TransactionModel, SavingsGoalModel,
     AdminModel, LoginAttemptModel,
 )
@@ -59,7 +61,7 @@ def migrate_accounts() -> int:
 
     session = get_session()
     try:
-        repo = AccountRepository(session)
+        repo = SqlAlchemyAccountRepository(session)
         migrated = 0
 
         for acc_no, data in raw.items():
@@ -155,7 +157,7 @@ def migrate_admin() -> int:
 
     session = get_session()
     try:
-        repo = AdminRepository(session)
+        repo = SqlAlchemyAdminRepository(session)
         username = raw.get("username", "simon")
 
         existing = repo.get_by_username(username)

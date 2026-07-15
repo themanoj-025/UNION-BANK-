@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Union Bank - Send Money</title>
+  </head>
+  <body>
+    <div id="root">
+      <style>
+        .skeleton-loader {
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
+          width: 100%;
+          background-color: #ffffff;
+        }
+        .sk-header {
+          height: 70px;
+          background-color: #f6f7f6;
+          animation: pulse 1.5s infinite ease-in-out;
+        }
+        .sk-hero {
+          height: 50vh;
+          background-color: #e5e5e5;
+          margin-top: 0;
+          animation: pulse 1.5s infinite ease-in-out;
+          border-radius: 0 0 40px 40px;
+        }
+        .sk-content {
+          flex: 1;
+          display: flex;
+          justify-content: center;
+          gap: 40px;
+          padding: 60px 20px;
+        }
+        .sk-card {
+          width: 300px;
+          height: 200px;
+          background-color: #f6f7f6;
+          border-radius: 20px;
+          animation: pulse 1.5s infinite ease-in-out;
+        }
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.5; }
+          100% { opacity: 1; }
+        }
+        [data-theme='dark'] .skeleton-loader { background-color: #111111; }
+        [data-theme='dark'] .sk-header { background-color: #1a1a1a; }
+        [data-theme='dark'] .sk-hero { background-color: #222222; }
+        [data-theme='dark'] .sk-card { background-color: #1a1a1a; }
+      </style>
+      <div class="skeleton-loader">
+        <div class="sk-header"></div>
+        <div class="sk-hero"></div>
+        <div class="sk-content">
+          <div class="sk-card"></div>
+          <div class="sk-card"></div>
+          <div class="sk-card"></div>
+        </div>
+      </div>
+    </div>
+    <div id="google_translate_element" style="display:none;"></div>
+    <script type="text/javascript">
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+          pageLanguage: 'en', 
+          includedLanguages: 'hi,mr,bn,kn,ta,te,en', 
+          autoDisplay: false
+        }, 'google_translate_element');
+      }
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

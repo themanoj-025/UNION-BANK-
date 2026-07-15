@@ -31,7 +31,7 @@ from tests.fakes import (
     FakeTransactionRepository,
 )
 
-from utils.auth import hash_password
+from utils.hashing import hash_password
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -271,7 +271,7 @@ class TestAccountService:
         )
         assert result.success is True
         # Verify new password works
-        from utils.auth import verify_password
+        from utils.hashing import verify_password
         updated = account_repo.get("1000000001")
         assert verify_password("NewSecure1Pass", updated.password)
 
@@ -555,7 +555,7 @@ class TestAdminService:
             "admin", "AdminPass1", "NewAdmin1Pass"
         )
         assert result.success is True
-        from utils.auth import verify_password
+        from utils.hashing import verify_password
         assert verify_password("NewAdmin1Pass", admin_repo.get_by_username("admin").password)
 
 

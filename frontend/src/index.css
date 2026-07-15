@@ -1,0 +1,90 @@
+:root {
+  --primary-green: #9FE870;
+  --dark-green: #163300;
+  --black: #111111;
+  --white: #ffffff;
+  --gray-text: #454545;
+  --border-color: #e5e5e5;
+  --background-color: #ffffff;
+  --header-bg: rgba(159, 232, 112, 0.85);
+  
+  --font-family: 'Inter', sans-serif;
+}
+
+[data-theme='dark'] {
+  --primary-green: #1a3a00;
+  --dark-green: #9FE870;
+  --black: #ffffff;
+  --white: #111111;
+  --gray-text: #a0a0a0;
+  --border-color: #333333;
+  --background-color: #111111;
+  --header-bg: rgba(26, 58, 0, 0.85);
+}
+
+html, body {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  background-color: var(--background-color);
+  color: var(--black);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-family: var(--font-family);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+button {
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+}
+
+.glass-panel:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+}
+
+/* Hide Google Translate UI elements */
+.goog-te-banner-frame.skiptranslate {
+    display: none !important;
+}
+body {
+    top: 0px !important;
+}
+.goog-text-highlight {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+#goog-gt-tt {
+    display: none !important;
+}

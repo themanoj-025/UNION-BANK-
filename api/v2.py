@@ -99,7 +99,7 @@ def _err(message: str, status_code: int = 400):
 # ── Custom exception handler — returns flat envelope for errors ──────────
 
 
-@router.exception_handler(HTTPException)
+# Exception handlers must be added to the FastAPI app instance, not APIRouter
 async def v2_http_exception_handler(request, exc: HTTPException):
     """Override FastAPI's default exception handler for the v2 router.
 
@@ -118,7 +118,7 @@ async def v2_http_exception_handler(request, exc: HTTPException):
         content=ApiResponse(success=False, error=str(detail)).model_dump(),
     )
 
-@router.exception_handler(Exception)
+# Exception handlers must be added to the FastAPI app instance, not APIRouter
 async def v2_generic_exception_handler(request, exc: Exception):
     """Catch unhandled exceptions and return a 500 envelope response."""
     from fastapi.responses import JSONResponse
@@ -230,7 +230,8 @@ def v2_refresh_token(req: RefreshRequest):
             _, old_token_id = old_sub.rsplit(":", 1)
             revoke_refresh_token(old_token_id)
     except Exception:
-        pass
+        from logger import logger
+        logger.warning("Failed to revoke old refresh token during rotation", exc_info=True)
 
     tokens = create_token_pair(subject=result["account_number"], role=result["role"])
     return _ok(TokenData(

@@ -19,7 +19,7 @@
 #    make clean         # Remove containers, images, and volumes
 # ═══════════════════════════════════════════════════════════════════════════════
 
-.PHONY: help build build-web build-api up up-dev down logs test shell-web shell-api clean
+.PHONY: help build up down logs test shell-api clean
 
 # ── Default target ──────────────────────────────────────────────────────────
 help: ## Show this help
@@ -29,14 +29,11 @@ help: ## Show this help
 
 # ── Build ────────────────────────────────────────────────────────────────────
 
-build: ## Build all Docker images
+build: ## Build Docker image
 	docker compose build
 
-build-web: ## Build only the Flask web image
-	docker compose build web
-
 build-api: ## Build only the FastAPI image
-	docker compose build api
+	docker compose build
 
 
 # ── Run ──────────────────────────────────────────────────────────────────────
@@ -44,7 +41,6 @@ build-api: ## Build only the FastAPI image
 up: ## Start all services in detached mode
 	docker compose up -d
 	@echo ""
-	@echo "  Web:   http://localhost:5000"
 	@echo "  API:   http://localhost:8000"
 	@echo "  Docs:  http://localhost:8000/docs"
 
@@ -52,13 +48,8 @@ up-dev: ## Start with hot-reload (development mode — rebuilds images first)
 	docker compose build
 	docker compose up -d
 	@echo ""
-	@echo "  Web:   http://localhost:5000"
 	@echo "  API:   http://localhost:8000"
 	@echo "  Docs:  http://localhost:8000/docs"
-	@echo ""
-	@echo "  ℹ  For hot-reload, set TARGET=api and use:"
-	@echo "     docker compose build --target dev"
-	@echo "     docker compose up -d"
 
 up-prod: ## Start with production overrides
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
@@ -73,18 +64,15 @@ down: ## Stop and remove containers
 # ── Testing ──────────────────────────────────────────────────────────────────
 
 test: ## Run test suite inside a Docker container
-	docker compose run --rm --no-deps web \
+	docker compose run --rm --no-deps api \
 		python -m pytest tests/ -v --tb=short --cov --cov-report=term
 
 test-ci: ## Run tests with coverage (CI-friendly output)
-	docker compose run --rm --no-deps web \
+	docker compose run --rm --no-deps api \
 		python -m pytest tests/ -v --tb=short --cov --cov-report=term --cov-report=xml
 
 
 # ── Interactive ──────────────────────────────────────────────────────────────
-
-shell-web: ## Open a bash shell inside the web container
-	docker compose run --rm web bash
 
 shell-api: ## Open a bash shell inside the api container
 	docker compose run --rm api bash
@@ -94,5 +82,5 @@ shell-api: ## Open a bash shell inside the api container
 
 clean: ## Remove containers, images, volumes, and cached data
 	docker compose down --volumes --remove-orphans
-	docker rmi union-bank/web:latest union-bank/api:latest 2>/dev/null || true
+	docker rmi union-bank/api:latest 2>/dev/null || true
 	@echo "  [✓] Cleaned up Docker resources"

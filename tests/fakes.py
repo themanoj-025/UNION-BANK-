@@ -18,7 +18,7 @@ from application.interfaces import KeysetPage
 
 from domain.entities import (
     Account, AdminUser, LoginAttempt, Notification,
-    NotificationPreference, SavingsGoal,
+    NotificationPreference, RefreshToken, SavingsGoal,
     TokenVersion, Transaction, TransactionType,
 )
 
@@ -61,6 +61,22 @@ class FakeAccountRepository:
         self._accounts[acc_no].balance = new_balance
         return True
 
+    def atomic_decrement(self, acc_no: str, amount: Decimal) -> bool:
+        """Atomic decrement — fake version with in-memory balance check."""
+        if acc_no not in self._accounts:
+            return False
+        if self._accounts[acc_no].balance < amount:
+            return False
+        self._accounts[acc_no].balance -= amount
+        return True
+
+    def atomic_increment(self, acc_no: str, amount: Decimal) -> bool:
+        """Atomic increment — fake version."""
+        if acc_no not in self._accounts:
+            return False
+        self._accounts[acc_no].balance += amount
+        return True
+
     def set_active(self, acc_no: str, active: bool) -> bool:
         if acc_no not in self._accounts:
             return False
@@ -68,13 +84,14 @@ class FakeAccountRepository:
         return True
 
     def set_frozen(self, acc_no: str, frozen: bool) -> bool:
+        """Set the frozen status of an account.
+
+        NOTE: This does NOT change is_active. Freezing does not imply
+        closing, and unfreezing does not imply reactivating.
+        """
         if acc_no not in self._accounts:
             return False
         self._accounts[acc_no].is_frozen = frozen
-        if frozen:
-            self._accounts[acc_no].is_active = False
-        else:
-            self._accounts[acc_no].is_active = True
         return True
 
     def delete(self, acc_no: str) -> bool:
@@ -264,6 +281,13 @@ class FakeAdminRepository:
         if username not in self._admins:
             return False
         self._admins[username].password = new_hashed
+        return True
+
+    def update_totp(self, username: str, totp_secret: Optional[str], totp_enabled: bool) -> bool:
+        if username not in self._admins:
+            return False
+        self._admins[username].totp_secret = totp_secret
+        self._admins[username].totp_enabled = totp_enabled
         return True
 
     def admin_count(self) -> int:
@@ -496,6 +520,58 @@ class FakeNotificationPreferenceRepository:
         pass
 
     def rollback(self) -> None:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Fake Refresh Token Repository
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class FakeRefreshTokenRepository:
+    """In-memory refresh token repository."""
+
+    def __init__(self):
+        self._tokens: dict[str, RefreshToken] = {}
+
+    def get(self, token_id: str):
+        return self._tokens.get(token_id)
+
+    def get_by_account(self, account_number: str):
+        return [t for t in self._tokens.values() if t.account_number == account_number]
+
+    def create(self, token: RefreshToken):
+        self._tokens[token.token_id] = token
+        return token
+
+    def revoke(self, token_id: str) -> bool:
+        if token_id not in self._tokens:
+            return False
+        from datetime import datetime, timezone
+        self._tokens[token_id].revoked_at = datetime.now(timezone.utc)
+        return True
+
+    def revoke_all_for_account(self, account_number: str) -> int:
+        from datetime import datetime, timezone
+        count = 0
+        for t in self._tokens.values():
+            if t.account_number == account_number and t.revoked_at is None:
+                t.revoked_at = datetime.now(timezone.utc)
+                count += 1
+        return count
+
+    def clean_expired(self) -> int:
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        expired = [id for id, t in self._tokens.items() if t.expires_at < now]
+        for id in expired:
+            del self._tokens[id]
+        return len(expired)
+
+    def commit(self):
+        pass
+
+    def rollback(self):
         pass
 
 

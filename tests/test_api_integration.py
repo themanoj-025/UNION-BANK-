@@ -153,7 +153,7 @@ def second_registered_customer(client: TestClient) -> dict:
 @pytest.fixture
 def admin_token(client: TestClient) -> dict:
     """Create an admin user and return auth token."""
-    from utils.auth import hash_password
+    from utils.hashing import hash_password
     from domain.entities import AdminUser
 
     c = get_container()

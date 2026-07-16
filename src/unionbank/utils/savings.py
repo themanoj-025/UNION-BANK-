@@ -9,7 +9,7 @@ from decimal import Decimal
 
 def load_goals(acc_no: str) -> list:
     """Load savings goals for a specific account from SQLite."""
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     domain_goals = c.savings_goal_service().list_goals(acc_no)
     return [{
@@ -29,7 +29,7 @@ def save_goals(acc_no: str, goals: list) -> None:
     Note: This replaces ALL goals for the account with the provided list.
     For fine-grained operations, use the container's SavingsGoalService directly.
     """
-    from container import get_container
+    from infrastructure.container import get_container
     from domain.entities import SavingsGoal
     c = get_container()
     goal_repo = c.savings_goal_repo()

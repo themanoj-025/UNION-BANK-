@@ -340,7 +340,7 @@ def execute_query(
         dict with keys: query, intent, filters, total, results
 
     """
-    from container import get_container
+    from infrastructure.container import get_container
 
     # Classify intent
     intents = classify_intent(query)

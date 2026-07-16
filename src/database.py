@@ -119,7 +119,7 @@ def atomic_transfer(
 ) -> AtomicTransferResult:
     """Execute an atomic fund transfer (backward-compatible wrapper)."""
     from decimal import Decimal as D
-    from container import get_container
+    from infrastructure.container import get_container
     svc = get_container().transaction_service()
     result = svc.transfer(
         sender_acc_no=sender_acc_no,
@@ -142,7 +142,7 @@ def atomic_apply_interest(acc_no: str, interest_amount: float) -> bool:
     (needed by tests that bypass interest calculation).
     """
     from decimal import Decimal as D
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
 
     if interest_amount > 0:
@@ -181,7 +181,7 @@ def atomic_close_account(acc_no: str) -> bool:
     Bypasses password verification for backward compatibility with tests
     and internal API calls. Production code should use AccountService directly.
     """
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     account = c.account_repo().get(acc_no)
     if account is None:

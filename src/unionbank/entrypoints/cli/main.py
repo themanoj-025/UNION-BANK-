@@ -81,7 +81,7 @@ def create_admin_bootstrap():
     """
     import getpass
 
-    from container import get_container, init_db
+    from infrastructure.container import get_container, init_db
     from domain.entities import AdminUser
     from utils import hash_password, validate_password
 

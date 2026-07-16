@@ -32,7 +32,7 @@ def generate_account_number(max_attempts: int = 1000) -> str:
     Checks uniqueness against the SQLite database via the container.
     Raises RuntimeError if a unique number cannot be found within max_attempts.
     """
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     repo = c.account_repo()
     for _ in range(max_attempts):

@@ -16,7 +16,7 @@ import tempfile
 from decimal import Decimal
 
 import pytest
-from container import get_container, reset_container
+from infrastructure.container import get_container, reset_container
 from domain.entities import Account, TransactionType
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -669,7 +669,7 @@ class TestConcurrentTransfers:
 
         def do_transfer(_):
             """Execute one transfer in its own thread-local session."""
-            from container import get_container
+            from infrastructure.container import get_container
             local_c = get_container()
             return local_c.transaction_service().transfer(
                 sender_acc_no="1000000001",
@@ -735,7 +735,7 @@ class TestConcurrentTransfers:
         num_deposits = 20
 
         def do_deposit(_):
-            from container import get_container
+            from infrastructure.container import get_container
             local_c = get_container()
             return local_c.transaction_service().deposit(
                 acc_no="1000000001",

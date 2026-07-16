@@ -33,7 +33,7 @@ def _ensure_admin_exists():
     """Create the default admin user (simon/simon123) if it doesn't exist."""
     from database import init_db
     init_db()
-    from container import get_container
+    from infrastructure.container import get_container
     from utils.hashing import hash_password
     from domain.entities import AdminUser
 

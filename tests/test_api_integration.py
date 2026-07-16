@@ -15,7 +15,7 @@ import tempfile
 from decimal import Decimal
 
 import pytest
-from container import get_container, reset_container
+from infrastructure.container import get_container, reset_container
 from domain.entities import Account, TransactionType
 from fastapi import status
 from fastapi.testclient import TestClient

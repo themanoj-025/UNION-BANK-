@@ -20,7 +20,7 @@ SESSION_TIMEOUT_SECONDS = settings.SESSION_TIMEOUT_SECONDS
 
 def _get_login_attempt_repo():
     """Get the LoginAttemptRepository from the container."""
-    from container import get_container
+    from infrastructure.container import get_container
     return get_container().login_attempt_repo()
 
 

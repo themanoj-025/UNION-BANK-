@@ -71,7 +71,7 @@ router = APIRouter(prefix="/api/v2")
 
 def _get_container():
     """Lazy-import the DI container."""
-    from container import get_container
+    from infrastructure.container import get_container
     return get_container()
 
 

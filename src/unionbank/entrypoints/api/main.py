@@ -465,7 +465,7 @@ def customer_login(request: Request, req: LoginRequest):
     response.headers["Sunset"] = "Sat, 31 Jan 2027 23:59:59 GMT"
     response.headers["Deprecation"] = "true"
     """Authenticate a customer and return a JWT access + refresh token pair."""
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
 
     # Use container's auth service for DB-backed authentication
@@ -519,7 +519,7 @@ def customer_register(request: Request, req: RegisterRequest):
             detail="Passwords do not match.",
         )
 
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     result = c.auth_service().customer_register(
         name=req.name, age=req.age, gender=req.gender,
@@ -540,7 +540,7 @@ def customer_register(request: Request, req: RegisterRequest):
 @limiter.limit("10/minute")
 def admin_login(request: Request, req: AdminLoginRequest):
     """Authenticate as admin and return a JWT access + refresh token pair."""
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
 
     auth_result = c.auth_service().admin_login(req.username, req.password)
@@ -606,7 +606,7 @@ def update_profile(
     """Update the authenticated customer's profile details."""
     acc_no = customer["account_number"]
 
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     domain_account = c.account_repo().get(acc_no)
     if not domain_account:
@@ -672,7 +672,7 @@ def change_password(
     """Change the authenticated customer's password."""
     acc_no = customer["account_number"]
 
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     domain_account = c.account_repo().get(acc_no)
     if not domain_account:
@@ -720,7 +720,7 @@ def close_account(
             detail="Please type 'CLOSE' to confirm.",
         )
 
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().account_service().close_account(acc_no, req.password)
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -736,7 +736,7 @@ def close_account(
 @limiter.limit("30/minute")
 def get_balance(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the current account balance."""
-    from container import get_container
+    from infrastructure.container import get_container
     domain_account = get_container().account_repo().get(customer["account_number"])
     if not domain_account:
         raise HTTPException(status_code=404, detail="Account not found.")
@@ -757,7 +757,7 @@ def deposit_money(
 ):
     """Deposit money into the authenticated customer's account."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().transaction_service().deposit(
         acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
     )
@@ -776,7 +776,7 @@ def withdraw_money(
 ):
     """Withdraw money from the authenticated customer's account."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().transaction_service().withdraw(
         acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
     )
@@ -797,7 +797,7 @@ def transfer_funds(
     acc_no = customer["account_number"]
     target_acc_no = req.target_account
 
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
 
     sender = c.account_repo().get(acc_no)
@@ -852,7 +852,7 @@ def transfer_funds(
 def get_full_statement(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the full transaction statement (newest first)."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     domain_txns = get_container().transaction_repo().get_by_account(acc_no)
 
     return [
@@ -876,7 +876,7 @@ def get_full_statement(request: Request, customer: dict = Depends(get_current_cu
 def get_mini_statement(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the last 5 transactions (mini statement)."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     domain_txns = get_container().transaction_repo().get_mini(acc_no, 5)
 
     return [
@@ -900,7 +900,7 @@ def get_mini_statement(request: Request, customer: dict = Depends(get_current_cu
 def export_csv(request: Request, customer: dict = Depends(get_current_customer)):
     """Download transaction history as a CSV file."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     domain_txns = get_container().transaction_repo().get_by_account(acc_no)
 
     output = io.StringIO()
@@ -973,7 +973,7 @@ class SavingsGoalsSummary(BaseModel):
 def list_savings_goals(request: Request, customer: dict = Depends(get_current_customer)):
     """List all savings goals for the authenticated customer."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     goals = get_container().savings_goal_repo().get_by_account(acc_no)
 
     goal_list = []
@@ -1014,7 +1014,7 @@ def create_savings_goal(
 ):
     """Create a new savings goal."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().savings_goal_service().create_goal(
         acc_no=acc_no,
         name=req.name,
@@ -1051,7 +1051,7 @@ def update_savings_goal(
 ):
     """Update a savings goal."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     goal_repo = get_container().savings_goal_repo()
 
     goal = goal_repo.get(goal_id)
@@ -1092,7 +1092,7 @@ def contribute_to_goal(
 ):
     """Contribute money from your balance to a savings goal."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
 
     # Check current balance from DB
@@ -1138,7 +1138,7 @@ def delete_savings_goal(
 ):
     """Delete a savings goal and refund the amount to your balance."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().savings_goal_service().delete_goal(
         acc_no=acc_no, goal_id=goal_id
     )
@@ -1153,7 +1153,7 @@ def delete_savings_goal(
 def apply_interest(request: Request, customer: dict = Depends(get_current_customer)):
     """Apply monthly interest (3.5% p.a.) using an atomic SQLite transaction."""
     acc_no = customer["account_number"]
-    from container import get_container
+    from infrastructure.container import get_container
     domain_account = get_container().account_repo().get(acc_no)
     if not domain_account:
         raise HTTPException(status_code=404, detail="Account not found.")
@@ -1180,7 +1180,7 @@ def admin_view_accounts(
     admin: dict = Depends(get_current_admin),
 ):
     """View all registered accounts with pagination (admin only)."""
-    from container import get_container
+    from infrastructure.container import get_container
     from infrastructure.cache import get_cache
 
     cache = get_cache()
@@ -1231,7 +1231,7 @@ def admin_search_accounts(
     admin: dict = Depends(get_current_admin),
 ):
     """Search accounts by account number or name (admin only)."""
-    from container import get_container
+    from infrastructure.container import get_container
     from infrastructure.cache import get_cache
 
     cache = get_cache()
@@ -1277,7 +1277,7 @@ def admin_freeze_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Freeze a customer account (admin only)."""
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().admin_service().freeze_account(
         acc_no=acc_no, actor="admin"
     )
@@ -1297,7 +1297,7 @@ def admin_unfreeze_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Unfreeze a customer account (admin only)."""
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().admin_service().unfreeze_account(
         acc_no=acc_no, actor="admin"
     )
@@ -1317,7 +1317,7 @@ def admin_delete_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Permanently delete a customer account and all its transactions (admin only)."""
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().admin_service().delete_account(
         acc_no=acc_no, actor="admin"
     )
@@ -1331,7 +1331,7 @@ def admin_delete_account(
 @limiter.limit("30/minute")
 def admin_statistics(request: Request, admin: dict = Depends(get_current_admin)):
     """View bank-wide statistics (admin only)."""
-    from container import get_container
+    from infrastructure.container import get_container
     s = get_container().admin_service().get_statistics()
 
     return StatisticsResponse(
@@ -1363,7 +1363,7 @@ def admin_view_transactions(
     Use the `account_number` field to group on the client side.
     Paginated via offset-based pagination.
     """
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
 
     if account:
@@ -1400,7 +1400,7 @@ def admin_change_password(
 ):
     """Change the admin password (admin only)."""
     username = admin.get("username")
-    from container import get_container
+    from infrastructure.container import get_container
     result = get_container().admin_service().change_admin_password(
         username=username or "admin",
         current_pwd=req.current_password,
@@ -1482,7 +1482,7 @@ class TOTPStatusResponse(BaseModel):
 def admin_totp_status(request: Request, admin: dict = Depends(get_current_admin)):
     """Check if 2FA is enabled for the current admin."""
     username = admin.get("username")
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     return TOTPStatusResponse(enabled=bool(admin_user and admin_user.totp_enabled))
@@ -1503,7 +1503,7 @@ def admin_totp_setup(request: Request, admin: dict = Depends(get_current_admin))
     )
 
     # Store the secret temporarily (not enabled until verified)
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if admin_user:
@@ -1528,7 +1528,7 @@ def admin_totp_verify(
     import pyotp
     username = admin.get("username")
 
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if not admin_user or not admin_user.totp_secret:
@@ -1561,7 +1561,7 @@ def admin_totp_disable(
     import pyotp
     username = admin.get("username")
 
-    from container import get_container
+    from infrastructure.container import get_container
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if not admin_user or not admin_user.totp_secret:

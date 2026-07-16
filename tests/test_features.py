@@ -223,7 +223,7 @@ class TestTransactionCategories:
         """Test that log_transaction stores the category field (via SQLite)."""
         # Create a temp account and call log_transaction directly
         # Note: log_transaction now writes to SQLite only (no JSON)
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
 
         from account import Account

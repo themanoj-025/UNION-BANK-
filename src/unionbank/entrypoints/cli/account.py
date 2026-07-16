@@ -82,7 +82,7 @@ class Account:
         """Save the account — writes to SQLite only (no JSON)."""
         from decimal import Decimal
 
-        from container import get_container
+        from infrastructure.container import get_container
         from domain.entities import Account as DomainAccount
 
         c = get_container()
@@ -128,7 +128,7 @@ class Account:
         """Log a transaction — writes to SQLite only (no JSON)."""
         from decimal import Decimal
 
-        from container import get_container
+        from infrastructure.container import get_container
         from domain.entities import Transaction as DomainTransaction
         from domain.entities import TransactionType
         from sqlalchemy.exc import IntegrityError
@@ -187,7 +187,7 @@ class Account:
 
     def mini_statement(self):
         header("MINI STATEMENT  (Last 5 transactions)")
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
         # Use the modern transaction service via transaction_repo
         from domain.entities import TransactionType
@@ -208,7 +208,7 @@ class Account:
 
     def full_statement(self):
         header("FULL TRANSACTION HISTORY")
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
         from domain.entities import TransactionType
         records = c.transaction_repo().get_by_account(self.account_number)
@@ -255,7 +255,7 @@ class Account:
 
         from decimal import Decimal
 
-        from container import get_container
+        from infrastructure.container import get_container
         result = get_container().transaction_service().deposit(
             self.account_number, Decimal(str(amount)), category
         )
@@ -275,7 +275,7 @@ class Account:
 
         from decimal import Decimal
 
-        from container import get_container
+        from infrastructure.container import get_container
         result = get_container().transaction_service().withdraw(
             self.account_number, Decimal(str(amount)), category
         )
@@ -291,7 +291,7 @@ class Account:
         header("TRANSFER FUNDS")
         target_acc_no = input("  Enter recipient account number : ").strip()
 
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
         target_account = c.account_repo().get(target_acc_no)
 
@@ -409,7 +409,7 @@ class Account:
             return
         pwd = prompt_password("  Enter password to confirm : ")
 
-        from container import get_container
+        from infrastructure.container import get_container
         result = get_container().account_service().close_account(self.account_number, pwd)
         if result.success:
             self.is_active = False
@@ -421,7 +421,7 @@ class Account:
     def export_csv(self):
         """Export full transaction history to CSV."""
         header("EXPORT TO CSV")
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
         from domain.entities import TransactionType
         domain_txns = c.transaction_repo().get_by_account(self.account_number)
@@ -475,7 +475,7 @@ class Account:
 
     def savings_goals_menu(self):
         """Savings goals management menu."""
-        from container import get_container
+        from infrastructure.container import get_container
 
         while True:
             c = get_container()
@@ -528,7 +528,7 @@ class Account:
             return
         date_str = input("  Target date (YYYY-MM-DD, optional): ").strip()
 
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
         result = c.savings_goal_service().create_goal(
             acc_no=self.account_number,
@@ -544,7 +544,7 @@ class Account:
         divider()
 
     def _contribute_to_goal(self):
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
         domain_goals = c.savings_goal_service().list_goals(self.account_number)
         active = [g for g in domain_goals if not g.is_completed]
@@ -583,7 +583,7 @@ class Account:
         divider()
 
     def _edit_goal(self):
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
         domain_goals = c.savings_goal_service().list_goals(self.account_number)
         if not domain_goals:
@@ -621,7 +621,7 @@ class Account:
         divider()
 
     def _delete_goal(self):
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
         domain_goals = c.savings_goal_service().list_goals(self.account_number)
         if not domain_goals:
@@ -657,7 +657,7 @@ class Account:
     def apply_interest(self):
         """Apply monthly interest using an atomic SQLite transaction."""
         header("INTEREST CALCULATION")
-        from container import get_container
+        from infrastructure.container import get_container
         result = get_container().transaction_service().apply_interest(self.account_number)
         if result.success:
             self.balance = result.data["balance"]

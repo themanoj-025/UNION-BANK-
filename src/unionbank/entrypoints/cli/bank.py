@@ -120,7 +120,7 @@ class Bank:
         acc_no = input("  Account Number : ").strip()
         pwd    = prompt_password("  Password       : ")
 
-        from container import get_container
+        from infrastructure.container import get_container
         c = get_container()
 
         # Use the container's auth service for DB-backed authentication
@@ -186,7 +186,7 @@ class Bank:
                 break
 
             # Refresh account data directly from SQLite via the container
-            from container import get_container
+            from infrastructure.container import get_container
             c = get_container()
             fresh_domain = c.account_repo().get(acc.account_number)
             if fresh_domain:

@@ -1248,7 +1248,8 @@ def _invalidate_admin_account_cache():
         from unionbank.infrastructure.cache import get_cache
         get_cache().clear_pattern("admin:accounts:*")
     except Exception:
-        pass  # Non-fatal — cache miss is acceptable
+        from unionbank.utils.logger import logger
+        logger.warning("Failed to invalidate admin account cache", exc_info=True)
 
 
 @app.get("/api/admin/accounts/search", response_model=list[AccountListItem])

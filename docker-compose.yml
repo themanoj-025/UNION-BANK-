@@ -31,11 +31,15 @@ services:
       - .env
     environment:
       - UNION_BANK_TESTING=0
+      - ENV=development
+      - DATABASE_URL=postgresql://unionbank:unionbank@postgres:5432/unionbank
       - UVICORN_WORKERS=4
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - union_bank_data:/app/data
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_started
     healthcheck:
@@ -44,6 +48,28 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    networks:
+      - union_bank_net
+
+  # ── PostgreSQL Database ────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: union-bank-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: unionbank
+      POSTGRES_PASSWORD: unionbank
+      POSTGRES_DB: unionbank
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unionbank"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - union_bank_net
 
@@ -69,6 +95,8 @@ services:
 # ── Persistent Volumes ───────────────────────────────────────────────────────
 volumes:
   union_bank_data:
+    driver: local
+  postgres_data:
     driver: local
   redis_data:
     driver: local

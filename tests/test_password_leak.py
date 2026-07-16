@@ -32,7 +32,7 @@ def _get_all_response_model_fields() -> dict[str, set[str]]:
     """
     models_with_password = {}
 
-    from api.models import (
+    from unionbank.entrypoints.api.models import (
         AccountListItem,
         BalanceData,
         EMIPreviewData,
@@ -130,7 +130,7 @@ class TestNoPasswordLeak:
 
     def test_password_not_in_profile_response(self):
         """Verify ProfileData model doesn't contain any password fields."""
-        from api.models import ProfileData
+        from unionbank.entrypoints.api.models import ProfileData
         fields = ProfileData.model_fields
         assert "password" not in fields, (
             "ProfileData should never include a password field. "

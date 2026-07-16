@@ -172,15 +172,15 @@ def seed_data(fast_mode: bool = True):
         fast_mode: If True, use a single pre-computed bcrypt hash for all accounts
                    (much faster, ~2 seconds vs ~15 seconds for 5000 accounts).
     """
-    from infrastructure.database import (
+    from unionbank.infrastructure.database import (
         get_session, close_session, reset_engine, ModelBase, get_engine,
     )
-    from infrastructure.repositories import (
+    from unionbank.infrastructure.repositories import (
         SqlAlchemyTransactionRepository,
     )
-    from infrastructure.mappers import map_account_to_model
-    from infrastructure.persistence import AccountModel, TransactionModel
-    from domain.entities import Account, Transaction, TransactionType
+    from unionbank.infrastructure.mappers import map_account_to_model
+    from unionbank.infrastructure.persistence import AccountModel, TransactionModel
+    from unionbank.domain.entities import Account, Transaction, TransactionType
 
     print(f"\n  {'=' * 50}")
     print(f"  Seeding {NUM_ACCOUNTS:,} sample accounts...")

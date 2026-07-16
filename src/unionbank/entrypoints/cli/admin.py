@@ -5,8 +5,8 @@ Admin accounts are created via the bootstrap CLI command:
     python main.py create-admin
 """
 
-from logger import logger
-from ui import (
+from unionbank.utils.logger import logger
+from unionbank.entrypoints.cli.ui import (
     BOLD,
     CYAN,
     GREEN,
@@ -22,7 +22,7 @@ from ui import (
     success,
     warning,
 )
-from utils import (
+from unionbank.utils import (
     fmt_currency,
     hash_password,
     now_str,
@@ -38,7 +38,7 @@ class Admin:
         username = input("  Username : ").strip()
         password = prompt_password("  Password : ")
 
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
 
         # Use container's auth service for DB-backed admin login
@@ -97,7 +97,7 @@ class Admin:
     # ── Helper: get an account dict from SQLite via container ─────────────────
 
     def _get_account_dict(self, acc_no: str) -> dict | None:
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         domain = c.account_repo().get(acc_no)
         if domain is None:
@@ -119,7 +119,7 @@ class Admin:
 
     def _view_all_accounts(self):
         header("ALL ACCOUNTS")
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         domain_accounts = c.admin_service().list_accounts()
 
@@ -149,7 +149,7 @@ class Admin:
     def _search_account(self):
         header("SEARCH ACCOUNT")
         query = input("  Enter Account Number or Name : ").strip().lower()
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         results = c.admin_service().search_accounts(query)
 
@@ -205,7 +205,7 @@ class Admin:
             divider()
             return
 
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         if currently_frozen:
             result = c.admin_service().unfreeze_account(acc_no, actor="admin")
@@ -240,7 +240,7 @@ class Admin:
             divider()
             return
 
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         result = c.admin_service().delete_account(acc_no, actor="admin")
         if result.success:
@@ -253,7 +253,7 @@ class Admin:
 
     def _bank_statistics(self):
         header("BANK STATISTICS")
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         s = c.admin_service().get_statistics()
 
@@ -281,7 +281,7 @@ class Admin:
 
     def _loan_management(self):
         header("LOAN MANAGEMENT")
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
 
         stats = c.loan_service().get_loan_statistics()
@@ -395,7 +395,7 @@ class Admin:
 
     def _view_all_transactions(self):
         header("ALL TRANSACTIONS")
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
 
         acc_filter = input(f"  {CYAN}Filter by Account Number (or press Enter to show all):{RESET} ").strip()
@@ -410,7 +410,7 @@ class Admin:
             divider()
             return
 
-        from domain.entities import TransactionType
+        from unionbank.domain.entities import TransactionType
 
         # Group transactions by account number (preserving original UX)
         txns_by_account: dict[str, list] = {}
@@ -443,7 +443,7 @@ class Admin:
         header("CHANGE ADMIN PASSWORD")
         old = prompt_password("  Current Password : ")
 
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         # Use a flexible lookup — try the known admin or use the first available
         admin = c.admin_repo().get_by_username("simon") or c.admin_repo().get_by_username("admin")

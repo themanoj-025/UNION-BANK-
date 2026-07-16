@@ -6,7 +6,7 @@ like ``from logger import logger`` continue to work while the codebase
 is gradually updated to ``from utils.logger import logger``.
 """
 
-from utils.logger import (  # noqa: F401
+from unionbank.utils.logger import (  # noqa: F401
     LOG_FILE,
     JsonFormatter,
     clear_context,

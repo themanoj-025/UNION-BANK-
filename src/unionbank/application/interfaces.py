@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Generic, Optional, Protocol, TypeVar, runtime_checkable
 
-from domain.entities import (
+from unionbank.domain.entities import (
     Account,
     AdminUser,
     IdempotencyRecord,

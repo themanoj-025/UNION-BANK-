@@ -15,10 +15,7 @@ import csv
 import io
 import logging
 import os
-
-# ── Project path setup (MUST be before any src/ imports) ─────────────────────
 import secrets
-import sys
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
@@ -42,36 +39,10 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# This file lives at: src/unionbank/entrypoints/api/main.py
-# The project root is 4 directories up from here.
-_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_FILE_DIR))))
-
-_SRC_DIR = os.path.join(_PROJECT_ROOT, 'src')
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
-
-# Add src/unionbank/ to sys.path (for utils.analyzr_core, domain.*, etc.)
-_UNIONBANK_DIR = os.path.join(_SRC_DIR, 'unionbank')
-if _UNIONBANK_DIR not in sys.path:
-    sys.path.insert(0, _UNIONBANK_DIR)
-
-# Add src/unionbank/entrypoints/ to sys.path (so 'api.common' resolves)
-_API_PARENT = os.path.join(_UNIONBANK_DIR, 'entrypoints')
-if _API_PARENT not in sys.path:
-    sys.path.insert(0, _API_PARENT)
-
-if _FILE_DIR not in sys.path:
-    sys.path.insert(0, _FILE_DIR)
-
-# ── Observability helpers ──────────────────────────────────────────────────
-# ═══════════════════════════════════════════════════════════════════════════════
-#  FastAPI Application
-# ═══════════════════════════════════════════════════════════════════════════════
 from contextlib import asynccontextmanager
 
 # ── Shared JWT auth helpers (used by v1 and v2 routers) ───────────────────
-from api.common import (
+from unionbank.entrypoints.api.common import (
     _get_verifying_key,
     create_token_pair,
     get_current_admin,
@@ -79,18 +50,18 @@ from api.common import (
     revoke_refresh_token,
     verify_refresh_token,
 )
-from api.common import (
+from unionbank.entrypoints.api.common import (
     get_account_status as _get_account_status,
 )
 
 # ── V2 API router (envelope-wrapped endpoints) ───────────────────────────────
-from api.v2 import router as v2_router
-from config import settings
-from infrastructure.metrics import MetricsMiddleware, metrics_response
-from logger import clear_context, get_request_id, logger, set_account_context, set_request_id
+from unionbank.entrypoints.api.v2 import router as v2_router
+from unionbank.config import settings
+from unionbank.infrastructure.metrics import MetricsMiddleware, metrics_response
+from unionbank.utils.logger import clear_context, get_request_id, logger, set_account_context, set_request_id
 
 # ── Import existing business logic ───────────────────────────────────────────
-from utils import (
+from unionbank.utils import (
     LOGIN_LOCKOUT_MINUTES,
     MAX_LOGIN_ATTEMPTS,
     TRANSACTION_CATEGORIES,
@@ -115,7 +86,7 @@ async def lifespan(app: FastAPI):
     ensures that all imports are fully resolved and __package__ is
     set correctly before any database operations run.
     """
-    from database import init_db
+    from unionbank.infrastructure.database import init_db
     init_db()
     yield
     # No shutdown cleanup needed for SQLite
@@ -276,7 +247,7 @@ app.add_middleware(
 # ── Uvicorn access log configuration (module-level, applies in ALL run modes) ─
 # Route access logs through the structured JSON logger for observability.
 # Uses bank.jsonl (the JSON log file) so all structured logs live together.
-from logger import JsonFormatter
+from unionbank.utils.logger import JsonFormatter
 
 # Use _PROJECT_ROOT (computed in bootstrap above) for a path that works
 # whether main.py is imported directly or via ASGI transport.
@@ -465,7 +436,7 @@ def customer_login(request: Request, req: LoginRequest):
     response.headers["Sunset"] = "Sat, 31 Jan 2027 23:59:59 GMT"
     response.headers["Deprecation"] = "true"
     """Authenticate a customer and return a JWT access + refresh token pair."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
 
     # Use container's auth service for DB-backed authentication
@@ -519,7 +490,7 @@ def customer_register(request: Request, req: RegisterRequest):
             detail="Passwords do not match.",
         )
 
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
     result = c.auth_service().customer_register(
         name=req.name, age=req.age, gender=req.gender,
@@ -540,7 +511,7 @@ def customer_register(request: Request, req: RegisterRequest):
 @limiter.limit("10/minute")
 def admin_login(request: Request, req: AdminLoginRequest):
     """Authenticate as admin and return a JWT access + refresh token pair."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
 
     auth_result = c.auth_service().admin_login(req.username, req.password)
@@ -606,7 +577,7 @@ def update_profile(
     """Update the authenticated customer's profile details."""
     acc_no = customer["account_number"]
 
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
     domain_account = c.account_repo().get(acc_no)
     if not domain_account:
@@ -672,7 +643,7 @@ def change_password(
     """Change the authenticated customer's password."""
     acc_no = customer["account_number"]
 
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
     domain_account = c.account_repo().get(acc_no)
     if not domain_account:
@@ -720,7 +691,7 @@ def close_account(
             detail="Please type 'CLOSE' to confirm.",
         )
 
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().account_service().close_account(acc_no, req.password)
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -757,7 +728,7 @@ def deposit_money(
 ):
     """Deposit money into the authenticated customer's account."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().transaction_service().deposit(
         acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
     )
@@ -776,7 +747,7 @@ def withdraw_money(
 ):
     """Withdraw money from the authenticated customer's account."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().transaction_service().withdraw(
         acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
     )
@@ -797,7 +768,7 @@ def transfer_funds(
     acc_no = customer["account_number"]
     target_acc_no = req.target_account
 
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
 
     sender = c.account_repo().get(acc_no)
@@ -1092,7 +1063,7 @@ def contribute_to_goal(
 ):
     """Contribute money from your balance to a savings goal."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
 
     # Check current balance from DB
@@ -1363,7 +1334,7 @@ def admin_view_transactions(
     Use the `account_number` field to group on the client side.
     Paginated via offset-based pagination.
     """
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
 
     if account:
@@ -1482,7 +1453,7 @@ class TOTPStatusResponse(BaseModel):
 def admin_totp_status(request: Request, admin: dict = Depends(get_current_admin)):
     """Check if 2FA is enabled for the current admin."""
     username = admin.get("username")
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     return TOTPStatusResponse(enabled=bool(admin_user and admin_user.totp_enabled))
@@ -1503,7 +1474,7 @@ def admin_totp_setup(request: Request, admin: dict = Depends(get_current_admin))
     )
 
     # Store the secret temporarily (not enabled until verified)
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if admin_user:
@@ -1528,7 +1499,7 @@ def admin_totp_verify(
     import pyotp
     username = admin.get("username")
 
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if not admin_user or not admin_user.totp_secret:
@@ -1561,7 +1532,7 @@ def admin_totp_disable(
     import pyotp
     username = admin.get("username")
 
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if not admin_user or not admin_user.totp_secret:

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from domain.clock import utcnow as _utcnow  # noqa: F401 — used as default in _map_account_to_model
-from domain.entities import (
+from unionbank.domain.clock import utcnow as _utcnow  # noqa: F401 — used as default in _map_account_to_model
+from unionbank.domain.entities import (
     Account,
     AdminUser,
     Loan,

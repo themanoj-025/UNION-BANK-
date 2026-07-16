@@ -16,7 +16,7 @@ from decimal import Decimal
 from typing import Optional
 
 import jwt
-from api.common import (
+from unionbank.entrypoints.api.common import (
     _get_verifying_key,
     create_token_pair,
     get_current_admin,
@@ -24,7 +24,7 @@ from api.common import (
     revoke_refresh_token,
     verify_refresh_token,
 )
-from api.models import (
+from unionbank.entrypoints.api.models import (
     AccountListItem,
     AdminLoginRequest,
     AnalyzrQueryRequest,
@@ -71,12 +71,12 @@ router = APIRouter(prefix="/api/v2")
 
 def _get_container():
     """Lazy-import the DI container."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     return get_container()
 
 
 def _fmt_currency(val: float) -> str:
-    from utils import fmt_currency as _fc
+    from unionbank.utils import fmt_currency as _fc
     return _fc(val)
 
 
@@ -169,7 +169,7 @@ def v2_customer_login(req: LoginRequest):
 @router.post("/auth/register", response_model=ApiResponse[MessageData])
 def v2_customer_register(req: RegisterRequest):
     """Register a new customer account."""
-    from utils import validate_email, validate_name, validate_password, validate_phone
+    from unionbank.utils import validate_email, validate_name, validate_password, validate_phone
 
     if not validate_name(req.name):
         _err("Name must be 2-50 characters (letters and spaces only).")
@@ -238,7 +238,7 @@ def v2_refresh_token(req: RefreshRequest):
             _, old_token_id = old_sub.rsplit(":", 1)
             revoke_refresh_token(old_token_id)
     except Exception:
-        from logger import logger
+        from unionbank.utils.logger import logger
         logger.warning("Failed to revoke old refresh token during rotation", exc_info=True)
 
     tokens = create_token_pair(subject=result["account_number"], role=result["role"])
@@ -258,7 +258,7 @@ def v2_refresh_token(req: RefreshRequest):
 @router.get("/account/profile", response_model=ApiResponse[ProfileData])
 def v2_get_profile(customer: dict = Depends(get_current_customer)):
     """Get the authenticated customer's profile details."""
-    from api.common import get_account_status
+    from unionbank.entrypoints.api.common import get_account_status
 
     return _ok(ProfileData(
         account_number=customer["account_number"],
@@ -277,8 +277,8 @@ def v2_get_profile(customer: dict = Depends(get_current_customer)):
 @router.put("/account/profile", response_model=ApiResponse[ProfileData])
 def v2_update_profile(req: UpdateProfileRequest, customer: dict = Depends(get_current_customer)):
     """Update the authenticated customer's profile details."""
-    from api.common import get_account_status
-    from utils import validate_email, validate_name, validate_phone
+    from unionbank.entrypoints.api.common import get_account_status
+    from unionbank.utils import validate_email, validate_name, validate_phone
 
     acc_no = customer["account_number"]
     c = _get_container()
@@ -343,7 +343,7 @@ def v2_close_account(req: CloseAccountRequest, customer: dict = Depends(get_curr
     if req.confirm_text != "CLOSE":
         _err("Please type 'CLOSE' to confirm.")
 
-    from utils import verify_password
+    from unionbank.utils import verify_password
 
     acc_no = customer["account_number"]
     c = _get_container()
@@ -1013,7 +1013,7 @@ def v2_admin_statistics(admin: dict = Depends(get_current_admin)):
 @router.get("/categories", response_model=ApiResponse[list[str]])
 def v2_list_categories():
     """List all available transaction categories."""
-    from application.services import TRANSACTION_CATEGORIES
+    from unionbank.application.services import TRANSACTION_CATEGORIES
     return _ok(TRANSACTION_CATEGORIES)
 
 
@@ -1036,7 +1036,7 @@ def v2_analyzr_query(req: AnalyzrQueryRequest):
     executes the search, and returns formatted results.
     No external API calls — translation is deterministic and local.
     """
-    from utils.analyzr_core import execute_query as analyzr_search
+    from unionbank.utils.analyzr_core import execute_query as analyzr_search
 
     result = analyzr_search(
         query=req.query,

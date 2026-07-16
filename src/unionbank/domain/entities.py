@@ -12,7 +12,7 @@ from decimal import Decimal
 from enum import Enum, auto
 from typing import Optional
 
-from domain.clock import (
+from unionbank.domain.clock import (
     utcnow as _utcnow,  # noqa: F401 — used as default factory in field() decorators
 )
 

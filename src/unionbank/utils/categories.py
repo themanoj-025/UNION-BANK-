@@ -3,7 +3,7 @@
 Extracted from the old utils/auth.py god module.
 """
 
-from config import settings
+from unionbank.config import settings
 
 TRANSACTION_CATEGORIES = settings.TRANSACTION_CATEGORIES
 

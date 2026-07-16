@@ -13,7 +13,7 @@ This package splits the old monolithic utils.py into focused sub-modules:
 All functions are re-exported here for backward compatibility.
 """
 
-from domain.interest import (
+from unionbank.domain.interest import (
     SAVINGS_INTEREST_RATE,
     calculate_monthly_interest,
 )

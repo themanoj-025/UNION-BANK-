@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from domain.clock import utcnow as _utcnow  # noqa: F401
+from unionbank.domain.clock import utcnow as _utcnow  # noqa: F401
 from sqlalchemy import (
     Boolean,
     CheckConstraint,

@@ -6,9 +6,9 @@ no direct JSON reads or writes.
 
 import time as _time
 
-from account import Account
-from logger import logger
-from ui import (
+from unionbank.entrypoints.cli.account import Account
+from unionbank.utils.logger import logger
+from unionbank.entrypoints.cli.ui import (
     BOLD,
     CYAN,
     GREEN,
@@ -24,7 +24,7 @@ from ui import (
     success,
     warning,
 )
-from utils import (
+from unionbank.utils import (
     check_session_timeout,
     fmt_currency,
     generate_account_number,
@@ -120,7 +120,7 @@ class Bank:
         acc_no = input("  Account Number : ").strip()
         pwd    = prompt_password("  Password       : ")
 
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
 
         # Use the container's auth service for DB-backed authentication
@@ -186,7 +186,7 @@ class Bank:
                 break
 
             # Refresh account data directly from SQLite via the container
-            from infrastructure.container import get_container
+            from unionbank.infrastructure.container import get_container
             c = get_container()
             fresh_domain = c.account_repo().get(acc.account_number)
             if fresh_domain:

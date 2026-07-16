@@ -6,7 +6,7 @@ Uses the container's LoginAttemptRepository (SQLite) instead of JSON.
 
 import time
 
-from config import settings
+from unionbank.config import settings
 
 # ── Constants (from centralized config) ───────────────────────────────────────
 MAX_LOGIN_ATTEMPTS = settings.MAX_LOGIN_ATTEMPTS
@@ -20,7 +20,7 @@ SESSION_TIMEOUT_SECONDS = settings.SESSION_TIMEOUT_SECONDS
 
 def _get_login_attempt_repo():
     """Get the LoginAttemptRepository from the container."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     return get_container().login_attempt_repo()
 
 
@@ -37,7 +37,7 @@ def record_failed_login(acc_no: str) -> int:
     """Record a failed login attempt via SQLite repository.
     Returns remaining attempts before lockout.
     """
-    from logger import logger
+    from unionbank.utils.logger import logger
     repo = _get_login_attempt_repo()
     remaining = repo.record_failure(acc_no, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
     repo.commit()

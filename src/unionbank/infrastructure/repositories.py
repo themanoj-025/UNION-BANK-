@@ -10,9 +10,9 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
-from application.interfaces import KeysetPage
-from domain.clock import utcnow as _utcnow  # noqa: F401
-from domain.entities import (
+from unionbank.application.interfaces import KeysetPage
+from unionbank.domain.clock import utcnow as _utcnow  # noqa: F401
+from unionbank.domain.entities import (
     Account,
     AdminUser,
     IdempotencyRecord,
@@ -26,7 +26,7 @@ from domain.entities import (
     Transaction,
     TransactionType,
 )
-from infrastructure.mappers import (
+from unionbank.infrastructure.mappers import (
     map_account,
     map_account_to_model,
     map_admin,

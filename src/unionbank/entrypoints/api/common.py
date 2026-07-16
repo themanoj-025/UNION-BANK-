@@ -14,10 +14,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from config import settings
+from unionbank.config import settings
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from logger import set_account_context
+from unionbank.utils.logger import set_account_context
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  JWT Configuration
@@ -59,11 +59,11 @@ def _get_verifying_key() -> str:
 def _get_token_version(account_number: str) -> int:
     """Fetch the current token version for an account from the DB."""
     try:
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         return c.token_version_repo().get_version(account_number)
     except Exception:
-        from logger import logger
+        from unionbank.utils.logger import logger
         logger.warning("Failed to fetch token version", exc_info=True)
         return 0
 
@@ -137,8 +137,8 @@ def create_token_pair(subject: str, role: str) -> dict:
 
     # Persist refresh token in the DB
     try:
-        from infrastructure.container import get_container
-        from domain.entities import RefreshToken
+        from unionbank.infrastructure.container import get_container
+        from unionbank.domain.entities import RefreshToken
         c = get_container()
         token_entity = RefreshToken(
             token_id=refresh_token_id,
@@ -149,7 +149,7 @@ def create_token_pair(subject: str, role: str) -> dict:
         c.refresh_token_repo().create(token_entity)
         c.refresh_token_repo().commit()
     except Exception:
-        from logger import logger
+        from unionbank.utils.logger import logger
         logger.warning(
             "Failed to persist refresh token — falling back to memory-only",
             exc_info=True,
@@ -167,11 +167,11 @@ def create_token_pair(subject: str, role: str) -> dict:
 def revoke_refresh_token(refresh_token_id: str) -> bool:
     """Revoke a refresh token so it can no longer be used."""
     try:
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         return c.refresh_token_repo().revoke(refresh_token_id)
     except Exception:
-        from logger import logger
+        from unionbank.utils.logger import logger
         logger.warning("Failed to revoke refresh token", exc_info=True)
         return False
 
@@ -189,7 +189,7 @@ def verify_refresh_token(refresh_token: str) -> Optional[dict]:
         account_number, token_id = sub.rsplit(":", 1)
 
         # Check DB for the refresh token
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
         token_data = c.refresh_token_repo().get(token_id)
         if token_data is None or token_data.revoked_at is not None:

@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator, Optional
 
-from config import settings
-from domain.clock import utcnow as _utcnow  # noqa: F401
+from unionbank.config import settings
+from unionbank.domain.clock import utcnow as _utcnow  # noqa: F401
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 

@@ -4,7 +4,7 @@ Extracted from the old utils/auth.py god module.
 Moved here because it's a domain computation, not a utility.
 """
 
-from config import settings
+from unionbank.config import settings
 
 SAVINGS_INTEREST_RATE = settings.SAVINGS_INTEREST_RATE
 

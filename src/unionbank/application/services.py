@@ -13,9 +13,9 @@ from decimal import Decimal
 from typing import Generator, Optional
 
 # ── Canonical constants (from centralized config) ────────────────────────────
-from config import settings
-from domain.clock import utcnow as _utcnow
-from domain.entities import (
+from unionbank.config import settings
+from unionbank.domain.clock import utcnow as _utcnow
+from unionbank.domain.entities import (
     Account,
     AdminUser,
     IdempotencyRecord,
@@ -27,9 +27,9 @@ from domain.entities import (
     TransactionType,
     TransferResult,
 )
-from domain.interest import calculate_monthly_interest
+from unionbank.domain.interest import calculate_monthly_interest
 from sqlalchemy.orm import Session
-from utils.formatting import (
+from unionbank.utils.formatting import (
     calculate_emi,
     fmt_currency,
     generate_account_number,
@@ -37,7 +37,7 @@ from utils.formatting import (
     generate_loan_id,
     generate_transaction_id,
 )
-from utils.hashing import hash_password, verify_password
+from unionbank.utils.hashing import hash_password, verify_password
 
 from .interfaces import (
     AccountRepositoryProtocol,

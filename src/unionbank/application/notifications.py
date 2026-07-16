@@ -10,9 +10,9 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Optional
 
-from domain.clock import utcnow as _utcnow
-from domain.entities import Notification, NotificationPreference, ServiceResult
-from utils.formatting import fmt_currency, generate_notification_id
+from unionbank.domain.clock import utcnow as _utcnow
+from unionbank.domain.entities import Notification, NotificationPreference, ServiceResult
+from unionbank.utils.formatting import fmt_currency, generate_notification_id
 
 from .interfaces import (
     AccountRepositoryProtocol,
@@ -35,19 +35,17 @@ class LogNotificationSender:
     """
 
     def send_email(self, to_email: str, subject: str, body: str) -> bool:
-        """Simulate sending an email by logging it."""
-        from logger import logger
-        logger.info(
-            f"[EMAIL] To: {to_email} | Subject: {subject} | Body: {body[:200]}"
-        )
+        """Simulate sending an email by logging it."""            from unionbank.utils.logger import logger
+            logger.info(
+                f"[EMAIL] To: {to_email} | Subject: {subject} | Body: {body[:200]}"
+            )
         return True
 
     def send_sms(self, to_phone: str, message: str) -> bool:
-        """Simulate sending an SMS by logging it."""
-        from logger import logger
-        logger.info(
-            f"[SMS] To: {to_phone} | Message: {message[:160]}"
-        )
+        """Simulate sending an SMS by logging it."""            from unionbank.utils.logger import logger
+            logger.info(
+                f"[SMS] To: {to_phone} | Message: {message[:160]}"
+            )
         return True
 
 
@@ -165,7 +163,7 @@ class NotificationService:
                     message=f"Union Bank: {title} - {message[:120]}",
                 )
         except Exception:
-            from logger import logger
+            from unionbank.utils.logger import logger
             logger.warning(f"Failed to send alerts for {acc_no}", exc_info=True)
 
     # ── Convenience methods for common notification types ───────────────────

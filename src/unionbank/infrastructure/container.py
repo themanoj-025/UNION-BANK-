@@ -9,8 +9,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Optional
 
-from application.notifications import LogNotificationSender, NotificationService
-from application.services import (
+from unionbank.application.notifications import LogNotificationSender, NotificationService
+from unionbank.application.services import (
     AccountService,
     AdminService,
     AuthService,
@@ -18,8 +18,8 @@ from application.services import (
     SavingsGoalService,
     TransactionService,
 )
-from infrastructure.database import close_session, get_session, init_db
-from infrastructure.repositories import (
+from unionbank.infrastructure.database import close_session, get_session, init_db
+from unionbank.infrastructure.repositories import (
     SqlAlchemyAccountRepository,
     SqlAlchemyAdminRepository,
     SqlAlchemyAuditLogRepository,

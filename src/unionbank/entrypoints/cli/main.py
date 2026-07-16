@@ -7,24 +7,16 @@ Boot sequence:
 
 No JSON files are created or used at startup.
 Fresh installations automatically initialize the database via init_db().
+
+Requires `pip install -e .` so all imports resolve via the installed package.
 """
 
-import os
 import sys
 
-# Ensure project directory is in path
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, BASE_DIR)
-
-# Ensure src/ directory is on the path so all imports resolve correctly
-_SRC_DIR = os.path.join(BASE_DIR, 'src')
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
-
-from admin import Admin
-from bank import Bank
-from logger import logger
-from ui import BOLD, CYAN, GREEN, RESET, WHITE, YELLOW, divider, error, header, info, success
+from unionbank.entrypoints.cli.admin import Admin
+from unionbank.entrypoints.cli.bank import Bank
+from unionbank.utils.logger import logger
+from unionbank.entrypoints.cli.ui import BOLD, CYAN, GREEN, RESET, WHITE, YELLOW, divider, error, header, info, success
 
 
 def main_menu():
@@ -81,9 +73,9 @@ def create_admin_bootstrap():
     """
     import getpass
 
-    from infrastructure.container import get_container, init_db
-    from domain.entities import AdminUser
-    from utils import hash_password, validate_password
+    from unionbank.infrastructure.container import get_container, init_db
+    from unionbank.domain.entities import AdminUser
+    from unionbank.utils import hash_password, validate_password
 
     init_db()
     c = get_container()

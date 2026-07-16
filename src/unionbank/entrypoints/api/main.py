@@ -461,11 +461,14 @@ class HealthResponse(BaseModel):
 @app.post("/api/auth/login", response_model=TokenResponse, deprecated=True)
 @limiter.limit("10/minute")
 def customer_login(request: Request, req: LoginRequest):
-    response = Response()
-    response.headers["Sunset"] = "Sat, 31 Jan 2027 23:59:59 GMT"
-    response.headers["Deprecation"] = "true"
-    """Authenticate a customer and return a JWT access + refresh token pair."""
+    """Authenticate a customer and return a JWT access + refresh token pair.
+
+    Tokens are set as httpOnly cookies (Secure, SameSite=Strict) and also
+    returned in the response body for backward compatibility with Bearer
+    token clients.
+    """
     from unionbank.infrastructure.container import get_container
+    from unionbank.utils.cookie_auth import set_auth_cookies
     c = get_container()
 
     # Use container's auth service for DB-backed authentication
@@ -479,12 +482,28 @@ def customer_login(request: Request, req: LoginRequest):
 
     # Create access + refresh token pair
     tokens = create_token_pair(subject=req.account_number, role="customer")
-    return TokenResponse(
+
+    response = Response(
+        content=TokenResponse(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            role="customer",
+            expires_in=tokens["expires_in"],
+        ).model_dump_json(),
+        media_type="application/json",
+    )
+    response.headers["Sunset"] = "Sat, 31 Jan 2027 23:59:59 GMT"
+    response.headers["Deprecation"] = "true"
+
+    # Set httpOnly cookies — primary token storage (replaces localStorage)
+    set_auth_cookies(
+        response=response,
+        request=request,
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
         role="customer",
-        expires_in=tokens["expires_in"],
     )
+    return response
 
 
 @app.post("/api/auth/register", response_model=MessageResponse)
@@ -539,8 +558,13 @@ def customer_register(request: Request, req: RegisterRequest):
 @app.post("/api/auth/admin-login", response_model=TokenResponse)
 @limiter.limit("10/minute")
 def admin_login(request: Request, req: AdminLoginRequest):
-    """Authenticate as admin and return a JWT access + refresh token pair."""
+    """Authenticate as admin and return a JWT access + refresh token pair.
+
+    Tokens are set as httpOnly cookies (Secure, SameSite=Strict) and also
+    returned in the response body for backward compatibility.
+    """
     from unionbank.infrastructure.container import get_container
+    from unionbank.utils.cookie_auth import set_auth_cookies
     c = get_container()
 
     auth_result = c.auth_service().admin_login(req.username, req.password)
@@ -566,12 +590,26 @@ def admin_login(request: Request, req: AdminLoginRequest):
             )
 
     tokens = create_token_pair(subject=req.username, role="admin")
-    return TokenResponse(
+
+    response = Response(
+        content=TokenResponse(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            role="admin",
+            expires_in=tokens["expires_in"],
+        ).model_dump_json(),
+        media_type="application/json",
+    )
+
+    # Set httpOnly cookies
+    set_auth_cookies(
+        response=response,
+        request=request,
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
         role="admin",
-        expires_in=tokens["expires_in"],
     )
+    return response
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1454,23 +1492,47 @@ def admin_change_password(
 
 @app.post("/api/auth/refresh", response_model=TokenResponse)
 @limiter.limit("10/minute")
-def refresh_token(request: Request, req: RefreshRequest):
+def refresh_token(request: Request, req: Optional[RefreshRequest] = None):
     """Exchange a refresh token for a new access + refresh token pair.
+
+    Accepts the refresh token from either:
+    1. The request body (backward compatibility with Bearer token clients)
+    2. The ub_refresh_token httpOnly cookie (new cookie-based flow)
 
     The previous refresh token is revoked (rotation) so it cannot be reused.
     """
-    result = verify_refresh_token(req.refresh_token)
+    from unionbank.utils.cookie_auth import (
+        get_token_from_cookies, set_auth_cookies, clear_auth_cookies,
+    )
+    from unionbank.utils.logger import logger
+
+    # Get refresh token from body or cookie
+    refresh_token_value = None
+    if req and req.refresh_token:
+        refresh_token_value = req.refresh_token
+    else:
+        refresh_token_value = get_token_from_cookies(request, "ub_refresh_token")
+
+    if not refresh_token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token provided.",
+        )
+
+    result = verify_refresh_token(refresh_token_value)
     if result is None:
+        # Clear cookies if refresh fails
+        response = Response(status_code=status.HTTP_401_UNAUTHORIZED)
+        clear_auth_cookies(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token.",
         )
 
     # Revoke old refresh token (rotation)
-    # Extract token_id from the old refresh token and revoke it
     try:
         old_payload = jwt.decode(
-            req.refresh_token,
+            refresh_token_value,
             _get_verifying_key(),
             algorithms=[JWT_ALGORITHM],
             options={"verify_exp": False},
@@ -1480,16 +1542,29 @@ def refresh_token(request: Request, req: RefreshRequest):
             _, old_token_id = old_sub.rsplit(":", 1)
             revoke_refresh_token(old_token_id)
     except Exception:
-        from unionbank.utils.logger import logger
         logger.warning("Failed to revoke old refresh token during rotation", exc_info=True)
 
     tokens = create_token_pair(subject=result["account_number"], role=result["role"])
-    return TokenResponse(
+
+    response = Response(
+        content=TokenResponse(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            role=result["role"],
+            expires_in=tokens["expires_in"],
+        ).model_dump_json(),
+        media_type="application/json",
+    )
+
+    # Set new httpOnly cookies
+    set_auth_cookies(
+        response=response,
+        request=request,
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
         role=result["role"],
-        expires_in=tokens["expires_in"],
     )
+    return response
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

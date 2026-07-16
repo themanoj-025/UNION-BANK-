@@ -127,7 +127,13 @@ def create_token_pair(subject: str, role: str) -> dict:
 
     The refresh token is persisted in the DB (not just in-memory),
     enabling revocation, expiry tracking, and rotation.
+
+    Security: the token_id stored in the DB is a SHA-256 hash of the raw
+    ID.  The raw ID is embedded in the JWT subject (subject:raw_id) and
+    sent to the client, but never persisted in plaintext.
     """
+    from unionbank.utils.token_security import hash_token_id
+
     access_token = create_token(subject, role, token_type="access")
     refresh_token_id = _generate_refresh_token_id()
     refresh_token = create_token(subject + ":" + refresh_token_id, role, token_type="refresh")
@@ -135,13 +141,14 @@ def create_token_pair(subject: str, role: str) -> dict:
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
 
-    # Persist refresh token in the DB
+    # Persist refresh token in the DB — store HASHED token_id, not plaintext
+    hashed_id = hash_token_id(refresh_token_id)
     try:
         from unionbank.infrastructure.container import get_container
         from unionbank.domain.entities import RefreshToken
         c = get_container()
         token_entity = RefreshToken(
-            token_id=refresh_token_id,
+            token_id=hashed_id,
             account_number=subject,
             role=role,
             expires_at=expires_at,
@@ -166,10 +173,14 @@ def create_token_pair(subject: str, role: str) -> dict:
 
 def revoke_refresh_token(refresh_token_id: str) -> bool:
     """Revoke a refresh token so it can no longer be used."""
+    from unionbank.utils.token_security import hash_token_id
+
     try:
         from unionbank.infrastructure.container import get_container
         c = get_container()
-        return c.refresh_token_repo().revoke(refresh_token_id)
+        # Hash before lookup — DB stores hashed token IDs
+        hashed_id = hash_token_id(refresh_token_id)
+        return c.refresh_token_repo().revoke(hashed_id)
     except Exception:
         from unionbank.utils.logger import logger
         logger.warning("Failed to revoke refresh token", exc_info=True)
@@ -178,6 +189,8 @@ def revoke_refresh_token(refresh_token_id: str) -> bool:
 
 def verify_refresh_token(refresh_token: str) -> Optional[dict]:
     """Verify a refresh token and return the subject + role if valid."""
+    from unionbank.utils.token_security import hash_token_id
+
     try:
         payload = jwt.decode(refresh_token, _get_verifying_key(), algorithms=[JWT_ALGORITHM])
         if payload.get("type") != "refresh":
@@ -186,12 +199,13 @@ def verify_refresh_token(refresh_token: str) -> Optional[dict]:
         sub = payload.get("sub", "")
         if ":" not in sub:
             return None
-        account_number, token_id = sub.rsplit(":", 1)
+        account_number, raw_token_id = sub.rsplit(":", 1)
 
-        # Check DB for the refresh token
+        # Check DB for the refresh token — look up by HASHED token_id
+        hashed_id = hash_token_id(raw_token_id)
         from unionbank.infrastructure.container import get_container
         c = get_container()
-        token_data = c.refresh_token_repo().get(token_id)
+        token_data = c.refresh_token_repo().get(hashed_id)
         if token_data is None or token_data.revoked_at is not None:
             return None
 

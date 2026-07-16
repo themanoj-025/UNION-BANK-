@@ -340,7 +340,7 @@ def execute_query(
         dict with keys: query, intent, filters, total, results
 
     """
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
 
     # Classify intent
     intents = classify_intent(query)
@@ -375,7 +375,7 @@ def execute_query(
     if account_number:
         all_txns = txn_service.get_statement(account_number)
     else:
-        from logger import logger
+        from unionbank.utils.logger import logger
         logger.warning("analyzr: No account number provided — returning empty results")
         all_txns = []
 

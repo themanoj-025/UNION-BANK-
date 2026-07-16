@@ -9,15 +9,15 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-from application.services import (
+from unionbank.application.services import (
     AccountService,
     AdminService,
     AuthService,
     SavingsGoalService,
     TransactionService,
 )
-from domain.entities import Account, AdminUser, SavingsGoal, Transaction, TransactionType
-from utils.hashing import hash_password
+from unionbank.domain.entities import Account, AdminUser, SavingsGoal, Transaction, TransactionType
+from unionbank.utils.hashing import hash_password
 
 from tests.fakes import (
     FakeAccountRepository,
@@ -266,7 +266,7 @@ class TestAccountService:
         )
         assert result.success is True
         # Verify new password works
-        from utils.hashing import verify_password
+        from unionbank.utils.hashing import verify_password
         updated = account_repo.get("1000000001")
         assert verify_password("NewSecure1Pass", updated.password)
 
@@ -550,7 +550,7 @@ class TestAdminService:
             "admin", "AdminPass1", "NewAdmin1Pass"
         )
         assert result.success is True
-        from utils.hashing import verify_password
+        from unionbank.utils.hashing import verify_password
         assert verify_password("NewAdmin1Pass", admin_repo.get_by_username("admin").password)
 
 

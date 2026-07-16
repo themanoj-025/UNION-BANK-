@@ -23,8 +23,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
-from application.interfaces import KeysetPage
-from domain.entities import (
+from unionbank.application.interfaces import KeysetPage
+from unionbank.domain.entities import (
     Account,
     AdminUser,
     LoginAttempt,

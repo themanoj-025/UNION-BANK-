@@ -10,7 +10,7 @@ import pytest
 # Ensure project root is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils import (
+from unionbank.utils import (
     fmt_currency,
     generate_account_number,
     generate_transaction_id,
@@ -22,7 +22,7 @@ from utils import (
     validate_phone,
     verify_password,
 )
-from utils.file_io import (
+from unionbank.utils.file_io import (
     ACCOUNTS_FILE,
     load_json,
     save_json,

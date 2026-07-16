@@ -559,39 +559,39 @@ class TransactionService:
         try:
             with _account_lock(sender_acc_no, receiver_acc_no):
                 with self.account_repo.session.begin_nested():
-                sender.balance -= amount
-                self._ensure_non_negative_balance(sender.balance, "transfer")  # App-level guard
-                receiver.balance += amount
+                    sender.balance -= amount
+                    self._ensure_non_negative_balance(sender.balance, "transfer")  # App-level guard
+                    receiver.balance += amount
 
-                self.account_repo.update(sender)
-                self.account_repo.update(receiver)
+                    self.account_repo.update(sender)
+                    self.account_repo.update(receiver)
 
-                # Log both transactions
-                now = _utcnow()
-                sender_txn = Transaction(
-                    txn_id=generate_transaction_id(),
-                    account_number=sender_acc_no,
-                    type=TransactionType.TRANSFER_OUT,
-                    amount=amount,
-                    balance=sender.balance,
-                    description=f"Transfer to {receiver_acc_no}",
-                    category=cat,
-                    target_account=receiver_acc_no,
-                    timestamp=now,
-                )
-                receiver_txn = Transaction(
-                    txn_id=generate_transaction_id(),
-                    account_number=receiver_acc_no,
-                    type=TransactionType.TRANSFER_IN,
-                    amount=amount,
-                    balance=receiver.balance,
-                    description=f"Transfer from {sender_acc_no}",
-                    category=cat,
-                    target_account=sender_acc_no,
-                    timestamp=now,
-                )
-                self.txn_repo.create(sender_txn)
-                self.txn_repo.create(receiver_txn)
+                    # Log both transactions
+                    now = _utcnow()
+                    sender_txn = Transaction(
+                        txn_id=generate_transaction_id(),
+                        account_number=sender_acc_no,
+                        type=TransactionType.TRANSFER_OUT,
+                        amount=amount,
+                        balance=sender.balance,
+                        description=f"Transfer to {receiver_acc_no}",
+                        category=cat,
+                        target_account=receiver_acc_no,
+                        timestamp=now,
+                    )
+                    receiver_txn = Transaction(
+                        txn_id=generate_transaction_id(),
+                        account_number=receiver_acc_no,
+                        type=TransactionType.TRANSFER_IN,
+                        amount=amount,
+                        balance=receiver.balance,
+                        description=f"Transfer from {sender_acc_no}",
+                        category=cat,
+                        target_account=sender_acc_no,
+                        timestamp=now,
+                    )
+                    self.txn_repo.create(sender_txn)
+                    self.txn_repo.create(receiver_txn)
         except Exception:
             from unionbank.utils.logger import logger
             logger.error("Transfer savepoint failed, rolling back", exc_info=True)

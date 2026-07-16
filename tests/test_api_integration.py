@@ -59,7 +59,7 @@ def c():
 def client():
     """FastAPI TestClient connected to the real application."""
     # Import api after container is reset so init_db uses the test DB
-    from api import app
+    from unionbank.entrypoints.api.main import app
     with TestClient(app) as tc:
         yield tc
 

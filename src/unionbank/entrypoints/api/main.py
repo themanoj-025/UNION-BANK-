@@ -268,11 +268,36 @@ _uvicorn_logger.propagate = False
 _uvicorn_error_logger = logging.getLogger("uvicorn.error")
 _uvicorn_error_logger.propagate = False
 
-# Mount the V2 router
-# Note: V2 endpoints handle their own errors via _err() helper raising HTTPException
-# with the ApiResponse dict as the detail. We do NOT register global exception handlers
-# here because they would override FastAPI's default error format for V1 endpoints
-# (which the frontend expects as {"detail": "message"}).
+# ── V2-aware exception handlers ────────────────────────────────────────────
+# V2 endpoints raise HTTPException with an ApiResponse dict as the detail.
+# FastAPI wraps this in {"detail": {...}}, but we need the ApiResponse dict
+# directly in the response body.  We only transform V2 routes so V1 endpoints
+# (which use bare {"detail": "message"}) are unaffected.
+from fastapi.exception_handlers import http_exception_handler as _v1_http_handler
+
+
+@app.exception_handler(HTTPException)
+async def _v2_aware_http_exception_handler(request: Request, exc: HTTPException):
+    """For V2 routes, return the ApiResponse dict directly (not wrapped in detail).
+    For V1 routes, delegate to FastAPI's default handler."""
+    if request.url.path.startswith("/api/v2/"):
+        from fastapi.responses import JSONResponse
+
+        detail = exc.detail
+        if isinstance(detail, dict) and detail.get("success") is not None:
+            # Already an ApiResponse dict — return as-is
+            return JSONResponse(status_code=exc.status_code, content=detail)
+        # String detail — wrap in ApiResponse envelope
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ApiResponse(
+                success=False, error=str(detail)
+            ).model_dump(),
+        )
+    return await _v1_http_handler(request, exc)
+
+
+# ── Mount the V2 router ──────────────────────────────────────────────────────
 app.include_router(v2_router)
 
 # ═══════════════════════════════════════════════════════════════════════════════

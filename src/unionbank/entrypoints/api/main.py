@@ -235,13 +235,13 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CSRFProtectMiddleware)
 
 
-# ── CORS — restricted to configured origins ──────────────────────────────────
+# ── CORS — restricted to configured origins + explicit methods/headers ──────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=settings.CORS_ALLOW_METHODS,
+    allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
 # ── Uvicorn access log configuration (module-level, applies in ALL run modes) ─

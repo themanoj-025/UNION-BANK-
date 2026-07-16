@@ -57,6 +57,9 @@ from unionbank.entrypoints.api.common import (
 # ── V2 API router (envelope-wrapped endpoints) ───────────────────────────────
 from unionbank.entrypoints.api.v2 import router as v2_router
 from unionbank.config import settings
+
+# ── Account-based rate limiter (defense in depth against IP rotation) ───────
+from unionbank.utils.account_rate_limit import get_account_rate_limiter
 from unionbank.infrastructure.metrics import MetricsMiddleware, metrics_response
 from unionbank.utils.logger import clear_context, get_request_id, logger, set_account_context, set_request_id
 
@@ -754,6 +757,13 @@ def deposit_money(
 ):
     """Deposit money into the authenticated customer's account."""
     acc_no = customer["account_number"]
+
+    # Account-based rate limiting: prevents IP-rotation attacks on money-movement
+    rate_limiter = get_account_rate_limiter()
+    allowed, retry_msg = rate_limiter.check_and_record(acc_no)
+    if not allowed:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=retry_msg)
+
     from unionbank.infrastructure.container import get_container
     result = get_container().transaction_service().deposit(
         acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
@@ -773,6 +783,13 @@ def withdraw_money(
 ):
     """Withdraw money from the authenticated customer's account."""
     acc_no = customer["account_number"]
+
+    # Account-based rate limiting: prevents IP-rotation attacks on money-movement
+    rate_limiter = get_account_rate_limiter()
+    allowed, retry_msg = rate_limiter.check_and_record(acc_no)
+    if not allowed:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=retry_msg)
+
     from unionbank.infrastructure.container import get_container
     result = get_container().transaction_service().withdraw(
         acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
@@ -824,6 +841,12 @@ def transfer_funds(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Recipient account is closed.",
         )
+
+    # Account-based rate limiting on the sender side
+    rate_limiter = get_account_rate_limiter()
+    allowed, retry_msg = rate_limiter.check_and_record(acc_no)
+    if not allowed:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=retry_msg)
 
     result = c.transaction_service().transfer(
         sender_acc_no=acc_no,

@@ -598,7 +598,7 @@ class TestAuthFlow:
 
     def test_admin_login(self, c):
         """Admin login via container should work."""
-        from utils.hashing import hash_password
+        from unionbank.utils.hashing import hash_password
         admin_repo = c.admin_repo()
 
         # Create admin user directly in DB

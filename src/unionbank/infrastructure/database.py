@@ -98,7 +98,6 @@ def get_engine():
         engine_kwargs["connect_args"] = {"check_same_thread": False}
         engine_kwargs["pool_size"] = 5
         engine_kwargs["max_overflow"] = 10
-        engine_kwargs["isolation_level"] = "IMMEDIATE"
 
         _engine_instance = create_engine(db_url, **engine_kwargs)
 
@@ -106,10 +105,16 @@ def get_engine():
         def _set_pragmas(dbapi_connection, connection_record):
             """Enable WAL mode and foreign keys for better performance and integrity.
 
-            isolation_level="IMMEDIATE" forces SQLite to acquire a reserved write lock
-            at transaction START rather than deferring it, preventing the lost-update
-            problem under concurrent WAL mode writes.
+            Also sets isolation_level='IMMEDIATE' on the raw sqlite3 connection to
+            force BEGIN IMMEDIATE for all transactions. This acquires a reserved
+            write lock at transaction START, preventing the lost-update problem
+            under concurrent WAL mode writes (the root cause of the concurrent
+            transfer race condition).
             """
+            # Force BEGIN IMMEDIATE — acquires write lock immediately, serializing
+            # concurrent writers so each sees the latest committed balance.
+            dbapi_connection.isolation_level = "IMMEDIATE"
+
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA foreign_keys=ON")

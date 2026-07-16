@@ -1,4 +1,8 @@
-"""Alembic environment configuration for Union Bank."""
+"""Alembic environment configuration for Union Bank.
+
+Supports both SQLite (development/testing) and PostgreSQL (production).
+The database type is selected by the DATABASE_URL environment variable.
+"""
 
 import os
 from logging.config import fileConfig
@@ -7,25 +11,32 @@ from pathlib import Path
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
+from unionbank.infrastructure.database import ModelBase as Base, get_db_url, is_sqlite
+
 # Compute project root for data directory fallback
 _PROJECT_DIR = Path(__file__).resolve().parent.parent
-
-# Import our models for autogenerate support
-from unionbank.infrastructure.database import ModelBase as Base
 
 # Alembic Config
 config = context.config
 
-# Override sqlalchemy.url to use the correct data directory
-data_dir = os.environ.get("UNION_BANK_DATA_DIR", str(_PROJECT_DIR / "data"))
-db_path = Path(data_dir) / "union_bank.db"
-config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+# Determine the database URL from settings (respects DATABASE_URL env var)
+db_url = get_db_url()
+if is_sqlite(db_url):
+    # For SQLite, ensure the data directory exists
+    data_dir = os.environ.get("UNION_BANK_DATA_DIR", str(_PROJECT_DIR / "data"))
+    Path(data_dir).mkdir(parents=True, exist_ok=True)
+    db_path = Path(data_dir) / "union_bank.db"
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+else:
+    # For PostgreSQL, use the DATABASE_URL directly
+    config.set_main_option("sqlalchemy.url", db_url)
+
+# Import our models for autogenerate support
+target_metadata = Base.metadata
 
 # Set up Python logging from the ini file
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
-target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

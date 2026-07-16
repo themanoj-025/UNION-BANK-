@@ -99,7 +99,7 @@ def reset_engine():
         try:
             _engine_instance.dispose()
         except Exception:
-            from logger import logger
+            from unionbank.utils.logger import logger
             logger.warning("Failed to dispose database engine", exc_info=True)
         _engine_instance = None
         _session_maker = None
@@ -155,7 +155,7 @@ def init_db():
     Uses absolute imports to avoid relative-import issues when called
     from contexts where __package__ is not set (e.g., E2E test imports).
     """
-    from infrastructure.persistence import (  # noqa: F401
+    from unionbank.infrastructure.persistence import (  # noqa: F401
         AccountModel,
         AdminModel,
         AuditLogModel,

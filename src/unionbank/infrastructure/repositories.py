@@ -144,7 +144,7 @@ class SqlAlchemyAccountRepository:
         ).first()
         if model is None:
             return False
-        from domain.clock import utcnow as _now
+        from unionbank.domain.clock import utcnow as _now
         model.deleted_at = _now()
         model.is_active = False
         return True

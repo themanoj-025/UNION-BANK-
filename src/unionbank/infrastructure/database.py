@@ -101,33 +101,16 @@ def get_engine():
 
         _engine_instance = create_engine(db_url, **engine_kwargs)
 
-        # ── BEGIN IMMEDIATE prevents lost updates under WAL concurrency ──────
-        # SQLite's default BEGIN DEFERRED allows snapshot isolation reads that
-        # can see stale balances under concurrent writes. BEGIN IMMEDIATE
-        # acquires a reserved write lock at transaction start, serializing
-        # writers so each transaction sees the latest committed state.
-        #
-        # engine.execution_options() is the correct SQLAlchemy 2.0 API for this
-        # (SQLAlchemy's SQLite dialect translates isolation_level="IMMEDIATE"
-        # into BEGIN IMMEDIATE commands). The raw sqlite3 connection setting
-        # (dbapi_connection.isolation_level) cannot be used because
-        # SQLAlchemy's session lifecycle explicitly issues BEGIN DEFERRED,
-        # overriding the raw setting.
-        _engine_instance = _engine_instance.execution_options(
-            isolation_level="IMMEDIATE"
-        )
-
         @event.listens_for(_engine_instance, "connect")
         def _set_pragmas(dbapi_connection, connection_record):
             """Enable WAL mode and foreign keys for better performance and integrity.
 
-            BEGIN IMMEDIATE is set via engine.execution_options() (see above),
-            NOT on the raw connection, because SQLAlchemy's session management
-            overrides the raw sqlite3 isolation_level setting.
-
-            No busy_timeout: concurrent writers that can't acquire the lock
-            immediately fail with "database is locked" (handled by services),
-            rather than blocking and possibly reading stale data from a snapshot.
+            WAL mode allows concurrent reads while a write is in progress,
+            which improves performance under concurrent access. Concurrency
+            safety for write operations is handled at the application layer
+            via per-account threading.Locks (see services.py) because
+            SQLAlchemy's SQLite dialect does not expose a way to send
+            BEGIN IMMEDIATE instead of BEGIN DEFERRED.
             """
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")

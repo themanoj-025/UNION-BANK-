@@ -1,21 +1,29 @@
 """infrastructure/database.py  –  SQLAlchemy engine, session management, and init.
 
-Provides ACID transaction support via atomic_session() context manager.
-Engine creation is lazy — it picks up the current DATA_DIR each time.
+Provides both synchronous (SQLite dev) and asynchronous (Postgres prod) database
+access. The engine type is selected automatically based on the DATABASE_URL:
+
+- ``sqlite:///...`` → synchronous SQLite
+- ``postgresql://...`` → synchronous Postgres (via psycopg2)
+- ``postgresql+asyncpg://...`` → async Postgres (via asyncpg)
+
+Async support is added progressively — hot paths (transfer, deposit, withdraw)
+are migrated first while colder paths remain synchronous.
 """
 
 from __future__ import annotations
 
 import os
 import threading
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Generator, Optional
+from typing import AsyncGenerator, Generator, Optional
 
 from unionbank.config import settings
 from unionbank.domain.clock import utcnow as _utcnow  # noqa: F401
 from sqlalchemy import create_engine, event
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -25,12 +33,8 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 ModelBase = declarative_base()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Lazy engine creation — recreates when DATA_DIR changes (e.g., during tests)
+#  Database URL resolution
 # ═══════════════════════════════════════════════════════════════════════════════
-
-_engine_instance = None
-_session_maker = None
-_thread_local = threading.local()
 
 
 def _get_db_path() -> str:
@@ -40,8 +44,32 @@ def _get_db_path() -> str:
     return str(data_dir / "union_bank.db")
 
 
+def get_db_url() -> str:
+    """Resolve the database URL from settings, with SQLite fallback."""
+    return settings.DATABASE_URL or f"sqlite:///{_get_db_path()}"
+
+
+def is_sqlite(url: Optional[str] = None) -> bool:
+    """Check if the given (or current) database URL is SQLite."""
+    return (url or get_db_url()).startswith("sqlite")
+
+
+def is_postgres(url: Optional[str] = None) -> bool:
+    """Check if the given (or current) database URL is PostgreSQL."""
+    return (url or get_db_url()).startswith("postgresql")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Synchronous engine (SQLite dev / psycopg2 Postgres)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_engine_instance = None
+_session_maker = None
+_thread_local = threading.local()
+
+
 def get_engine():
-    """Get or create the SQLAlchemy engine.
+    """Get or create the synchronous SQLAlchemy engine.
 
     Prefers DATABASE_URL (for PostgreSQL) when configured.
     Falls back to SQLite at the current DATA_DIR.
@@ -49,8 +77,7 @@ def get_engine():
     """
     global _engine_instance, _session_maker
 
-    # Determine the database URL
-    db_url = settings.DATABASE_URL or f"sqlite:///{_get_db_path()}"
+    db_url = get_db_url()
 
     # If engine exists for a different URL, dispose and recreate
     if _engine_instance is not None:
@@ -67,8 +94,7 @@ def get_engine():
         "pool_pre_ping": True,
     }
 
-    # SQLite-specific configuration
-    if db_url.startswith("sqlite"):
+    if is_sqlite(db_url):
         engine_kwargs["connect_args"] = {"check_same_thread": False}
         engine_kwargs["pool_size"] = 5
         engine_kwargs["max_overflow"] = 10
@@ -84,11 +110,69 @@ def get_engine():
             cursor.execute("PRAGMA busy_timeout=5000")
             cursor.close()
     else:
-        # PostgreSQL or other DB — no SQLite-specific pragmas
+        # PostgreSQL — explicit pool settings
+        engine_kwargs["pool_size"] = settings.DB_POOL_SIZE
+        engine_kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
+        engine_kwargs["pool_timeout"] = settings.DB_POOL_TIMEOUT
         _engine_instance = create_engine(db_url, **engine_kwargs)
 
     _session_maker = sessionmaker(autocommit=False, autoflush=False, bind=_engine_instance)
     return _engine_instance
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Asynchronous engine (asyncpg Postgres)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_async_engine_instance = None
+_async_session_maker = None
+
+
+def get_async_engine():
+    """Get or create the async SQLAlchemy engine (for asyncpg Postgres).
+
+    Falls back to the synchronous engine if the URL is SQLite (which doesn't
+    support async). Returns None if the current URL is SQLite.
+    """
+    global _async_engine_instance, _async_session_maker
+
+    db_url = get_db_url()
+
+    # SQLite doesn't support async, return None
+    if is_sqlite(db_url):
+        return None
+
+    # Convert postgresql:// → postgresql+asyncpg:// for async driver
+    async_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    # If engine exists for a different URL, dispose and recreate
+    if _async_engine_instance is not None:
+        current_url = str(_async_engine_instance.url)
+        if current_url == async_url:
+            return _async_engine_instance
+        _async_engine_instance.dispose()
+        _async_engine_instance = None
+        _async_session_maker = None
+
+    _async_engine_instance = create_async_engine(
+        async_url,
+        echo=False,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        pool_timeout=settings.DB_POOL_TIMEOUT,
+        pool_pre_ping=True,
+    )
+    _async_session_maker = async_sessionmaker(
+        _async_engine_instance,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    return _async_engine_instance
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Synchronous session management
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def reset_engine():

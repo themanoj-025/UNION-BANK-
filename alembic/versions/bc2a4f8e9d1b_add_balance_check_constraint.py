@@ -25,12 +25,16 @@ def upgrade() -> None:
     prevents negative balances in withdraw() and transfer(), but the
     DB-level constraint ensures no bug or race condition can corrupt
     balance data.
+
+    Note: Uses batch_alter_table because SQLite does not support
+    ALTER TABLE ADD CONSTRAINT. Batch mode recreates the table with
+    the new constraint in a single atomic step.
     """
-    op.create_check_constraint(
-        "ck_accounts_balance_non_negative",
-        "accounts",
-        "balance >= 0",
-    )
+    with op.batch_alter_table("accounts") as batch_op:
+        batch_op.create_check_constraint(
+            "ck_accounts_balance_non_negative",
+            "balance >= 0",
+        )
 
 
 def downgrade() -> None:
@@ -38,10 +42,9 @@ def downgrade() -> None:
 
     Note: SQLite does not support ALTER TABLE DROP CONSTRAINT directly.
     The only way to remove a CHECK constraint in SQLite is to recreate
-    the table. Alembio's batch mode handles this automatically when
+    the table. Alembic's batch mode handles this automatically when
     batch_alter_table() is used.
     """
-    # SQLite doesn't support DROP CONSTRAINT — use batch mode
     with op.batch_alter_table("accounts") as batch_op:
         batch_op.drop_constraint(
             "ck_accounts_balance_non_negative",

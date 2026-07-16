@@ -274,6 +274,7 @@ _uvicorn_error_logger.propagate = False
 # directly in the response body.  We only transform V2 routes so V1 endpoints
 # (which use bare {"detail": "message"}) are unaffected.
 from fastapi.exception_handlers import http_exception_handler as _v1_http_handler
+from unionbank.entrypoints.api.models import ApiResponse as _V2ApiResponse
 
 
 @app.exception_handler(HTTPException)
@@ -290,7 +291,7 @@ async def _v2_aware_http_exception_handler(request: Request, exc: HTTPException)
         # String detail — wrap in ApiResponse envelope
         return JSONResponse(
             status_code=exc.status_code,
-            content=ApiResponse(
+            content=_V2ApiResponse(
                 success=False, error=str(detail)
             ).model_dump(),
         )

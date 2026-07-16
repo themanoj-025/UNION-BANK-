@@ -152,6 +152,16 @@ class Config:
                 "JWT_ALGORITHM is RS256 but JWT_PRIVATE_KEY is not set. "
                 "Generate an RSA key pair or set JWT_ALGORITHM=HS256 for development."
             )
+        # Validate TOKEN_ENCRYPTION_KEY format if provided
+        if self.TOKEN_ENCRYPTION_KEY:
+            try:
+                from cryptography.fernet import Fernet
+                Fernet(self.TOKEN_ENCRYPTION_KEY.encode())
+            except Exception:
+                raise RuntimeError(
+                    "TOKEN_ENCRYPTION_KEY is not a valid Fernet key. "
+                    "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                )
 
     # ── Transaction categories ────────────────────────────────────────────────
     TRANSACTION_CATEGORIES: list[str] = field(default_factory=lambda: [

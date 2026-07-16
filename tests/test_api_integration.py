@@ -102,7 +102,7 @@ def registered_customer(client: TestClient, sample_customer_registration: dict) 
     login_data = login_resp.json()
 
     # Make sure the account has some balance for operations that need it
-    from utils import fmt_currency
+    from unionbank.utils import fmt_currency
     c = get_container()
     c.transaction_service().deposit(acc_no, Decimal("1000.00"), "Salary")
 
@@ -150,8 +150,8 @@ def second_registered_customer(client: TestClient) -> dict:
 @pytest.fixture
 def admin_token(client: TestClient) -> dict:
     """Create an admin user and return auth token."""
-    from domain.entities import AdminUser
-    from utils.hashing import hash_password
+    from unionbank.domain.entities import AdminUser
+    from unionbank.utils.hashing import hash_password
 
     c = get_container()
     admin_repo = c.admin_repo()

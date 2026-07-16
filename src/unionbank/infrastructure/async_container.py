@@ -1,9 +1,9 @@
 """
 async_container.py  –  Dependency Injection Container (async variant).
 
-Provides async repository instances when the application is configured with
-a PostgreSQL DATABASE_URL. Works alongside the synchronous Container for
-SQLite-based development and testing.
+Provides async repository AND service instances when the application is
+configured with a PostgreSQL DATABASE_URL. Works alongside the synchronous
+Container for SQLite-based development and testing.
 
 Usage::
 
@@ -14,9 +14,11 @@ Usage::
     if is_postgres():
         container = await get_async_container()
         account = await container.account_repo().get("1000000001")
+        result = await container.transaction_service().deposit(...)
     else:
         container = get_container()
         account = container.account_repo().get("1000000001")
+        result = container.transaction_service().deposit(...)
 """
 
 from __future__ import annotations
@@ -43,7 +45,7 @@ from unionbank.infrastructure.database import get_async_session
 
 
 class AsyncContainer:
-    """Dependency injection container with async repository access.
+    """Dependency injection container with async repository and service access.
 
     All repository methods return coroutines. Services using this container
     must ``await`` every repository call.
@@ -89,6 +91,55 @@ class AsyncContainer:
 
     def refresh_token_repo(self) -> AsyncSqlAlchemyRefreshTokenRepository:
         return AsyncSqlAlchemyRefreshTokenRepository(self._session)
+
+    # ── Services ───────────────────────────────────────────────────────────
+
+    def transaction_service(self):
+        """Create an async TransactionService wired to async repositories."""
+        from unionbank.application.async_services import AsyncTransactionService
+        return AsyncTransactionService(
+            account_repo=self.account_repo(),
+            txn_repo=self.transaction_repo(),
+            idempotency_repo=self.idempotency_repo(),
+        )
+
+    def account_service(self):
+        """Create an async AccountService wired to async repositories."""
+        from unionbank.application.async_services import AsyncAccountService
+        return AsyncAccountService(
+            account_repo=self.account_repo(),
+            txn_repo=self.transaction_repo(),
+            token_version_repo=self.token_version_repo(),
+        )
+
+    def auth_service(self):
+        """Create an async AuthService wired to async repositories."""
+        from unionbank.application.async_services import AsyncAuthService
+        return AsyncAuthService(
+            account_repo=self.account_repo(),
+            admin_repo=self.admin_repo(),
+            login_attempt_repo=self.login_attempt_repo(),
+            token_version_repo=self.token_version_repo(),
+        )
+
+    def admin_service(self):
+        """Create an async AdminService wired to async repositories."""
+        from unionbank.application.async_services import AsyncAdminService
+        return AsyncAdminService(
+            account_repo=self.account_repo(),
+            txn_repo=self.transaction_repo(),
+            admin_repo=self.admin_repo(),
+            audit_log_repo=self.audit_log_repo(),
+        )
+
+    def savings_goal_service(self):
+        """Create an async SavingsGoalService wired to async repositories."""
+        from unionbank.application.async_services import AsyncSavingsGoalService
+        return AsyncSavingsGoalService(
+            goal_repo=self.savings_goal_repo(),
+            account_repo=self.account_repo(),
+            txn_repo=self.transaction_repo(),
+        )
 
     async def close_session(self):
         """Close the underlying async session."""

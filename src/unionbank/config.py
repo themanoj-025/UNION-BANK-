@@ -65,9 +65,11 @@ class Config:
     )
 
     # ── JWT ───────────────────────────────────────────────────────────────────
-    # Use RS256 (asymmetric) in production — set JWT_PRIVATE_KEY + JWT_PUBLIC_KEY env vars.
-    # Falls back to HS256 (symmetric) if RSA keys are not configured.
-    JWT_ALGORITHM: str = "RS256" if _optional_env("JWT_PRIVATE_KEY") else "HS256"
+    # Default to RS256 (asymmetric) for production-grade security.
+    # Falls back to HS256 only in testing mode when RSA keys are not configured.
+    JWT_ALGORITHM: str = (
+        "HS256" if _TESTING and not _optional_env("JWT_PRIVATE_KEY") else "RS256"
+    )
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Short-lived: 15 minutes
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh: 7 days
 
@@ -93,6 +95,20 @@ class Config:
             _optional_env("CORS_ALLOWED_ORIGINS", "http://localhost:5000,http://localhost:8000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177").split(",")
         )
     )
+    CORS_ALLOW_METHODS: list[str] = field(default_factory=lambda: ["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+    CORS_ALLOW_HEADERS: list[str] = field(default_factory=lambda: [
+        "Authorization", "Content-Type", "Accept", "Origin",
+        "X-Requested-With", "X-Request-ID",
+    ])
+
+    # ── Security ──────────────────────────────────────────────────────────────
+    # Token encryption key for TOTP secrets (Fernet). Generate with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    TOKEN_ENCRYPTION_KEY: str = field(
+        default_factory=lambda: _optional_env("TOKEN_ENCRYPTION_KEY", "") or ""
+    )
+    # Account-based rate limits for money-movement endpoints
+    MONEY_MOVEMENT_RATE_LIMIT: str = "5/hour"  # max 5 money-movement ops per account per hour
 
     # ── Environment ──────────────────────────────────────────────────────────
     ENV: str = field(

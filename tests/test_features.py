@@ -471,7 +471,7 @@ class TestAtomicTransfer:
         """Verify close_account is atomic."""
         self._setup_accounts(tmp_data_dir)
 
-        from infrastructure.persistence import AccountModel as DbAccount
+        from unionbank.infrastructure.persistence import AccountModel as DbAccount
 
         from unionbank.infrastructure.backward_compat import atomic_close_account, get_db_balance
         from unionbank.infrastructure.database import get_session

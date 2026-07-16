@@ -19,25 +19,21 @@ os.environ.setdefault("UNION_BANK_TESTING", "1")
 os.environ.setdefault("JWT_SECRET", "migration-secret")
 os.environ.setdefault("FLASK_SECRET_KEY", "migration-flask-secret")
 
-# Ensure project root is importable
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, BASE_DIR)
-
-from utils import (
+from unionbank.utils import (
     load_json,
     ACCOUNTS_FILE, TRANSACTIONS_FILE, ADMIN_FILE,
     LOGIN_ATTEMPTS_FILE, SAVINGS_GOALS_FILE,
 )
-from logger import logger
-from database import get_session, close_session
-from infrastructure.repositories import (
+from unionbank.utils.logger import logger
+from unionbank.infrastructure.backward_compat import get_session, close_session
+from unionbank.infrastructure.repositories import (
     SqlAlchemyAccountRepository,
     SqlAlchemyTransactionRepository,
     SqlAlchemyAdminRepository,
     SqlAlchemySavingsGoalRepository,
     SqlAlchemyLoginAttemptRepository,
 )
-from infrastructure.persistence import (
+from unionbank.infrastructure.persistence import (
     AccountModel, TransactionModel, SavingsGoalModel,
     AdminModel, LoginAttemptModel,
 )

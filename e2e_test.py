@@ -7,35 +7,19 @@ import os, sys
 # Disable rate limiting for tests
 os.environ["UNION_BANK_TESTING"] = "1"
 
-# Set up sys.path to match conftest.py pattern.
-# The canonical module is at src/unionbank/entrypoints/api/main.py
-# The shim at src/database.py imports from infrastructure.database,
-# which requires src/unionbank/ (not src/unionbank/infrastructure/) on path.
-_SRC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
-_UNIONBANK_DIR = os.path.join(_SRC_DIR, 'unionbank')
-_INFRA_DIR = os.path.join(_UNIONBANK_DIR, 'infrastructure')
-_ENTRYPOINTS_DIR = os.path.join(_UNIONBANK_DIR, 'entrypoints')
-_CLI_DIR = os.path.join(_ENTRYPOINTS_DIR, 'cli')
-_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-
-# Insert in priority order (last insert = highest priority at index 0)
-sys.path.insert(0, str(_UNIONBANK_DIR))
-sys.path.insert(0, str(_SRC_DIR))
-sys.path.insert(0, str(_INFRA_DIR))
-sys.path.insert(0, str(_ENTRYPOINTS_DIR))
-sys.path.insert(0, str(_CLI_DIR))
-sys.path.insert(0, str(_PROJECT_ROOT))
+# The unionbank package is installed via pip install -e ., so all
+# imports use the unionbank. prefix. No sys.path manipulation needed.
 
 import httpx, anyio, json, re
 
 
 def _ensure_admin_exists():
     """Create the default admin user (simon/simon123) if it doesn't exist."""
-    from database import init_db
+    from unionbank.infrastructure.database import init_db
     init_db()
-    from infrastructure.container import get_container
-    from utils.hashing import hash_password
-    from domain.entities import AdminUser
+    from unionbank.infrastructure.container import get_container
+    from unionbank.utils.hashing import hash_password
+    from unionbank.domain.entities import AdminUser
 
     c = get_container()
     admin_repo = c.admin_repo()

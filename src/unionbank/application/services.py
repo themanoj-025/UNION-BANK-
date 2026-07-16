@@ -390,32 +390,34 @@ class TransactionService:
         if amount <= 0:
             return ServiceResult(success=False, message="Amount must be positive.")
 
-        # Check idempotency first
+        # Check idempotency first (outside lock — read-only)
         cached = self._check_idempotency(idempotency_key, acc_no, "deposit", amount)
         if cached is not None:
             return cached
 
-        account = self.account_repo.get(acc_no)
-        if account is None:
-            return ServiceResult(success=False, message="Account not found.")
-        if not account.can_transact:
-            status = "frozen" if account.is_frozen else "closed"
-            return ServiceResult(success=False, message=f"Account is {status}.")
+        # Serialize writes to this account (prevents lost updates under SQLite WAL)
+        with _account_lock(acc_no):
+            account = self.account_repo.get(acc_no)
+            if account is None:
+                return ServiceResult(success=False, message="Account not found.")
+            if not account.can_transact:
+                status = "frozen" if account.is_frozen else "closed"
+                return ServiceResult(success=False, message=f"Account is {status}.")
 
-        account.balance += amount
-        self.account_repo.update(account)
+            account.balance += amount
+            self.account_repo.update(account)
 
-        txn = Transaction(
-            txn_id=generate_transaction_id(),
-            account_number=acc_no,
-            type=TransactionType.DEPOSIT,
-            amount=amount,
-            balance=account.balance,
-            description="Deposit",
-            category=category if category in TRANSACTION_CATEGORIES else "General",
-        )
-        self.txn_repo.create(txn)
-        self.account_repo.commit()
+            txn = Transaction(
+                txn_id=generate_transaction_id(),
+                account_number=acc_no,
+                type=TransactionType.DEPOSIT,
+                amount=amount,
+                balance=account.balance,
+                description="Deposit",
+                category=category if category in TRANSACTION_CATEGORIES else "General",
+            )
+            self.txn_repo.create(txn)
+            self.account_repo.commit()
 
         result = ServiceResult(
             success=True,

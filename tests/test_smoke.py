@@ -1,45 +1,43 @@
-"""Smoke tests – verify that all modules import correctly after changes.
+"""Smoke tests – verify that all project modules import correctly after changes.
 """
-import os
-import sys
 import tempfile
 
-# Ensure project root is importable
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from unionbank.utils import (
+    fmt_currency,
+    generate_account_number,
+    generate_transaction_id,
+    hash_password,
+    validate_email,
+    validate_name,
+    validate_password,
+    validate_phone,
+    verify_password,
+)
+from unionbank.utils.logger import logger
+from unionbank.entrypoints.cli.account import Account
+from unionbank.entrypoints.cli.bank import Bank
+from unionbank.entrypoints.cli.admin import Admin
+from unionbank.entrypoints.cli.main import main_menu
 
 
 class TestSmoke:
     """Verify that all project modules can be imported without errors."""
 
     def test_import_utils(self):
-        import utils
-        assert hasattr(utils, "hash_password")
-        assert hasattr(utils, "verify_password")
-        assert hasattr(utils, "validate_email")
-        assert hasattr(utils, "validate_phone")
-        assert hasattr(utils, "validate_password")
-        assert hasattr(utils, "validate_name")
-        assert hasattr(utils, "fmt_currency")
-        assert hasattr(utils, "generate_account_number")
-        assert hasattr(utils, "generate_transaction_id")
+        assert hasattr(validate_email, "__call__")
+        assert hasattr(hash_password, "__call__")
 
     def test_import_logger(self):
-        import logger
-        assert hasattr(logger, "logger")
+        assert logger is not None
 
     def test_import_account(self):
-        import account
-        assert hasattr(account, "Account")
+        assert Account is not None
 
     def test_import_bank(self):
-        import bank
-        assert hasattr(bank, "Bank")
+        assert Bank is not None
 
     def test_import_admin(self):
-        # admin.py runs _init_admin() on import, so we need to ensure no crash
-        import admin
-        assert hasattr(admin, "Admin")
+        assert Admin is not None
 
     def test_import_main(self):
-        import main
-        assert hasattr(main, "main_menu")
+        assert main_menu is not None

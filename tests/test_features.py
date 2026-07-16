@@ -394,7 +394,7 @@ class TestAtomicTransfer:
 
         initial_json_total, initial_sqlite_total = self._get_total_balance()
 
-        from database import atomic_transfer
+        from unionbank.infrastructure.backward_compat import atomic_transfer
 
         # Attempt a transfer that will FAIL (insufficient balance)
         # This simulates a crash mid-transfer — the atomic_session context
@@ -429,8 +429,9 @@ class TestAtomicTransfer:
         """
         self._setup_accounts(tmp_data_dir)
 
-        from database import AccountModel as DbAccount
-        from database import atomic_session, get_db_balance
+        from unionbank.infrastructure.persistence import AccountModel as DbAccount
+        from unionbank.infrastructure.backward_compat import get_db_balance
+        from unionbank.infrastructure.database import atomic_session
 
         # Start an atomic transaction, make a change, then simulate a crash
         try:
@@ -459,7 +460,7 @@ class TestAtomicTransfer:
         """Verify that apply_interest is also atomic."""
         self._setup_accounts(tmp_data_dir)
 
-        from database import atomic_apply_interest, get_db_balance
+        from unionbank.infrastructure.backward_compat import atomic_apply_interest, get_db_balance
 
         # Apply interest successfully
         result = atomic_apply_interest(self.SENDER, 50.0)
@@ -472,7 +473,8 @@ class TestAtomicTransfer:
 
         from infrastructure.persistence import AccountModel as DbAccount
 
-        from database import atomic_close_account, get_db_balance, get_session
+        from unionbank.infrastructure.backward_compat import atomic_close_account, get_db_balance
+        from unionbank.infrastructure.database import get_session
 
         result = atomic_close_account(self.SENDER)
         assert result is True

@@ -28,7 +28,7 @@ def _backup_path(filepath: str) -> str:
 
 
 def _get_logger():
-    from logger import logger
+    from unionbank.utils.logger import logger
     return logger
 
 

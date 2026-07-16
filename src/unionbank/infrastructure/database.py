@@ -111,14 +111,21 @@ def get_engine():
             under concurrent WAL mode writes (the root cause of the concurrent
             transfer race condition).
             """
-            # Force BEGIN IMMEDIATE — acquires write lock immediately, serializing
-            # concurrent writers so each sees the latest committed balance.
+            # Force BEGIN IMMEDIATE — acquires a reserved write lock immediately,
+            # serializing concurrent writers so each sees the latest committed
+            # balance before modifying it. This prevents the "lost update" race
+            # where concurrent sessions read stale snapshots under WAL mode.
+            # No busy_timeout: concurrent writers that can't acquire the lock
+            # fail immediately with "database is locked" (handled by services),
+            # rather than blocking and possibly reading stale data.
             dbapi_connection.isolation_level = "IMMEDIATE"
 
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.execute("PRAGMA busy_timeout=5000")
+            # Explicitly NO busy_timeout — writers that can't acquire lock
+            # immediately fail so services can retry, rather than blocking and
+            # potentially reading stale data from a snapshot.
             cursor.close()
     else:
         # PostgreSQL — explicit pool settings

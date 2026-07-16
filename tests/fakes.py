@@ -105,8 +105,29 @@ def _utcnow() -> datetime:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+class _FakeSession:
+    """Minimal fake SQLAlchemy session stub for fake repositories.
+
+    Provides a no-op begin_nested() context manager so services that use
+    savepoints (e.g. atomic transfer) work transparently with fakes without
+    requiring a real SQLAlchemy session.
+    """
+    def begin_nested(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False  # Do not suppress exceptions
+
+
 class FakeAccountRepository:
     """In-memory account repository — stores accounts in a dict keyed by account_number.
+
+    Provides a `.session` attribute (a no-op _FakeSession) so that
+    savepoint-based transactions like begin_nested() work transparently
+    without a real SQLAlchemy session.
 
     Simulation flags (opt-in):
         simulate_duplicate_key (bool): Raises SimulatedDuplicateKeyError on create()
@@ -118,6 +139,7 @@ class FakeAccountRepository:
     """
 
     def __init__(self):
+        self.session = _FakeSession()  # Supports begin_nested() for atomic transactions
         self._accounts: dict[str, Account] = {}
         self.simulate_duplicate_key = False
         self.simulate_fk_violation = False

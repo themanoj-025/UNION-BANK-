@@ -240,7 +240,7 @@ async def get_current_customer(
     _check_token_version(payload)
 
     acc_no = payload.get("sub")
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     domain_account = get_container().account_repo().get(acc_no)
     if not domain_account:
         raise HTTPException(

@@ -36,18 +36,18 @@ class LogNotificationSender:
 
     def send_email(self, to_email: str, subject: str, body: str) -> bool:
         """Simulate sending an email by logging it."""
-            from unionbank.utils.logger import logger
-            logger.info(
-                f"[EMAIL] To: {to_email} | Subject: {subject} | Body: {body[:200]}"
-            )
+        from unionbank.utils.logger import logger
+        logger.info(
+            f"[EMAIL] To: {to_email} | Subject: {subject} | Body: {body[:200]}"
+        )
         return True
 
     def send_sms(self, to_phone: str, message: str) -> bool:
         """Simulate sending an SMS by logging it."""
-            from unionbank.utils.logger import logger
-            logger.info(
-                f"[SMS] To: {to_phone} | Message: {message[:160]}"
-            )
+        from unionbank.utils.logger import logger
+        logger.info(
+            f"[SMS] To: {to_phone} | Message: {message[:160]}"
+        )
         return True
 
 

@@ -7,10 +7,58 @@ import os, sys
 # Disable rate limiting for tests
 os.environ["UNION_BANK_TESTING"] = "1"
 
+# Set up sys.path to match conftest.py pattern.
+# The canonical module is at src/unionbank/entrypoints/api/main.py
+# The shim at src/database.py imports from infrastructure.database,
+# which requires src/unionbank/ (not src/unionbank/infrastructure/) on path.
+_SRC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
+_UNIONBANK_DIR = os.path.join(_SRC_DIR, 'unionbank')
+_INFRA_DIR = os.path.join(_UNIONBANK_DIR, 'infrastructure')
+_ENTRYPOINTS_DIR = os.path.join(_UNIONBANK_DIR, 'entrypoints')
+_CLI_DIR = os.path.join(_ENTRYPOINTS_DIR, 'cli')
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+# Insert in priority order (last insert = highest priority at index 0)
+sys.path.insert(0, str(_UNIONBANK_DIR))
+sys.path.insert(0, str(_SRC_DIR))
+sys.path.insert(0, str(_INFRA_DIR))
+sys.path.insert(0, str(_ENTRYPOINTS_DIR))
+sys.path.insert(0, str(_CLI_DIR))
+sys.path.insert(0, str(_PROJECT_ROOT))
+
 import httpx, anyio, json, re
 
+
+def _ensure_admin_exists():
+    """Create the default admin user (simon/simon123) if it doesn't exist."""
+    from database import init_db
+    init_db()
+    from container import get_container
+    from utils.hashing import hash_password
+    from domain.entities import AdminUser
+
+    c = get_container()
+    admin_repo = c.admin_repo()
+    existing = admin_repo.get_by_username("simon")
+    if not existing:
+        admin = AdminUser(
+            username="simon",
+            password=hash_password("simon123"),
+        )
+        admin_repo.create(admin)
+        admin_repo.commit()
+        print("  [+] Created admin user: simon / simon123")
+    else:
+        print("  [~] Admin user simon already exists")
+
+
 async def run_tests():
-    from api import app
+    from unionbank.entrypoints.api.main import app
+
+    # Ensure default admin user exists before testing admin login
+    _ensure_admin_exists()
+
+
     transport = httpx.ASGITransport(app=app)
     passed, failed, tests = 0, 0, []
 
@@ -138,7 +186,7 @@ async def run_tests():
             passed += 1
 
         # ── Admin (using V2 to avoid rate limiter) ──
-        # 16. Admin login V2
+        # 16. Admin login V2 (no auth headers needed — login is credential-based)
         r = await c.post('/api/v2/auth/admin-login', json={'username': 'simon', 'password': 'simon123'})
         admin_data = r.json()
         ok = r.status_code == 200 and admin_data.get('success')

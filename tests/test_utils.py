@@ -1,10 +1,9 @@
+"""Tests for utils.py – validation helpers, password hashing, generators, etc.
 """
-Tests for utils.py – validation helpers, password hashing, generators, etc.
-"""
+import json
 import os
 import sys
 import tempfile
-import json
 
 import pytest
 
@@ -12,23 +11,22 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import (
-    hash_password,
-    verify_password,
-    validate_email,
-    validate_phone,
-    validate_password,
-    validate_name,
+    fmt_currency,
     generate_account_number,
     generate_transaction_id,
-    fmt_currency,
     get_float,
+    hash_password,
+    validate_email,
+    validate_name,
+    validate_password,
+    validate_phone,
+    verify_password,
 )
 from utils.file_io import (
+    ACCOUNTS_FILE,
     load_json,
     save_json,
-    ACCOUNTS_FILE,
 )
-
 
 # ───────────────────────────────────────────────
 #  Password hashing tests

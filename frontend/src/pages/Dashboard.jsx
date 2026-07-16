@@ -14,8 +14,8 @@ function Dashboard() {
     const fetchData = async () => {
       try {
         const [balRes, txRes] = await Promise.all([
-          api.get('/api/account/balance'),
-          api.get('/api/account/statements/mini')
+          api.get('/account/balance'),
+          api.get('/account/statements/mini')
         ]);
         setBalance(balRes.data.balance_formatted);
         setTransactions(txRes.data);

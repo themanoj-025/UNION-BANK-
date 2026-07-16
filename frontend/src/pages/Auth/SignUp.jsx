@@ -35,7 +35,7 @@ function SignUp() {
     setLoading(true);
 
     try {
-      const response = await api.post('/api/auth/register', {
+      const response = await api.post('/auth/register', {
         name: formData.name,
         age: parseInt(formData.age),
         gender: formData.gender,
@@ -85,43 +85,45 @@ function SignUp() {
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Full Name</label>
-              <input type="text" name="name" placeholder="John Doe" value={formData.name} onChange={handleChange} required />
+              <label htmlFor="signup-name">Full Name</label>
+              <input id="signup-name" type="text" name="name" placeholder="John Doe" value={formData.name} onChange={handleChange} autoComplete="name" aria-label="Full name" required />
             </div>
             
             <div style={{ display: 'flex', gap: '15px' }}>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>Age</label>
-                <input type="number" name="age" placeholder="18" value={formData.age} onChange={handleChange} required />
+                <label htmlFor="signup-age">Age</label>
+                <input id="signup-age" type="number" name="age" placeholder="18" value={formData.age} onChange={handleChange} autoComplete="bday" aria-label="Age" required />
               </div>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>Gender</label>
+                <label htmlFor="signup-gender">Gender</label>
+                <div id="signup-gender" aria-label="Gender">
                 <Dropdown 
                   options={['Male', 'Female', 'Other']} 
                   value={formData.gender} 
                   onChange={handleGenderChange} 
                 />
+                </div>
               </div>
             </div>
 
             <div className="form-group">
-              <label>Mobile Number</label>
-              <input type="tel" name="mobile" placeholder="10-digit number" value={formData.mobile} onChange={handleChange} required />
+              <label htmlFor="signup-mobile">Mobile Number</label>
+              <input id="signup-mobile" type="tel" name="mobile" placeholder="10-digit number" value={formData.mobile} onChange={handleChange} autoComplete="tel" aria-label="Mobile number" required />
             </div>
 
             <div className="form-group">
-              <label>Email address</label>
-              <input type="email" name="email" placeholder="Enter your email" value={formData.email} onChange={handleChange} required />
+              <label htmlFor="signup-email">Email address</label>
+              <input id="signup-email" type="email" name="email" placeholder="Enter your email" value={formData.email} onChange={handleChange} autoComplete="email" aria-label="Email address" required />
             </div>
             
             <div className="form-group">
-              <label>Password</label>
-              <input type="password" name="password" placeholder="Create a password" value={formData.password} onChange={handleChange} required />
+              <label htmlFor="signup-password">Password</label>
+              <input id="signup-password" type="password" name="password" placeholder="Create a password" value={formData.password} onChange={handleChange} autoComplete="new-password" aria-label="Password" required />
             </div>
 
             <div className="form-group">
-              <label>Confirm Password</label>
-              <input type="password" name="confirm_password" placeholder="Confirm your password" value={formData.confirm_password} onChange={handleChange} required />
+              <label htmlFor="signup-confirm-password">Confirm Password</label>
+              <input id="signup-confirm-password" type="password" name="confirm_password" placeholder="Confirm your password" value={formData.confirm_password} onChange={handleChange} autoComplete="new-password" aria-label="Confirm password" required />
             </div>
             
             <p style={{fontSize: '12px', color: 'var(--gray-text)', margin: '15px 0'}}>

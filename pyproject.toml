@@ -1,36 +1,78 @@
-[tool.black]
-line-length = 100
-target-version = ["py311"]
+[project]
+name = "unionbank"
+version = "0.1.0"
+description = "A multi-interface banking application with CLI, Flask, and FastAPI."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.0.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0.0",
+    "alembic>=1.13.0",
+    "psycopg2-binary>=2.9.0",
+    "redis>=5.0.0",
+    "structlog>=24.0.0",
+    "pybreaker>=1.1.0",
+    "httpx>=0.27.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+]
 
-[tool.isort]
-profile = "black"
-line_length = 100
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "hypothesis>=6.98.0",
+    "locust>=2.24.0",
+    "ruff>=0.3.0",
+    "mypy>=1.9.0",
+    "bandit>=1.7.8",
+    "mutmut>=2.4.4",
+    "schemathesis>=3.25.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["unionbank*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "D", "I"]
+ignore = [
+    # Missing docstrings — interface protocols and tests are self-explanatory
+    "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "D104",  # Missing docstring in public package
+    # Docstring formatting — multi-line vs single-line is style preference
+    "D200",  # One-line docstring should fit on one line
+    "D204",  # 1 blank line required after class docstring
+    "D212",  # Multi-line docstring summary should start at first line
+    "D413",  # Missing blank line after last section
+    # Import formatting — ruff --fix handles this, no need to block on it
+    "I001",  # Import block is un-sorted or un-formatted
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-minversion = "7.0"
 testpaths = ["tests"]
+pythonpath = ["src"]
 addopts = "-v --tb=short"
-
-[tool.coverage.run]
-source = ["."]
-omit = [
-    "tests/*",
-    "scripts/*",
-    "data/*",
-    "migrations/*",
-    "**/__init__.py",
-]
-branch = true
-
-[tool.coverage.report]
-show_missing = true
-skip_covered = false
-fail_under = 26  # Minimum coverage — grows as tests expand in later phases
-
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if __name__ == .__main__.:",
-    "if settings.TESTING:",
-    "raise NotImplementedError",
-]

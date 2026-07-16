@@ -53,7 +53,7 @@ function Profile() {
     setLoading(true);
 
     try {
-      await api.put('/api/account/profile', {
+      await api.put('/account/profile', {
         ...profileData,
         age: parseInt(profileData.age)
       });
@@ -72,7 +72,7 @@ function Profile() {
     setLoading(true);
 
     try {
-      await api.post('/api/account/change-password', passwordData);
+      await api.post('/account/change-password', passwordData);
       setMessage({ text: 'Password changed successfully', type: 'success' });
       setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
     } catch (err) {

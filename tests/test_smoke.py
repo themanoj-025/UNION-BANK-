@@ -1,5 +1,4 @@
-"""
-Smoke tests – verify that all modules import correctly after changes.
+"""Smoke tests – verify that all modules import correctly after changes.
 """
 import os
 import sys

@@ -18,7 +18,7 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await api.post('/api/auth/login', {
+      const response = await api.post('/auth/login', {
         account_number: accountNumber,
         password: password
       });
@@ -57,22 +57,30 @@ function Login() {
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Account number</label>
+              <label htmlFor="login-account-number">Account number</label>
               <input 
+                id="login-account-number"
+                name="account_number"
                 type="text" 
                 placeholder="Enter your 10-digit account number" 
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
+                autoComplete="username"
+                aria-label="Account number"
                 required
               />
             </div>
             <div className="form-group">
-              <label>Password</label>
+              <label htmlFor="login-password">Password</label>
               <input 
+                id="login-password"
+                name="password"
                 type="password" 
                 placeholder="Enter your password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                aria-label="Password"
                 required
               />
             </div>

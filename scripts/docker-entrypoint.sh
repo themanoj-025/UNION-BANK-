@@ -74,12 +74,16 @@ echo ""
 case "${ENTRYPOINT_TARGET:-api}" in
     api|*)
         info "Starting FastAPI server (uvicorn) on port 8000…"
+        # The API module lives at src/unionbank/entrypoints/api/main.py
+        # Add src/ to PYTHONPATH so 'unionbank.entrypoints.api.main' resolves
+        export PYTHONPATH="${PYTHONPATH:-}:/app/src"
         exec uvicorn \
-            api:app \
+            unionbank.entrypoints.api.main:app \
             --host 0.0.0.0 \
             --port 8000 \
             --workers "${UVICORN_WORKERS:-4}" \
             --proxy-headers \
-            --forwarded-allow-ips '*'
+            --forwarded-allow-ips '*' \
+            --log-level "${UVICORN_LOG_LEVEL:-info}"
         ;;
 esac

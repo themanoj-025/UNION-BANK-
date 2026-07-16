@@ -1,5 +1,4 @@
-"""
-tests/test_property_based.py  –  Property-based tests (Hypothesis) for money invariants.
+"""tests/test_property_based.py  –  Property-based tests (Hypothesis) for money invariants.
 
 These tests verify that fundamental financial invariants hold for ALL possible inputs,
 not just hand-picked examples. If a bug exists, Hypothesis will find the minimal
@@ -17,15 +16,15 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from hypothesis import assume, given, strategies as st
-from hypothesis.stateful import RuleBasedStateMachine, rule, invariant, precondition
-
-from domain.entities import Account, Transaction, TransactionType
 from application.services import (
     AccountService,
     AuthService,
     TransactionService,
 )
+from domain.entities import Account, Transaction, TransactionType
+from hypothesis import assume, given
+from hypothesis import strategies as st
+from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule
 
 from tests.fakes import (
     FakeAccountRepository,

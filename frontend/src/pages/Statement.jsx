@@ -10,7 +10,7 @@ function Statement() {
   useEffect(() => {
     const fetchStatement = async () => {
       try {
-        const response = await api.get('/api/account/statements');
+        const response = await api.get('/account/statements');
         setTransactions(response.data);
       } catch (err) {
         console.error('Failed to fetch statement', err);
@@ -23,7 +23,7 @@ function Statement() {
 
   const handleDownload = async () => {
     try {
-      const response = await api.get('/api/account/export-csv', { responseType: 'blob' });
+      const response = await api.get('/account/export-csv', { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;

@@ -34,12 +34,12 @@ function Loans() {
 
   const fetchLoans = async () => {
     try {
-      const response = await api.get('/api/v2/loans');
-      const data = response.data.data;
+      const response = await api.get('/loans');
+      const data = response.data;
       setLoans(data.loans || []);
       setSummary(data);
     } catch (err) {
-      setError(err.response?.data?.detail?.error || err.response?.data?.error || 'Failed to load loans');
+      setError(err.response?.data?.detail || 'Failed to load loans');
     } finally {
       setLoading(false);
     }
@@ -54,18 +54,18 @@ function Loans() {
     setError('');
     setSuccess('');
     try {
-      const response = await api.post('/api/v2/loans/apply', {
+      const response = await api.post('/loans/apply', {
         loan_type: applyData.loan_type,
         principal_amount: parseFloat(applyData.principal_amount),
         interest_rate: parseFloat(applyData.interest_rate),
         tenure_months: parseInt(applyData.tenure_months),
         purpose: applyData.purpose,
       });
-      setSuccess(response.data.data.message);
+      setSuccess(response.data.message);
       setShowApplyForm(false);
       fetchLoans();
     } catch (err) {
-      setError(err.response?.data?.detail?.error || err.response?.data?.error || 'Failed to apply for loan');
+      setError(err.response?.data?.detail || 'Failed to apply for loan');
     }
   };
 
@@ -73,14 +73,14 @@ function Loans() {
     e.preventDefault();
     setError('');
     try {
-      const response = await api.post('/api/v2/loans/calculate-emi', {
+      const response = await api.post('/loans/calculate-emi', {
         principal: parseFloat(emiCalc.principal),
         annual_rate: parseFloat(emiCalc.annual_rate),
         tenure_months: parseInt(emiCalc.tenure_months),
       });
-      setEmiResult(response.data.data);
+      setEmiResult(response.data);
     } catch (err) {
-      setError(err.response?.data?.detail?.error || err.response?.data?.error || 'Failed to calculate EMI');
+      setError(err.response?.data?.detail || 'Failed to calculate EMI');
     }
   };
 
@@ -89,15 +89,15 @@ function Loans() {
     setError('');
     setSuccess('');
     try {
-      const response = await api.post(`/api/v2/loans/${loanId}/pay-emi`, {
+      const response = await api.post(`/loans/${loanId}/pay-emi`, {
         amount: parseFloat(payEmiAmount),
       });
-      setSuccess(response.data.data.message);
+      setSuccess(response.data.message);
       setPayEmiLoan(null);
       setPayEmiAmount('');
       fetchLoans();
     } catch (err) {
-      setError(err.response?.data?.detail?.error || err.response?.data?.error || 'Failed to pay EMI');
+      setError(err.response?.data?.detail || 'Failed to pay EMI');
     }
   };
 

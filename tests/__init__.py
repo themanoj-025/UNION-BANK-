@@ -1,5 +1,4 @@
-"""
-Union Bank test suite.
+"""Union Bank test suite.
 
 Organized by layer:
   - test_utils.py:        Unit tests for utility functions

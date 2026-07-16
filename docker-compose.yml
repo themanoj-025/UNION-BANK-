@@ -1,14 +1,12 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 #  UNION BANK MANAGEMENT SYSTEM  —  Docker Compose
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Orchestrates three services:
-#    web     — Flask frontend         (port 5000)
+#  Orchestrates two services:
 #    api     — FastAPI REST API       (port 8000)
 #    redis   — In-memory cache        (port 6379, internal only)
 #
 #  Usage:
 #    docker compose up -d              # Start all services in detached mode
-#    docker compose up -d web api     # Start only web + api (no Redis)
 #    docker compose logs -f           # Follow logs
 #    docker compose down              # Stop and remove containers
 #

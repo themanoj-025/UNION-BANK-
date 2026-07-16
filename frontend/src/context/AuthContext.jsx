@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
           // but we can adjust if there is one.
           setUser({ role: 'admin' });
         } else {
-          const res = await api.get('/api/account/profile');
+          const res = await api.get('/account/profile');
           setUser({ ...res.data, role: 'customer' });
         }
       } catch (err) {

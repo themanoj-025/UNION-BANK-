@@ -21,7 +21,7 @@ function SavingsGoals() {
 
   const fetchGoals = async () => {
     try {
-      const response = await api.get('/api/savings');
+      const response = await api.get('/savings');
       const data = response.data;
       setGoals(data.goals || []);
       setSummary(data);
@@ -41,7 +41,7 @@ function SavingsGoals() {
     setError('');
     setSuccess('');
     try {
-      await api.post('/api/savings', {
+      await api.post('/savings', {
         name: formData.name,
         target_amount: parseFloat(formData.target_amount),
         target_date: formData.target_date || null,
@@ -60,7 +60,7 @@ function SavingsGoals() {
     setError('');
     setSuccess('');
     try {
-      await api.post(`/api/savings/${goalId}/contribute`, {
+      await api.post(`/savings/${goalId}/contribute`, {
         amount: parseFloat(contributeAmount),
       });
       setSuccess('Contribution made successfully!');
@@ -77,7 +77,7 @@ function SavingsGoals() {
     setError('');
     setSuccess('');
     try {
-      await api.delete(`/api/savings/${goalId}`);
+      await api.delete(`/savings/${goalId}`);
       setSuccess(`Goal "${goalName}" deleted and refunded.`);
       fetchGoals();
     } catch (err) {

@@ -1,5 +1,4 @@
-"""
-tests/test_services.py  –  Unit tests for application services using in-memory fakes.
+"""tests/test_services.py  –  Unit tests for application services using in-memory fakes.
 
 These tests run entirely in memory — no SQLite, no I/O.
 The services depend only on repository protocols, which we satisfy with Fakes.
@@ -10,9 +9,6 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-
-from domain.entities import Account, AdminUser, SavingsGoal, Transaction, TransactionType
-
 from application.services import (
     AccountService,
     AdminService,
@@ -20,6 +16,8 @@ from application.services import (
     SavingsGoalService,
     TransactionService,
 )
+from domain.entities import Account, AdminUser, SavingsGoal, Transaction, TransactionType
+from utils.hashing import hash_password
 
 from tests.fakes import (
     FakeAccountRepository,
@@ -30,9 +28,6 @@ from tests.fakes import (
     FakeTokenVersionRepository,
     FakeTransactionRepository,
 )
-
-from utils.hashing import hash_password
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Fixtures

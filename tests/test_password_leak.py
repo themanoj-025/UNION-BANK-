@@ -1,5 +1,4 @@
-"""
-tests/test_password_leak.py  –  Verify password hash is never leaked in API responses.
+"""tests/test_password_leak.py  –  Verify password hash is never leaked in API responses.
 
 The get_current_customer() dependency previously returned the bcrypt password hash
 in every authenticated response. This test asserts that no API response schema
@@ -12,6 +11,14 @@ so it doesn't depend on TestClient or database connectivity.
 from __future__ import annotations
 
 import ast
+import os
+from pathlib import Path
+
+# Resolve the path to api/common.py (now lives in src/unionbank/entrypoints/api/)
+_COMMON_PY_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "src" / "unionbank" / "entrypoints" / "api" / "common.py"
+)
 
 
 def _get_all_response_model_fields() -> dict[str, set[str]]:
@@ -28,18 +35,18 @@ def _get_all_response_model_fields() -> dict[str, set[str]]:
     from api.models import (
         AccountListItem,
         BalanceData,
+        EMIPreviewData,
         HealthData,
+        LoanAdminStats,
+        LoanOut,
+        LoanSummaryData,
         MessageData,
         ProfileData,
+        SavingsGoalOut,
+        SavingsGoalsSummary,
         StatisticsData,
         TokenData,
         TransactionOut,
-        SavingsGoalOut,
-        SavingsGoalsSummary,
-        LoanOut,
-        LoanSummaryData,
-        LoanAdminStats,
-        EMIPreviewData,
     )
 
     all_response_models: list[tuple[str, type]] = [
@@ -74,7 +81,7 @@ def _get_current_customer_return_dict() -> list[str]:
     Uses AST parsing to find the function and the dict literal it returns.
     Returns a list of all keys in that dict.
     """
-    with open("api/common.py", encoding="utf-8") as f:
+    with open(_COMMON_PY_PATH, encoding="utf-8") as f:
         tree = ast.parse(f.read())
 
     for node in ast.walk(tree):

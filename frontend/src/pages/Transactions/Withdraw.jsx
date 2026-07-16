@@ -23,7 +23,7 @@ function Withdraw() {
     setLoading(true);
 
     try {
-      await api.post('/api/account/withdraw', {
+      await api.post('/account/withdraw', {
         amount: parseFloat(amount),
         category
       });

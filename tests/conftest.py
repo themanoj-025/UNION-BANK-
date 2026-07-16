@@ -1,5 +1,4 @@
-"""
-pytest fixtures for Union Bank tests.
+"""pytest fixtures for Union Bank tests.
 
 All tests use temporary directories — never touch real production data/ files.
 Test-safe env vars are set BEFORE any project module is imported.
@@ -22,15 +21,35 @@ os.environ.setdefault("JWT_SECRET", "test-secret-not-for-prod")
 os.environ.setdefault("FLASK_SECRET_KEY", "test-flask-secret-for-testing")
 os.environ.setdefault("UNION_BANK_TESTING", "1")
 
-# Ensure project root and src/ are in path for imports
-# src/ takes priority over root (inserted second at position 0) so that src/ modules
-# (container, utils, domain, application, infrastructure) are found before any
-# root-level shadow files. Root-level modules (api/, main.py) are still resolvable
-# as fallback since root is at sys.path[1].
+# Ensure project root, src/, and src/unionbank/ are in path for imports
+# The unionbank package lives under src/unionbank/ with a layered structure:
+#   src/unionbank/domain/           → domain.*
+#   src/unionbank/infrastructure/    → container, database (shim), etc.
+#   src/unionbank/entrypoints/cli/   → ui, account (CLI modules)
+#   src/unionbank/utils/             → utils.*
+#   src/unionbank/application/       → application.*
+#
+# Order (highest priority first):
+#   1. src/                     (for root-level src/ modules)
+#   2. src/unionbank/           (for direct un-namespaced imports like domain.*, utils.*)
+#   3. src/unionbank/infrastructure/  (for container, database)
+#   4. src/unionbank/entrypoints/cli/ (for ui, account)
+#   5. project root             (for api/, main.py, etc.)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = PROJECT_ROOT / "src"
+UNIONBANK_DIR = SRC_DIR / "unionbank"
+INFRA_DIR = UNIONBANK_DIR / "infrastructure"
+ENTRYPOINTS_DIR = UNIONBANK_DIR / "entrypoints"
+CLI_DIR = ENTRYPOINTS_DIR / "cli"
+# Ordering matters: UNIONBANK_DIR must be searched BEFORE SRC_DIR so that
+# the real code in src/unionbank/{domain,utils,application,infrastructure}
+# is found before the empty stub directories at src/{domain,utils,etc}.
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(CLI_DIR))
+sys.path.insert(0, str(ENTRYPOINTS_DIR))
+sys.path.insert(0, str(INFRA_DIR))
 sys.path.insert(0, str(SRC_DIR))
+sys.path.insert(0, str(UNIONBANK_DIR))  # highest priority
 
 import pytest
 

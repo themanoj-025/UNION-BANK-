@@ -1,5 +1,4 @@
-"""
-tests/test_api_integration.py  –  FastAPI TestClient integration tests.
+"""tests/test_api_integration.py  –  FastAPI TestClient integration tests.
 
 These tests exercise the real FastAPI application as a black box,
 using an isolated SQLite database per test. All persistence goes
@@ -16,12 +15,10 @@ import tempfile
 from decimal import Decimal
 
 import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
-
 from container import get_container, reset_container
 from domain.entities import Account, TransactionType
-
+from fastapi import status
+from fastapi.testclient import TestClient
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Fixtures
@@ -153,8 +150,8 @@ def second_registered_customer(client: TestClient) -> dict:
 @pytest.fixture
 def admin_token(client: TestClient) -> dict:
     """Create an admin user and return auth token."""
-    from utils.hashing import hash_password
     from domain.entities import AdminUser
+    from utils.hashing import hash_password
 
     c = get_container()
     admin_repo = c.admin_repo()

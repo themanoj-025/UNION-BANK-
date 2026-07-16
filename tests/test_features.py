@@ -1,44 +1,42 @@
+"""Tests for new features: rate limiting, CSV export, interest, categories, session mgmt.
 """
-Tests for new features: rate limiting, CSV export, interest, categories, session mgmt.
-"""
+import json
 import os
 import sys
 import tempfile
 import time
-import json
 
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from account import Account
+from ui import prompt_password
 from utils import (
+    LOGIN_LOCKOUT_MINUTES,
+    MAX_LOGIN_ATTEMPTS,
+    SAVINGS_INTEREST_RATE,
+    SESSION_TIMEOUT_SECONDS,
+    TRANSACTION_CATEGORIES,
+    calculate_monthly_interest,
     check_login_locked,
+    check_session_timeout,
+    export_transactions_to_csv,
+    fmt_currency,
+    generate_csv_filename,
+    get_category_choice,
+    get_session_timeout_seconds,
+    now_str,
     record_failed_login,
     reset_login_attempts,
-    check_session_timeout,
-    get_session_timeout_seconds,
-    export_transactions_to_csv,
-    generate_csv_filename,
-    calculate_monthly_interest,
-    get_category_choice,
-    TRANSACTION_CATEGORIES,
-    MAX_LOGIN_ATTEMPTS,
-    LOGIN_LOCKOUT_MINUTES,
-    SESSION_TIMEOUT_SECONDS,
-    SAVINGS_INTEREST_RATE,
-    now_str,
-    fmt_currency,
 )
 from utils.file_io import (
+    ACCOUNTS_FILE,
+    LOGIN_ATTEMPTS_FILE,
+    TRANSACTIONS_FILE,
     load_json,
     save_json,
-    LOGIN_ATTEMPTS_FILE,
-    ACCOUNTS_FILE,
-    TRANSACTIONS_FILE,
 )
-from ui import prompt_password
-from account import Account
-
 
 # ───────────────────────────────────────────────
 #  Rate Limiting Tests
@@ -307,8 +305,6 @@ class TestAtomicTransfer:
 
     def _setup_accounts(self, tmp_data_dir):
         """Create two test accounts with known balances."""
-        from utils.file_io import ACCOUNTS_FILE, TRANSACTIONS_FILE
-
         sender_data = {
             "account_number": self.SENDER,
             "name": "Sender",
@@ -349,7 +345,6 @@ class TestAtomicTransfer:
 
     def _get_total_balance(self) -> float:
         """Compute the total system balance across JSON and SQLite."""
-        from utils.file_io import ACCOUNTS_FILE
         accounts = load_json(ACCOUNTS_FILE)
         json_total = sum(a["balance"] for a in accounts.values())
 
@@ -438,8 +433,8 @@ class TestAtomicTransfer:
         """
         self._setup_accounts(tmp_data_dir)
 
-        from database import atomic_session, get_db_balance
         from database import AccountModel as DbAccount
+        from database import atomic_session, get_db_balance
 
         # Start an atomic transaction, make a change, then simulate a crash
         try:
@@ -479,9 +474,9 @@ class TestAtomicTransfer:
         """Verify close_account is atomic."""
         self._setup_accounts(tmp_data_dir)
 
-        from database import atomic_close_account, get_db_balance
         from infrastructure.persistence import AccountModel as DbAccount
-        from database import get_session
+
+        from database import atomic_close_account, get_db_balance, get_session
 
         result = atomic_close_account(self.SENDER)
         assert result is True

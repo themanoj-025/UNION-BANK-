@@ -24,7 +24,7 @@ function Transfer() {
     setLoading(true);
 
     try {
-      await api.post('/api/account/transfer', {
+      await api.post('/account/transfer', {
         target_account: targetAccount,
         amount: parseFloat(amount),
         category

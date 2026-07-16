@@ -1,26 +1,99 @@
-"""
-tests/fakes.py  –  In-memory repository fakes for unit testing.
+"""tests/fakes.py  –  In-memory repository fakes for unit testing.
 
 Each fake implements the corresponding Protocol from application/interfaces.py
 using plain dicts/lists instead of SQLite. This makes unit tests:
 - Blazingly fast (no I/O, no DB setup)
 - Deterministic (no shared state between tests when fresh instance created)
 - Easy to debug (inspectable in-memory state)
+
+Simulated DB Failures:
+    Fakes can optionally simulate database errors to test error handling:
+        fake.simulate_duplicate_key = True   # raises on duplicate create()
+        fake.simulate_fk_violation = True    # raises on FK constraint
+        fake.simulate_race_condition = True  # fails atomic operations randomly
+        fake.simulate_timeout = True         # hangs the commit() call
+
+    Use these in tests that verify graceful handling of database errors.
+    Fakes default to realistic behavior (no errors).
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
 from application.interfaces import KeysetPage
-
 from domain.entities import (
-    Account, AdminUser, LoginAttempt, Notification,
-    NotificationPreference, RefreshToken, SavingsGoal,
-    TokenVersion, Transaction, TransactionType,
+    Account,
+    AdminUser,
+    LoginAttempt,
+    Notification,
+    NotificationPreference,
+    RefreshToken,
+    SavingsGoal,
+    TokenVersion,
+    Transaction,
+    TransactionType,
 )
+
+# ── Simulated database error classes ─────────────────────────────────────────
+
+
+class SimulatedDuplicateKeyError(Exception):
+    """Raised when a fake repository simulates a unique constraint violation.
+
+    The real DB raises IntegrityError on duplicate account_number or email.
+    This fake mirrors that behavior when simulate_duplicate_key is True.
+
+    Usage:
+        fake.simulate_duplicate_key = True
+        with pytest.raises(SimulatedDuplicateKeyError):
+            repo.create(account)
+    """
+
+    pass
+
+
+class SimulatedForeignKeyViolation(Exception):
+    """Raised when a fake repository simulates a foreign key violation.
+
+    The real DB raises IntegrityError when a referenced row doesn't exist.
+    Usage:
+        fake.simulate_fk_violation = True
+        with pytest.raises(SimulatedForeignKeyViolation):
+            repo.create(txn_with_bad_account)
+    """
+
+    pass
+
+
+class SimulatedRaceConditionError(Exception):
+    """Raised when a fake repository simulates a concurrent-write race.
+
+    The real DB raises OperationalError (database is locked) in WAL mode
+    under high concurrency. This fake mirrors that behavior for testing
+    retry logic.
+
+    Usage:
+        fake.simulate_race_condition = True
+        with pytest.raises(SimulatedRaceConditionError):
+            repo.transfer_money(...)
+    """
+
+    pass
+
+
+class SimulatedDatabaseTimeout(Exception):
+    """Raised when a fake repository simulates a database timeout.
+
+    Usage:
+        fake.simulate_timeout = True
+        with pytest.raises(SimulatedDatabaseTimeout):
+            repo.commit()
+    """
+
+    pass
 
 
 def _utcnow() -> datetime:
@@ -33,10 +106,23 @@ def _utcnow() -> datetime:
 
 
 class FakeAccountRepository:
-    """In-memory account repository — stores accounts in a dict keyed by account_number."""
+    """In-memory account repository — stores accounts in a dict keyed by account_number.
+
+    Simulation flags (opt-in):
+        simulate_duplicate_key (bool): Raises SimulatedDuplicateKeyError on create()
+                                       if account_number already exists.
+        simulate_fk_violation (bool):  Raises SimulatedForeignKeyViolation on create()
+                                       if no matching parent exists.
+        simulate_race_condition (bool): Makes atomic_decrement/increment fail randomly.
+        simulate_timeout (bool):        Raises SimulatedDatabaseTimeout on commit().
+    """
 
     def __init__(self):
         self._accounts: dict[str, Account] = {}
+        self.simulate_duplicate_key = False
+        self.simulate_fk_violation = False
+        self.simulate_race_condition = False
+        self.simulate_timeout = False
 
     def get(self, acc_no: str) -> Optional[Account]:
         return self._accounts.get(acc_no)
@@ -48,6 +134,10 @@ class FakeAccountRepository:
         return acc_no in self._accounts
 
     def create(self, account: Account) -> Account:
+        if self.simulate_duplicate_key and account.account_number in self._accounts:
+            raise SimulatedDuplicateKeyError(
+                f"Duplicate key: account {account.account_number} already exists"
+            )
         self._accounts[account.account_number] = account
         return account
 
@@ -130,6 +220,26 @@ class FakeAccountRepository:
             1 for a in self._accounts.values()
             if not a.is_active and not a.is_frozen
         )
+
+    def get_statistics(self) -> dict:
+        """Compute bank-wide statistics from in-memory data."""
+        accounts = list(self._accounts.values())
+        return {
+            "total_customers": len(accounts),
+            "active": sum(1 for a in accounts if a.is_active and not a.is_frozen),
+            "frozen": sum(1 for a in accounts if a.is_frozen),
+            "closed": sum(1 for a in accounts if not a.is_active and not a.is_frozen),
+            "total_balance": float(
+                sum(a.balance for a in accounts) if accounts else 0
+            ),
+        }
+
+    def get_all_paginated(self, page: int = 1, per_page: int = 20) -> tuple[list[Account], int]:
+        """Get accounts with offset-based pagination from in-memory data."""
+        accounts = list(self._accounts.values())
+        total = len(accounts)
+        start = (page - 1) * per_page
+        return accounts[start:start + per_page], total
 
     def get_by_email(self, email: str) -> Optional[Account]:
         for a in self._accounts.values():

@@ -23,7 +23,7 @@ function Deposit() {
     setLoading(true);
 
     try {
-      await api.post('/api/account/deposit', {
+      await api.post('/account/deposit', {
         amount: parseFloat(amount),
         category
       });

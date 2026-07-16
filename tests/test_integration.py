@@ -1,5 +1,4 @@
-"""
-tests/test_integration.py  –  Integration tests with real SQLite in-memory DB.
+"""tests/test_integration.py  –  Integration tests with real SQLite in-memory DB.
 
 These tests use the actual DI container and SQLite (in-memory, via temp file)
 to verify that the infrastructure layer, repositories, and services work
@@ -17,10 +16,8 @@ import tempfile
 from decimal import Decimal
 
 import pytest
-
-from domain.entities import Account, TransactionType
 from container import get_container, reset_container
-
+from domain.entities import Account, TransactionType
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Fixtures
@@ -111,8 +108,155 @@ class TestAccountCRUD:
         accounts = repo.get_all()
         assert len(accounts) == 2
 
-    def test_delete_account_cascades_to_transactions(self, c):
-        """Deleting an account should delete its transactions (ON DELETE CASCADE)."""
+    def test_idempotency_repo_create_and_get(self, c):
+        """Verify the idempotency repository can create and retrieve records."""
+        from domain.entities import IdempotencyRecord
+        repo = c.idempotency_repo()
+
+        record = IdempotencyRecord(
+            idempotency_key="test-key-001",
+            account_number="1000000001",
+            operation="deposit",
+            result_json='{"success": true}',
+            amount=Decimal("100.00"),
+        )
+        repo.create(record)
+        repo.commit()
+
+        fetched = repo.get("test-key-001")
+        assert fetched is not None
+        assert fetched.idempotency_key == "test-key-001"
+        assert fetched.operation == "deposit"
+
+    def test_idempotency_deposit_prevents_double_spend(self, c):
+        """⭐ IDEMPOTENCY: Depositing twice with the same idempotency_key
+        should only move the money once. The second call returns the
+        cached result without modifying the balance.
+        """
+        account = Account(
+            account_number="1000000001",
+            name="Idempotency Tester",
+            balance=Decimal("500.00"),
+            password="pw",
+        )
+        c.account_repo().create(account)
+        c.account_repo().commit()
+
+        svc = c.transaction_service()
+
+        # First call: should succeed and credit balance
+        result1 = svc.deposit(
+            acc_no="1000000001",
+            amount=Decimal("100.00"),
+            idempotency_key="dep-dup-001",
+        )
+        assert result1.success
+        assert result1.data["balance"] == 600.0  # 500 + 100
+
+        # Second call with the SAME key: should return cached result
+        result2 = svc.deposit(
+            acc_no="1000000001",
+            amount=Decimal("100.00"),
+            idempotency_key="dep-dup-001",
+        )
+        assert result2.success
+
+        # Balance should still be 600, NOT 700
+        account = c.account_repo().get("1000000001")
+        assert account.balance == Decimal("600.00"), (
+            f"Double-spend detected! Balance is {account.balance}, expected 600.00"
+        )
+
+    def test_idempotency_withdraw_prevents_double_spend(self, c):
+        """Withdrawing twice with the same idempotency_key should only
+        debit the account once.
+        """
+        account = Account(
+            account_number="1000000001",
+            name="Idempotency Tester",
+            balance=Decimal("500.00"),
+            password="pw",
+        )
+        c.account_repo().create(account)
+        c.account_repo().commit()
+
+        svc = c.transaction_service()
+
+        # First withdraw
+        result1 = svc.withdraw(
+            acc_no="1000000001",
+            amount=Decimal("100.00"),
+            idempotency_key="wd-dup-001",
+        )
+        assert result1.success
+        assert result1.data["balance"] == 400.0  # 500 - 100
+
+        # Second withdraw with same key
+        result2 = svc.withdraw(
+            acc_no="1000000001",
+            amount=Decimal("100.00"),
+            idempotency_key="wd-dup-001",
+        )
+        assert result2.success
+
+        account = c.account_repo().get("1000000001")
+        assert account.balance == Decimal("400.00"), (
+            f"Double-spend detected! Balance is {account.balance}, expected 400.00"
+        )
+
+    def test_idempotency_different_keys_both_succeed(self, c):
+        """Different idempotency keys should each execute independently."""
+        account = Account(
+            account_number="1000000001",
+            name="Idempotency Tester",
+            balance=Decimal("500.00"),
+            password="pw",
+        )
+        c.account_repo().create(account)
+        c.account_repo().commit()
+
+        svc = c.transaction_service()
+
+        r1 = svc.deposit("1000000001", Decimal("50"), idempotency_key="key-a")
+        r2 = svc.deposit("1000000001", Decimal("75"), idempotency_key="key-b")
+        assert r1.success and r2.success
+
+        account = c.account_repo().get("1000000001")
+        assert account.balance == Decimal("625.00"), f"Expected 625, got {account.balance}"
+
+    def test_idempotency_without_key_still_works(self, c):
+        """Backward compatibility: not sending an idempotency_key should
+        behave exactly as before (no dedup, no errors).
+        """
+        account = Account(
+            account_number="1000000001",
+            name="Back Compat",
+            balance=Decimal("100.00"),
+            password="pw",
+        )
+        c.account_repo().create(account)
+        c.account_repo().commit()
+
+        svc = c.transaction_service()
+
+        # Without idempotency_key — should work
+        r1 = svc.deposit("1000000001", Decimal("50"))
+        assert r1.success
+        assert r1.data["balance"] == 150.0
+
+        # Same operation again (no key) — should execute again (no dedup)
+        r2 = svc.deposit("1000000001", Decimal("50"))
+        assert r2.success
+        assert r2.data["balance"] == 200.0
+
+    def test_soft_delete_preserves_transactions(self, c):
+        """⭐ COMPLIANCE: Soft-deleting an account must preserve transaction history.
+
+        In a banking domain, destroying transaction records on account deletion
+        is a compliance violation (record-retention requirements).
+        Soft-delete sets deleted_at and hides the account from default queries,
+        but transaction history survives for audit and regulatory purposes.
+        """
         repo = c.account_repo()
         txn_repo = c.transaction_repo()
 
@@ -137,13 +281,30 @@ class TestAccountCRUD:
         txn_repo.create(txn)
         txn_repo.commit()
 
-        # Delete the account
+        # Soft-delete the account
         repo.delete("1000000001")
         repo.commit()
 
-        # Transaction should also be deleted (CASCADE)
+        # Account should NOT be returned by normal get() (hidden from default queries)
         assert repo.get("1000000001") is None
-        assert txn_repo.count_by_account("1000000001") == 0
+
+        # Account SHOULD be recoverable via get_deleted()
+        deleted = repo.get_deleted("1000000001")
+        assert deleted is not None
+        assert deleted.deleted_at is not None
+        assert deleted.account_number == "1000000001"
+
+        # ═══ CRITICAL: Transaction history MUST survive ═══
+        assert txn_repo.count_by_account("1000000001") == 1, (
+            "Transaction history was destroyed! Soft-delete must preserve "
+            "transaction records for audit and compliance."
+        )
+
+        # Verify we can still read the transaction
+        txns = txn_repo.get_by_account("1000000001")
+        assert len(txns) == 1
+        assert txns[0].txn_id == "TXN-DELETETEST"
+        assert txns[0].amount == Decimal("50.00")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -470,8 +631,7 @@ class TestConcurrentTransfers:
     """
 
     def test_simultaneous_transfers_no_lost_updates(self, c):
-        """
-        Fire 10 concurrent transfers from one account and verify:
+        """Fire 10 concurrent transfers from one account and verify:
         1. Money is ALWAYS conserved (sender + receiver = initial total)
         2. At least some transfers succeeded
 
@@ -551,8 +711,7 @@ class TestConcurrentTransfers:
         )
 
     def test_concurrent_deposits_no_lost_updates(self, c):
-        """
-        Fire 20 concurrent deposits into the same account.
+        """Fire 20 concurrent deposits into the same account.
         Under SQLite's WAL mode, some may fail due to locking.
         The critical invariant: final balance = amount × successful_count.
         No money should appear or disappear.

@@ -18,15 +18,15 @@ function AdminLoans() {
     setError('');
     try {
       const [pendingRes, allRes, statsRes] = await Promise.all([
-        api.get('/api/v2/admin/loans/pending'),
-        api.get('/api/v2/admin/loans/all'),
-        api.get('/api/v2/admin/loans'),
+        api.get('/admin/loans/pending'),
+        api.get('/admin/loans/all'),
+        api.get('/admin/loans'),
       ]);
-      setPendingLoans(pendingRes.data.data || []);
-      setAllLoans(allRes.data.data || []);
-      setStats(statsRes.data.data);
+      setPendingLoans(pendingRes.data || []);
+      setAllLoans(allRes.data || []);
+      setStats(statsRes.data);
     } catch (err) {
-      setError(err.response?.data?.detail?.error || err.response?.data?.error || 'Failed to load loans');
+      setError(err.response?.data?.detail || 'Failed to load loans');
     } finally {
       setLoading(false);
     }
@@ -41,11 +41,11 @@ function AdminLoans() {
     setError('');
     setSuccess('');
     try {
-      const response = await api.post(`/api/v2/admin/loans/${loanId}/approve`);
-      setSuccess(response.data.data.message);
+      const response = await api.post(`/admin/loans/${loanId}/approve`);
+      setSuccess(response.data.message);
       fetchData();
     } catch (err) {
-      setError(err.response?.data?.detail?.error || err.response?.data?.error || 'Failed to approve loan');
+      setError(err.response?.data?.detail || 'Failed to approve loan');
     }
   };
 
@@ -55,12 +55,12 @@ function AdminLoans() {
     setError('');
     setSuccess('');
     try {
-      const response = await api.post(`/api/v2/admin/loans/${loanId}/reject`, { reason });
-      setSuccess(response.data.data.message);
+      const response = await api.post(`/admin/loans/${loanId}/reject`, { reason });
+      setSuccess(response.data.message);
       setRejectReason(prev => ({ ...prev, [loanId]: '' }));
       fetchData();
     } catch (err) {
-      setError(err.response?.data?.detail?.error || err.response?.data?.error || 'Failed to reject loan');
+      setError(err.response?.data?.detail || 'Failed to reject loan');
     }
   };
 

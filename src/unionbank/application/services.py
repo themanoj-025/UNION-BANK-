@@ -446,39 +446,41 @@ class TransactionService:
         if amount <= 0:
             return ServiceResult(success=False, message="Amount must be positive.")
 
-        # Check idempotency first
+        # Check idempotency first (outside lock — read-only)
         cached = self._check_idempotency(idempotency_key, acc_no, "withdraw", amount)
         if cached is not None:
             return cached
 
-        account = self.account_repo.get(acc_no)
-        if account is None:
-            return ServiceResult(success=False, message="Account not found.")
-        if not account.can_transact:
-            status = "frozen" if account.is_frozen else "closed"
-            return ServiceResult(success=False, message=f"Account is {status}.")
+        # Serialize writes to this account (prevents lost updates under SQLite WAL)
+        with _account_lock(acc_no):
+            account = self.account_repo.get(acc_no)
+            if account is None:
+                return ServiceResult(success=False, message="Account not found.")
+            if not account.can_transact:
+                status = "frozen" if account.is_frozen else "closed"
+                return ServiceResult(success=False, message=f"Account is {status}.")
 
-        if amount > account.balance:
-            return ServiceResult(
-                success=False,
-                message=f"Insufficient balance. Available: {fmt_currency(float(account.balance))}",
+            if amount > account.balance:
+                return ServiceResult(
+                    success=False,
+                    message=f"Insufficient balance. Available: {fmt_currency(float(account.balance))}",
+                )
+
+            account.balance -= amount
+            self._ensure_non_negative_balance(account.balance, "withdraw")  # App-level guard
+            self.account_repo.update(account)
+
+            txn = Transaction(
+                txn_id=generate_transaction_id(),
+                account_number=acc_no,
+                type=TransactionType.WITHDRAW,
+                amount=amount,
+                balance=account.balance,
+                description="Withdrawal",
+                category=category if category in TRANSACTION_CATEGORIES else "General",
             )
-
-        account.balance -= amount
-        self._ensure_non_negative_balance(account.balance, "withdraw")  # App-level guard
-        self.account_repo.update(account)
-
-        txn = Transaction(
-            txn_id=generate_transaction_id(),
-            account_number=acc_no,
-            type=TransactionType.WITHDRAW,
-            amount=amount,
-            balance=account.balance,
-            description="Withdrawal",
-            category=category if category in TRANSACTION_CATEGORIES else "General",
-        )
-        self.txn_repo.create(txn)
-        self.account_repo.commit()
+            self.txn_repo.create(txn)
+            self.account_repo.commit()
 
         result = ServiceResult(
             success=True,

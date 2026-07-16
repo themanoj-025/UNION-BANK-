@@ -87,7 +87,7 @@ else:
 
       - name: Test with pytest
         run: |
-          python -m pytest tests/ -v --tb=short --cov --cov-report=term --cov-fail-under=26
+          python -m pytest tests/ -v --tb=short --cov --cov-report=term --cov-fail-under=50
         env:
           UNION_BANK_TESTING: "1"
           JWT_SECRET: "ci-test-secret"
@@ -140,7 +140,7 @@ else:
       - name: Run tests in Docker
         run: |
           docker compose run --rm --no-deps api \
-            sh -c "UNION_BANK_TESTING=1 JWT_SECRET=ci-test-secret FLASK_SECRET_KEY=ci-test-flask-secret python -m pytest tests/ -v --tb=short --cov --cov-report=term"
+            sh -c "UNION_BANK_TESTING=1 JWT_SECRET=ci-test-secret FLASK_SECRET_KEY=ci-test-flask-secret python -m pytest tests/ -v --tb=short --cov --cov-report=term --cov-fail-under=50"
 
       - name: Check Docker container logs
         if: always()

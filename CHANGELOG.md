@@ -73,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### ⚙️ Tooling & DevOps (Phase 9)
 - **Dependencies cleaned** — Removed Dead deps: Flask, Flask-WTF, fpdf2. Versions pinned with `==` in `requirements.txt` + `requirements-lock.txt` for transitive deps.
 - **FastAPI-only Docker** — Multi-stage Docker build with single `api` target (no Flask `web` stage). `docker-entrypoint.sh` uses `unionbank.entrypoints.api.main:app`.
-- **CI/CD updates** — Frontend lint + build stages. Ruff lint integrated. Coverage floor at 26%. Docker healthcheck uses `/api/healthz`.
+- **CI/CD updates** — Frontend lint + build stages. Ruff lint integrated. Coverage floor raised to 50% (from 26%). Docker healthcheck uses `/api/healthz`.
 - **`.gitignore`** — Comprehensive patterns for `__pycache__`, `.db*`, `.jsonl`, `.env*`, `node_modules`, `dist/`, temp test DB dirs.
 
 #### 📚 Documentation & Portfolio Packaging (Phase 10)

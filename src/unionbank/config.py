@@ -94,16 +94,42 @@ class Config:
         )
     )
 
+    # ── Environment ──────────────────────────────────────────────────────────
+    ENV: str = field(
+        default_factory=lambda: os.environ.get("ENV", "development")
+    )
+
     # ── Database ─────────────────────────────────────────────────────────────
     DATABASE_URL: Optional[str] = field(
         default_factory=lambda: _optional_env("DATABASE_URL")
     )
+
+    # ── PostgreSQL connection pool ────────────────────────────────────────────
+    DB_POOL_SIZE: int = int(os.environ.get("DB_POOL_SIZE", "10"))
+    DB_MAX_OVERFLOW: int = int(os.environ.get("DB_MAX_OVERFLOW", "20"))
+    DB_POOL_TIMEOUT: int = int(os.environ.get("DB_POOL_TIMEOUT", "30"))
 
     # ── File paths (data directory) ───────────────────────────────────────────
     DATA_DIR: Path = DATA_DIR
 
     # ── Testing mode ──────────────────────────────────────────────────────────
     TESTING: bool = _TESTING
+
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        # Fail-fast: production requires DATABASE_URL
+        if self.ENV == "production" and not self.DATABASE_URL:
+            raise RuntimeError(
+                "Production environment requires DATABASE_URL to be set. "
+                "Set the DATABASE_URL environment variable to a PostgreSQL "
+                "connection string (e.g., postgresql://user:pass@host:5432/dbname)."
+            )
+        # Validate ENV value
+        if self.ENV not in ("development", "testing", "production"):
+            raise ValueError(
+                f"Invalid ENV value: '{self.ENV}'. Must be one of: "
+                f"development, testing, production."
+            )
 
     # ── Transaction categories ────────────────────────────────────────────────
     TRANSACTION_CATEGORIES: list[str] = field(default_factory=lambda: [

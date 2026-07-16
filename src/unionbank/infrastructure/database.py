@@ -98,33 +98,23 @@ def get_engine():
         engine_kwargs["connect_args"] = {"check_same_thread": False}
         engine_kwargs["pool_size"] = 5
         engine_kwargs["max_overflow"] = 10
+        engine_kwargs["isolation_level"] = "IMMEDIATE"
 
         _engine_instance = create_engine(db_url, **engine_kwargs)
 
         @event.listens_for(_engine_instance, "connect")
         def _set_pragmas(dbapi_connection, connection_record):
-            """Enable WAL mode and foreign keys for better performance and integrity."""
+            """Enable WAL mode and foreign keys for better performance and integrity.
+
+            isolation_level="IMMEDIATE" forces SQLite to acquire a reserved write lock
+            at transaction START rather than deferring it, preventing the lost-update
+            problem under concurrent WAL mode writes.
+            """
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA busy_timeout=5000")
             cursor.close()
-
-        @event.listens_for(_engine_instance, "begin")
-        def do_begin(conn):
-            """Force BEGIN IMMEDIATE for SQLite to serialize concurrent write transactions.
-
-            SQLite's default transaction mode is DEFERRED, which only acquires a read
-            lock initially. Under WAL mode, this creates snapshot isolation where
-            concurrent threads can read stale balances. BEGIN IMMEDIATE acquires a
-            reserved write lock at transaction start, ensuring each writer sees the
-            latest committed data and preventing lost updates under concurrency.
-
-            This is critical for concurrent transfer/deposit/withdraw operations.
-            Without this, parallel money-movement requests can silently lose updates
-            (the "lost update" problem).
-            """
-            conn.execute("BEGIN IMMEDIATE")
     else:
         # PostgreSQL — explicit pool settings
         engine_kwargs["pool_size"] = settings.DB_POOL_SIZE

@@ -178,6 +178,7 @@ def get_async_engine():
 def reset_engine():
     """Dispose the current engine and clear all sessions — for testing."""
     global _engine_instance, _session_maker
+    global _async_engine_instance, _async_session_maker
     close_session()
     if _engine_instance is not None:
         try:
@@ -187,6 +188,14 @@ def reset_engine():
             logger.warning("Failed to dispose database engine", exc_info=True)
         _engine_instance = None
         _session_maker = None
+    if _async_engine_instance is not None:
+        try:
+            _async_engine_instance.dispose()
+        except Exception:
+            from unionbank.utils.logger import logger
+            logger.warning("Failed to dispose async database engine", exc_info=True)
+        _async_engine_instance = None
+        _async_session_maker = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -240,7 +249,7 @@ async def get_async_session() -> AsyncSession:
     support async access).
     """
     engine = get_async_engine()
-    if engine is None:
+    if engine is None or _async_session_maker is None:
         raise RuntimeError(
             "Async sessions are not available with SQLite. "
             "Set DATABASE_URL to a PostgreSQL connection string to use async."
@@ -252,7 +261,7 @@ async def get_async_session() -> AsyncSession:
 async def async_atomic_session() -> AsyncGenerator[AsyncSession, None]:
     """Provide an async transactional scope — commits on success, rolls back on exception."""
     engine = get_async_engine()
-    if engine is None:
+    if engine is None or _async_session_maker is None:
         raise RuntimeError(
             "Async atomic sessions are not available with SQLite. "
             "Set DATABASE_URL to a PostgreSQL connection string."

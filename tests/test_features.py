@@ -333,7 +333,7 @@ class TestAtomicTransfer:
         save_json(TRANSACTIONS_FILE, {})
 
         # Also sync to SQLite (since atomic_transfer reads from SQLite)
-        from database import sync_account_from_json
+        from unionbank.infrastructure.backward_compat import sync_account_from_json
         sync_account_from_json(self.SENDER, sender_data)
         sync_account_from_json(self.RECEIVER, receiver_data)
 
@@ -344,7 +344,7 @@ class TestAtomicTransfer:
         accounts = load_json(ACCOUNTS_FILE)
         json_total = sum(a["balance"] for a in accounts.values())
 
-        from database import get_db_balance
+        from unionbank.infrastructure.backward_compat import get_db_balance
         sender_sqlite = get_db_balance(self.SENDER) or 0
         receiver_sqlite = get_db_balance(self.RECEIVER) or 0
         sqlite_total = sender_sqlite + receiver_sqlite
@@ -355,7 +355,7 @@ class TestAtomicTransfer:
         """A normal transfer should work correctly."""
         self._setup_accounts(tmp_data_dir)
 
-        from database import atomic_transfer
+        from unionbank.infrastructure.backward_compat import atomic_transfer
         result = atomic_transfer(
             sender_acc_no=self.SENDER,
             receiver_acc_no=self.RECEIVER,
@@ -371,7 +371,7 @@ class TestAtomicTransfer:
         """Transfer should fail gracefully when sender has insufficient funds."""
         self._setup_accounts(tmp_data_dir)
 
-        from database import atomic_transfer
+        from unionbank.infrastructure.backward_compat import atomic_transfer
         result = atomic_transfer(
             sender_acc_no=self.SENDER,
             receiver_acc_no=self.RECEIVER,

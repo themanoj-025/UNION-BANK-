@@ -522,11 +522,12 @@ class AsyncSqlAlchemyAdminRepository:
         return map_admin(model) if model else None
 
     async def create(self, admin: AdminUser) -> AdminUser:
+        from unionbank.utils.token_security import encrypt_totp_secret
         model = AdminModel(
             username=admin.username,
             password=admin.password,
             role=admin.role or "admin",
-            totp_secret=admin.totp_secret,
+            totp_secret=encrypt_totp_secret(admin.totp_secret),
             totp_enabled=admin.totp_enabled,
         )
         self.session.add(model)
@@ -543,13 +544,14 @@ class AsyncSqlAlchemyAdminRepository:
         return True
 
     async def update_totp(self, username: str, totp_secret: Optional[str], totp_enabled: bool) -> bool:
+        from unionbank.utils.token_security import encrypt_totp_secret
         result = await self.session.execute(
             select(AdminModel).where(AdminModel.username == username)
         )
         model = result.scalar_one_or_none()
         if model is None:
             return False
-        model.totp_secret = totp_secret
+        model.totp_secret = encrypt_totp_secret(totp_secret)
         model.totp_enabled = totp_enabled
         return True
 

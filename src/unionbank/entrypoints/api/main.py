@@ -707,7 +707,7 @@ def close_account(
 @limiter.limit("30/minute")
 def get_balance(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the current account balance."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     domain_account = get_container().account_repo().get(customer["account_number"])
     if not domain_account:
         raise HTTPException(status_code=404, detail="Account not found.")
@@ -823,7 +823,7 @@ def transfer_funds(
 def get_full_statement(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the full transaction statement (newest first)."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     domain_txns = get_container().transaction_repo().get_by_account(acc_no)
 
     return [
@@ -847,7 +847,7 @@ def get_full_statement(request: Request, customer: dict = Depends(get_current_cu
 def get_mini_statement(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the last 5 transactions (mini statement)."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     domain_txns = get_container().transaction_repo().get_mini(acc_no, 5)
 
     return [
@@ -871,7 +871,7 @@ def get_mini_statement(request: Request, customer: dict = Depends(get_current_cu
 def export_csv(request: Request, customer: dict = Depends(get_current_customer)):
     """Download transaction history as a CSV file."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     domain_txns = get_container().transaction_repo().get_by_account(acc_no)
 
     output = io.StringIO()
@@ -944,7 +944,7 @@ class SavingsGoalsSummary(BaseModel):
 def list_savings_goals(request: Request, customer: dict = Depends(get_current_customer)):
     """List all savings goals for the authenticated customer."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     goals = get_container().savings_goal_repo().get_by_account(acc_no)
 
     goal_list = []
@@ -985,7 +985,7 @@ def create_savings_goal(
 ):
     """Create a new savings goal."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().savings_goal_service().create_goal(
         acc_no=acc_no,
         name=req.name,
@@ -1022,7 +1022,7 @@ def update_savings_goal(
 ):
     """Update a savings goal."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     goal_repo = get_container().savings_goal_repo()
 
     goal = goal_repo.get(goal_id)
@@ -1109,7 +1109,7 @@ def delete_savings_goal(
 ):
     """Delete a savings goal and refund the amount to your balance."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().savings_goal_service().delete_goal(
         acc_no=acc_no, goal_id=goal_id
     )
@@ -1124,7 +1124,7 @@ def delete_savings_goal(
 def apply_interest(request: Request, customer: dict = Depends(get_current_customer)):
     """Apply monthly interest (3.5% p.a.) using an atomic SQLite transaction."""
     acc_no = customer["account_number"]
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     domain_account = get_container().account_repo().get(acc_no)
     if not domain_account:
         raise HTTPException(status_code=404, detail="Account not found.")
@@ -1151,8 +1151,8 @@ def admin_view_accounts(
     admin: dict = Depends(get_current_admin),
 ):
     """View all registered accounts with pagination (admin only)."""
-    from infrastructure.container import get_container
-    from infrastructure.cache import get_cache
+    from unionbank.infrastructure.container import get_container
+    from unionbank.infrastructure.cache import get_cache
 
     cache = get_cache()
     cache_key = f"admin:accounts:page:{page}:per:{per_page}"
@@ -1202,8 +1202,8 @@ def admin_search_accounts(
     admin: dict = Depends(get_current_admin),
 ):
     """Search accounts by account number or name (admin only)."""
-    from infrastructure.container import get_container
-    from infrastructure.cache import get_cache
+    from unionbank.infrastructure.container import get_container
+    from unionbank.infrastructure.cache import get_cache
 
     cache = get_cache()
     cache_key = f"admin:accounts:search:{q}:page:{page}:per:{per_page}"
@@ -1248,7 +1248,7 @@ def admin_freeze_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Freeze a customer account (admin only)."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().admin_service().freeze_account(
         acc_no=acc_no, actor="admin"
     )
@@ -1268,7 +1268,7 @@ def admin_unfreeze_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Unfreeze a customer account (admin only)."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().admin_service().unfreeze_account(
         acc_no=acc_no, actor="admin"
     )
@@ -1288,7 +1288,7 @@ def admin_delete_account(
     admin: dict = Depends(get_current_admin),
 ):
     """Permanently delete a customer account and all its transactions (admin only)."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().admin_service().delete_account(
         acc_no=acc_no, actor="admin"
     )
@@ -1302,7 +1302,7 @@ def admin_delete_account(
 @limiter.limit("30/minute")
 def admin_statistics(request: Request, admin: dict = Depends(get_current_admin)):
     """View bank-wide statistics (admin only)."""
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     s = get_container().admin_service().get_statistics()
 
     return StatisticsResponse(
@@ -1371,7 +1371,7 @@ def admin_change_password(
 ):
     """Change the admin password (admin only)."""
     username = admin.get("username")
-    from infrastructure.container import get_container
+    from unionbank.infrastructure.container import get_container
     result = get_container().admin_service().change_admin_password(
         username=username or "admin",
         current_pwd=req.current_password,
@@ -1417,7 +1417,7 @@ def refresh_token(request: Request, req: RefreshRequest):
             _, old_token_id = old_sub.rsplit(":", 1)
             revoke_refresh_token(old_token_id)
     except Exception:
-        from logger import logger
+        from unionbank.utils.logger import logger
         logger.warning("Failed to revoke old refresh token during rotation", exc_info=True)
 
     tokens = create_token_pair(subject=result["account_number"], role=result["role"])
@@ -1581,7 +1581,7 @@ def liveness_probe():
 @app.get("/api/readyz")
 def readiness_probe():
     """Kubernetes readiness probe — checks database connectivity."""
-    from infrastructure.database import get_session
+    from unionbank.infrastructure.database import get_session
     from sqlalchemy import text
     try:
         session = get_session()

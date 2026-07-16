@@ -18,16 +18,9 @@ import json
 import os
 import sys
 
-# ── Bootstrap: add project paths so we can import from the unionbank package ──
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_SRC_DIR = os.path.join(_PROJECT_ROOT, "src")
-_UNIONBANK_DIR = os.path.join(_SRC_DIR, "unionbank")
-for p in (_UNIONBANK_DIR, _SRC_DIR, _PROJECT_ROOT):
-    if p not in sys.path:
-        sys.path.insert(0, p)
-
-# Import the core engine from the shared module
-from utils.analyzr_core import (  # noqa: E402
+# The unionbank package is installed via pip install -e ., so all
+# imports use the unionbank. prefix. No sys.path manipulation needed.
+from unionbank.utils.analyzr_core import (
     execute_query,
     INTENT_PATTERNS,
 )

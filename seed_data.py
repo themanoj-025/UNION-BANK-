@@ -18,21 +18,13 @@ import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-# Ensure project root and src/ are importable
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-_SRC_DIR = os.path.join(BASE_DIR, "src")
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
-
 # Set testing-friendly env vars so Config doesn't require real secrets
 os.environ.setdefault("UNION_BANK_TESTING", "1")
 os.environ.setdefault("JWT_SECRET", "seed-data-secret")
 os.environ.setdefault("FLASK_SECRET_KEY", "seed-data-flask-key")
 
-from utils.hashing import hash_password
-from config import settings
+from unionbank.utils.hashing import hash_password
+from unionbank.config import settings
 
 # ── Configuration ────────────────────────────────────────────────────────────
 NUM_ACCOUNTS = 5000

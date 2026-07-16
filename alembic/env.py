@@ -8,12 +8,8 @@ from pathlib import Path
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-# Ensure project root is importable
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_DIR))
-
 # Import our models for autogenerate support
-from infrastructure.database import ModelBase as Base  # noqa: E402
+from unionbank.infrastructure.database import ModelBase as Base
 
 # Alembic Config
 config = context.config

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import threading
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -74,7 +75,9 @@ from .interfaces import (
 # deadlock-free acquisition when multiple accounts are involved (transfer).
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_account_locks: dict[str, threading.Lock] = {}
+# Default dict with threading.Lock factory ensures thread-safe lock creation
+# (avoids TOCTOU race between the "not in" check and lock creation).
+_account_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
 
 
 @contextmanager
@@ -88,8 +91,6 @@ def _account_lock(*acc_nos: str) -> Generator[None, None, None]:
     """
     sorted_nos = sorted(acc_nos)
     for acc_no in sorted_nos:
-        if acc_no not in _account_locks:
-            _account_locks[acc_no] = threading.Lock()
         _account_locks[acc_no].acquire()
     try:
         yield

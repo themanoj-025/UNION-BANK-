@@ -771,6 +771,7 @@ def deposit_money(
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
+    _invalidate_admin_account_cache()  # Balance changed — admin list is stale
     return MessageResponse(message=result.message)
 
 
@@ -797,6 +798,7 @@ def withdraw_money(
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
+    _invalidate_admin_account_cache()  # Balance changed — admin list is stale
     return MessageResponse(message=result.message)
 
 
@@ -861,6 +863,7 @@ def transfer_funds(
             detail=result.error_message,
         )
 
+    _invalidate_admin_account_cache()  # Both balances changed
     return MessageResponse(
         message=f"{fmt_currency(req.amount)} transferred to {receiver.name} "
                 f"({target_acc_no}). New balance: {fmt_currency(float(result.sender_balance))}",
@@ -1211,13 +1214,11 @@ def admin_view_accounts(
     if cached is not None:
         return [AccountListItem(**item) for item in cached]
 
-    domain_accounts = get_container().admin_service().list_accounts()
-
-    # Paginate in memory (acceptable for admin panels with moderate account counts)
-    total = len(domain_accounts)
-    start = (page - 1) * per_page
-    end = start + per_page
-    page_accounts = domain_accounts[start:end]
+    # Use SQL-level pagination instead of loading all accounts into memory
+    domain_accounts, total = get_container().admin_service().list_accounts_paginated(
+        page=page, per_page=per_page
+    )
+    page_accounts = domain_accounts
 
     result = [
         AccountListItem(
@@ -1241,6 +1242,15 @@ def admin_view_accounts(
     return result
 
 
+def _invalidate_admin_account_cache():
+    """Invalidate all cached admin account list pages after a write."""
+    try:
+        from unionbank.infrastructure.cache import get_cache
+        get_cache().clear_pattern("admin:accounts:*")
+    except Exception:
+        pass  # Non-fatal — cache miss is acceptable
+
+
 @app.get("/api/admin/accounts/search", response_model=list[AccountListItem])
 @limiter.limit("30/minute")
 def admin_search_accounts(
@@ -1261,8 +1271,8 @@ def admin_search_accounts(
     if cached is not None:
         return [AccountListItem(**item) for item in cached]
 
+    # Search accounts then paginate in-memory (search is inherently bounded)
     domain_accounts = get_container().admin_service().search_accounts(q)
-
     total = len(domain_accounts)
     start = (page - 1) * per_page
     end = start + per_page
@@ -1306,6 +1316,7 @@ def admin_freeze_account(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
+    _invalidate_admin_account_cache()  # Account status changed
     return MessageResponse(message=result.message)
 
 
@@ -1326,6 +1337,7 @@ def admin_unfreeze_account(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
 
+    _invalidate_admin_account_cache()  # Account status changed
     return MessageResponse(message=result.message)
 
 
@@ -1344,6 +1356,7 @@ def admin_delete_account(
     if not result.success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
 
+    _invalidate_admin_account_cache()  # Account deleted
     return MessageResponse(message=result.message)
 
 

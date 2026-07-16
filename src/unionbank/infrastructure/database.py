@@ -101,31 +101,37 @@ def get_engine():
 
         _engine_instance = create_engine(db_url, **engine_kwargs)
 
+        # ── BEGIN IMMEDIATE prevents lost updates under WAL concurrency ──────
+        # SQLite's default BEGIN DEFERRED allows snapshot isolation reads that
+        # can see stale balances under concurrent writes. BEGIN IMMEDIATE
+        # acquires a reserved write lock at transaction start, serializing
+        # writers so each transaction sees the latest committed state.
+        #
+        # engine.execution_options() is the correct SQLAlchemy 2.0 API for this
+        # (SQLAlchemy's SQLite dialect translates isolation_level="IMMEDIATE"
+        # into BEGIN IMMEDIATE commands). The raw sqlite3 connection setting
+        # (dbapi_connection.isolation_level) cannot be used because
+        # SQLAlchemy's session lifecycle explicitly issues BEGIN DEFERRED,
+        # overriding the raw setting.
+        _engine_instance = _engine_instance.execution_options(
+            isolation_level="IMMEDIATE"
+        )
+
         @event.listens_for(_engine_instance, "connect")
         def _set_pragmas(dbapi_connection, connection_record):
             """Enable WAL mode and foreign keys for better performance and integrity.
 
-            Also sets isolation_level='IMMEDIATE' on the raw sqlite3 connection to
-            force BEGIN IMMEDIATE for all transactions. This acquires a reserved
-            write lock at transaction START, preventing the lost-update problem
-            under concurrent WAL mode writes (the root cause of the concurrent
-            transfer race condition).
-            """
-            # Force BEGIN IMMEDIATE — acquires a reserved write lock immediately,
-            # serializing concurrent writers so each sees the latest committed
-            # balance before modifying it. This prevents the "lost update" race
-            # where concurrent sessions read stale snapshots under WAL mode.
-            # No busy_timeout: concurrent writers that can't acquire the lock
-            # fail immediately with "database is locked" (handled by services),
-            # rather than blocking and possibly reading stale data.
-            dbapi_connection.isolation_level = "IMMEDIATE"
+            BEGIN IMMEDIATE is set via engine.execution_options() (see above),
+            NOT on the raw connection, because SQLAlchemy's session management
+            overrides the raw sqlite3 isolation_level setting.
 
+            No busy_timeout: concurrent writers that can't acquire the lock
+            immediately fail with "database is locked" (handled by services),
+            rather than blocking and possibly reading stale data from a snapshot.
+            """
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA foreign_keys=ON")
-            # Explicitly NO busy_timeout — writers that can't acquire lock
-            # immediately fail so services can retry, rather than blocking and
-            # potentially reading stale data from a snapshot.
             cursor.close()
     else:
         # PostgreSQL — explicit pool settings

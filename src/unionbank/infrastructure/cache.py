@@ -247,7 +247,7 @@ def get_cache() -> Cache:
     """
     global _cache_instance
     if _cache_instance is None:
-        from config import settings
+        from unionbank.config import settings
 
         redis_url = getattr(settings, "REDIS_URL", None)
         if redis_url:

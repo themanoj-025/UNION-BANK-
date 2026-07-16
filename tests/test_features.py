@@ -2,13 +2,10 @@
 """
 import json
 import os
-import sys
 import tempfile
 import time
 
 import pytest
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from unionbank.entrypoints.cli.account import Account
 from unionbank.entrypoints.cli.ui import prompt_password
@@ -223,10 +220,9 @@ class TestTransactionCategories:
         """Test that log_transaction stores the category field (via SQLite)."""
         # Create a temp account and call log_transaction directly
         # Note: log_transaction now writes to SQLite only (no JSON)
-        from infrastructure.container import get_container
+        from unionbank.infrastructure.container import get_container
         c = get_container()
 
-        from account import Account
         data = {
             "account_number": "8888888888",
             "name": "Category Test",

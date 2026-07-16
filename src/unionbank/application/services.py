@@ -141,7 +141,7 @@ class AuthService:
             try:
                 self.notif_service.notify_welcome(acc_no)
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send welcome notification", exc_info=True)
 
         return ServiceResult(
@@ -306,7 +306,7 @@ class TransactionService:
                     data=data.get("data"),
                 )
             except (json.JSONDecodeError, KeyError):
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to parse cached idempotency result", exc_info=True)
                 return ServiceResult(
                     success=True,
@@ -336,7 +336,7 @@ class TransactionService:
             self.idempotency_repo.create(record)
             self.idempotency_repo.commit()
         except Exception:
-            from logger import logger
+            from unionbank.utils.logger import logger
             logger.warning("Failed to persist idempotency record", exc_info=True)
             self.idempotency_repo.rollback()
 
@@ -389,7 +389,7 @@ class TransactionService:
                     acc_no, amount, account.balance, txn.txn_id
                 )
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send deposit notification", exc_info=True)
 
         return result
@@ -450,7 +450,7 @@ class TransactionService:
                     acc_no, amount, account.balance, txn.txn_id
                 )
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send withdraw notification", exc_info=True)
 
         return result
@@ -540,7 +540,7 @@ class TransactionService:
                 self.txn_repo.create(sender_txn)
                 self.txn_repo.create(receiver_txn)
         except Exception:
-            from logger import logger
+            from unionbank.utils.logger import logger
             logger.error("Transfer savepoint failed, rolling back", exc_info=True)
             self.account_repo.rollback()
             return TransferResult(
@@ -561,7 +561,7 @@ class TransactionService:
                     receiver_acc_no, amount, sender_acc_no, receiver.balance, receiver_txn.txn_id
                 )
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send transfer notification", exc_info=True)
 
         result = TransferResult(
@@ -588,7 +588,7 @@ class TransactionService:
                 self.idempotency_repo.create(record)
                 self.idempotency_repo.commit()
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to persist idempotency record for transfer", exc_info=True)
                 self.idempotency_repo.rollback()
 
@@ -633,7 +633,7 @@ class TransactionService:
                     acc_no, interest, account.balance, txn.txn_id
                 )
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send interest notification", exc_info=True)
 
         return ServiceResult(
@@ -757,7 +757,7 @@ class AdminService:
                     acc_no, reason=reason or ""
                 )
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send freeze notification", exc_info=True)
 
         return ServiceResult(success=True, message=f"Account {acc_no} ({account.name}) has been frozen.")
@@ -788,7 +788,7 @@ class AdminService:
             try:
                 self.notif_service.notify_account_unfrozen(acc_no)
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send unfreeze notification", exc_info=True)
 
         return ServiceResult(success=True, message=f"Account {acc_no} ({account.name}) has been unfrozen.")
@@ -1086,7 +1086,7 @@ class LoanService:
                     loan.loan_type, loan.loan_id,
                 )
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send loan approval notification", exc_info=True)
 
         return ServiceResult(
@@ -1128,7 +1128,7 @@ class LoanService:
                     loan.account_number, loan.loan_type, loan.loan_id, reason
                 )
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send loan rejection notification", exc_info=True)
 
         return ServiceResult(
@@ -1225,7 +1225,7 @@ class LoanService:
                         acc_no, loan.loan_type, loan.loan_id
                     )
             except Exception:
-                from logger import logger
+                from unionbank.utils.logger import logger
                 logger.warning("Failed to send EMI notification", exc_info=True)
 
         return ServiceResult(

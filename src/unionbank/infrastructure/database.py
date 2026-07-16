@@ -109,6 +109,22 @@ def get_engine():
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA busy_timeout=5000")
             cursor.close()
+
+        @event.listens_for(_engine_instance, "begin")
+        def do_begin(conn):
+            """Force BEGIN IMMEDIATE for SQLite to serialize concurrent write transactions.
+
+            SQLite's default transaction mode is DEFERRED, which only acquires a read
+            lock initially. Under WAL mode, this creates snapshot isolation where
+            concurrent threads can read stale balances. BEGIN IMMEDIATE acquires a
+            reserved write lock at transaction start, ensuring each writer sees the
+            latest committed data and preventing lost updates under concurrency.
+
+            This is critical for concurrent transfer/deposit/withdraw operations.
+            Without this, parallel money-movement requests can silently lose updates
+            (the "lost update" problem).
+            """
+            conn.execute("BEGIN IMMEDIATE")
     else:
         # PostgreSQL — explicit pool settings
         engine_kwargs["pool_size"] = settings.DB_POOL_SIZE

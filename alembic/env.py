@@ -8,6 +8,9 @@ from pathlib import Path
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
+# Compute project root for data directory fallback
+_PROJECT_DIR = Path(__file__).resolve().parent.parent
+
 # Import our models for autogenerate support
 from unionbank.infrastructure.database import ModelBase as Base
 
@@ -15,7 +18,7 @@ from unionbank.infrastructure.database import ModelBase as Base
 config = context.config
 
 # Override sqlalchemy.url to use the correct data directory
-data_dir = os.environ.get("UNION_BANK_DATA_DIR", str(PROJECT_DIR / "data"))
+data_dir = os.environ.get("UNION_BANK_DATA_DIR", str(_PROJECT_DIR / "data"))
 db_path = Path(data_dir) / "union_bank.db"
 config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
 

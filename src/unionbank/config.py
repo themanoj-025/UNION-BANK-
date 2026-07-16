@@ -146,6 +146,12 @@ class Config:
                 f"Invalid ENV value: '{self.ENV}'. Must be one of: "
                 f"development, testing, production."
             )
+        # Fail-fast: RS256 requires RSA keys (except in testing mode with fallback)
+        if self.JWT_ALGORITHM == "RS256" and not self.JWT_PRIVATE_KEY:
+            raise RuntimeError(
+                "JWT_ALGORITHM is RS256 but JWT_PRIVATE_KEY is not set. "
+                "Generate an RSA key pair or set JWT_ALGORITHM=HS256 for development."
+            )
 
     # ── Transaction categories ────────────────────────────────────────────────
     TRANSACTION_CATEGORIES: list[str] = field(default_factory=lambda: [

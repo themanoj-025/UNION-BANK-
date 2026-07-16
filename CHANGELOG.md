@@ -7,6 +7,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] — 2026-07-17
+
+### Added
+
+#### 🏗 Architecture Consolidation (Phase -1 & 1)
+- **Forensic inventory** (`INVENTORY.md`) — Module-by-module classification as LIVE/DEAD/AMBIGUOUS with import-graph evidence. Zero AMBIGUOUS entries remaining.
+- **Single canonical tree** — Consolidated from 2-3 overlapping code generations to `src/unionbank/` with clean layered architecture (domain → application → infrastructure → entrypoints → utils)
+- **Dead code deleted** — Removed all root-level Flask/JSON files (`account.py`, `admin.py`, `bank.py`, `ui.py`, `config.py`, `container.py`, `database.py`, `logger.py`, `models.py`) and stale `templates/`, `static/` directories
+- **God module split** — `utils/auth.py` (was hashing + rate limiting + sessions + CSV export + interest + categories) split into focused modules: `hashing.py`, `rate_limit.py`, `csv_export.py`, `interest.py`, `categories.py`, `formatting.py`, `validation.py`
+- **Versioned API** — `/api/v1/` (legacy, deprecated) and `/api/v2/` (current, envelope-wrapped `ApiResponse[T]`) with deprecation headers
+- **ADR-0001** — Service layer consolidation: single canonical tree, protocol-based DI
+
+#### 🛡 Security Hardening (Phase 2)
+- **Password leak fixed** — Removed password hash from all API responses. Test `test_password_leak.py` enforces no response model contains a "password" key.
+- **TOTP 2FA completed** — Fully implemented for admin: enrollment (QR provisioning URI), verification (pyotp with valid_window=1), login enforcement, disable with TOTP code. 4 endpoints: status/setup/verify/disable.
+- **DB-backed refresh tokens** — Rotation + revocation (old token revoked on each refresh). Stored in SQLite with expiry tracking.
+- **Token versioning** — Password change increments version → all existing JWTs invalidated. Tested in `test_integration.py`.
+- **Rate limiting** — Account-aware (5 failed attempts → 15-min lockout) per-account + IP-based (slowapi) on all endpoints: login (10/min), register (5/min), deposit/withdraw/transfer (10/min), admin (10-30/min)
+- **CSRF protection** — Origin/Referer validation middleware (defense in depth for Bearer-token API)
+- **Security headers** — HSTS, X-Frame-Options, X-Content-Type-Options, CSP, Permissions-Policy, X-XSS-Protection via middleware
+- **Bare except:pass banned** — All exception handlers log with context. CI grep-check enforces no silent swallowing.
+- **THREAT_MODEL.md** — 10 threats documented with STRIDE classification, risk assessment, mitigations, and incident response procedures
+- **ADR-0002** — Token strategy, 2FA, and CSRF defense-in-depth architecture
+- **ADR-0003** — TOTP 2FA completion: enrollment, verification, login enforcement, disable
+
+#### 💾 Data Integrity & Compliance (Phase 3)
+- **Soft-delete** — Accounts now use `deleted_at` timestamp instead of hard-delete. Default queries filter out soft-deleted records. Transaction history survives account "deletion."
+- **Idempotency keys** — `IdempotencyRecord` entity + `_check_idempotency()` in TransactionService. Deposit/withdraw/transfer endpoints accept `idempotency_key` — retries return cached result instead of re-executing.
+- **Concurrent transfer safety** — 10 parallel transfers with `ThreadPoolExecutor` prove no lost updates, no double-spending.
+- **ADR-0004** — Data retention: soft-delete + idempotency framed around banking regulatory norms
+
+#### 🗄 Database & Performance (Phase 4)
+- **Alembic migrations** — Migration infrastructure with versioned schema changes. 5 migration round-trip tests.
+- **PostgreSQL support** — `DATABASE_URL` env var for PostgreSQL. Migration path via Alembic. Documented in ADR-0005.
+- **Pagination** — Offset-based pagination on admin account list, admin transactions. Keyset (cursor-based) pagination on statements.
+- **Aggregated statistics** — `get_statistics()` consolidated from 9 separate queries to single pass.
+- **Redis caching** — Wired for admin account list with 60s TTL, invalidation-on-write pattern in `infrastructure/cache.py`.
+- **Bounded account number generation** — Hard cap at 1000 retries with `RuntimeError` (previously unbounded loop).
+- **Database indexes** — Composite indexes on accounts (status, name+number, created+deleted, mobile), transactions (account+timestamp, timestamp+type), loans, savings, notifications.
+- **ADR-0005** — PostgreSQL migration strategy
+
+#### 🔬 Observability (Phase 6)
+- **Prometheus metrics** — `MetricsMiddleware` wired on FastAPI app. `/metrics` endpoint exposes request rate, latency histogram, in-flight requests, error rate, cache hit/miss.
+- **Structured JSON logging** — JSON format → `bank.jsonl` with `request_id`, account context, level. Uvicorn access logs routed through same logger.
+- **Request tracing** — Every request gets unique `X-Request-ID` header propagated through all log lines.
+- **Health probes** — `/api/healthz` (liveness), `/api/readyz` (readiness with DB connectivity check).
+- **RUNBOOK.md** — Incident response procedures, troubleshooting guides, operational runbook.
+
+#### 🔍 Analyzr — Natural-Language Search (Phase 8)
+- **Zero-dependency offline engine** — `utils/analyzr_core.py` with 20 intent patterns, regex-based classification, amount extraction, time window computation. No LLM costs, no API latency.
+- **53 unit tests** — Covering intent detection, amount parsing (over/under/between/currency), time windows (today/this week/last month/90 days), averages, edge cases.
+- **API endpoint** — `POST /api/v2/analyzr/query` accepts natural-language query + optional account number.
+- **CLI wrapper** — `scripts/analyzr.py` with argparse, color output, JSON mode, query pattern listing.
+
+#### 🧪 Testing Expansion (Phase 7)
+- **256 tests** (up from ~149) — Full coverage boost from 26% → 72%.
+- **Property-based tests** — 5 hypothesis invariants + stateful money machine for transfer correctness.
+- **Concurrency tests** — 10 parallel transfers proving no race conditions or lost updates.
+- **Security tests** — Password leak detection, JWT tampering, expired token rejection, SQL injection attempts.
+- **Edge-case tests** — 44 tests covering formatting edge cases, category handling, file I/O corruption recovery, fakes with constraint violations.
+- **Migration tests** — 5 Alembic round-trip tests (upgrade, downgrade, idempotent, table verification).
+- **E2E API tests** — `e2e_test.py` with 23 black-box API endpoint tests covering V1, V2, and Admin flows.
+
+#### ⚙️ Tooling & DevOps (Phase 9)
+- **Dependencies cleaned** — Removed Dead deps: Flask, Flask-WTF, fpdf2. Versions pinned with `==` in `requirements.txt` + `requirements-lock.txt` for transitive deps.
+- **FastAPI-only Docker** — Multi-stage Docker build with single `api` target (no Flask `web` stage). `docker-entrypoint.sh` uses `unionbank.entrypoints.api.main:app`.
+- **CI/CD updates** — Frontend lint + build stages. Ruff lint integrated. Coverage floor at 26%. Docker healthcheck uses `/api/healthz`.
+- **`.gitignore`** — Comprehensive patterns for `__pycache__`, `.db*`, `.jsonl`, `.env*`, `node_modules`, `dist/`, temp test DB dirs.
+
+#### 📚 Documentation & Portfolio Packaging (Phase 10)
+- **README rewrite** — Case-study structure: The Problem → Architecture → 3 Key Engineering Decisions → Security → Observability → Analyzr → Metrics → Testing → Quick Start → 10x Scale. Badges updated (256 tests, 72% coverage).
+- **SELF_AUDIT.md** — Finding-by-finding reconciliation of all 38 items from both original audits. Scoring: original 3.4/10 → current 8.1/10.
+- **6 Architecture Decision Records** — ADR-0001 through ADR-0005 covering consolidation, security, TOTP, data retention, PostgreSQL.
+- **THREAT_MODEL.md** — 10 threats with STRIDE, risk assessment, mitigation, incident response.
+- **RUNBOOK.md** — Operational runbook for production troubleshooting.
+- **TS_MIGRATION.md** — 3-phase TypeScript migration plan for the React frontend.
+
+### Changed
+
+- **API base URL** — Frontend changed from hardcoded `http://localhost:8000` to relative URL via Vite proxy (`/api/*` → `localhost:8000`).
+- **Vite proxy** — Added proxy config in `vite.config.js` for same-origin API requests.
+- **Container imports** — All `from container import get_container` replaced with `from infrastructure.container import get_container` (80 refs). Backward-compat shim deleted.
+- **Ruff config** — Added docstring style rules (D101, D102, D103, D200, D204, D212, D413, I001) to ignore list.
+- **`data/bank.jsonl`, `*.db*`** — Untracked from git index. Now covered by `.gitignore`.
+
+### Fixed
+
+- **`init_db()` relative import** — Changed from `from .persistence import ...` to `from infrastructure.persistence import ...` to fix `ImportError` in ASGI transport context.
+- **`init_db()` module-level call** — Moved to FastAPI lifespan handler (asynccontextmanager) so all imports resolve before DB operations run.
+- **`_JSON_LOG_FILE` path** — Fixed from wrong subdirectory to `_PROJECT_ROOT/data/bank.jsonl` with `os.makedirs()`.
+- **Admin login in E2E tests** — Added `_ensure_admin_exists()` to create admin user before tests.
+- **`container.py` missing module** — Created backward-compat shim (later resolved to direct `infrastructure.container` imports).
+
+### Removed
+
+- **Root `api.py`** — Deleted (conflicted with `api/` package directory).
+- **Root `main.py`** — CLI entry point replaced by `src/unionbank/entrypoints/cli/main.py`.
+- **Root `src/` shadow files** — `account.py`, `admin.py`, `bank.py`, `ui.py`, `config.py`, `container.py`, `database.py`, `logger.py`, `models.py` — all shadowed by `src/` versions, now deleted.
+- **Flask templates** — `templates/` directory (26+ HTML files).
+- **Static assets** — `static/style.css`, legacy frontend.
+- **Flask application** — `webapp.py` and `tests/test_htmx_integration.py`.
+- **`services.py`, `repositories.py`** — Replaced by `application/services.py` and `infrastructure/repositories.py`.
+- **`container.py` shim** — Backward-compat shim deleted after all 80 imports updated to `infrastructure.container`.
+
+---
+
 ## [2.0.0] — 2026-06-02
 
 ### Added

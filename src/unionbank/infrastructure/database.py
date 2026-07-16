@@ -208,7 +208,7 @@ def close_session():
         try:
             _thread_local.session.close()
         except Exception:
-            from logger import logger
+            from unionbank.utils.logger import logger
             logger.warning("Failed to close database session", exc_info=True)
         _thread_local.session = None
 

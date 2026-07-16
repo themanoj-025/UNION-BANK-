@@ -229,6 +229,46 @@ def atomic_session() -> Generator[Session, None, None]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  Asynchronous session management
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def get_async_session() -> AsyncSession:
+    """Get an async database session (for asyncpg Postgres connections).
+
+    Raises RuntimeError if the current database URL is SQLite (which doesn't
+    support async access).
+    """
+    engine = get_async_engine()
+    if engine is None:
+        raise RuntimeError(
+            "Async sessions are not available with SQLite. "
+            "Set DATABASE_URL to a PostgreSQL connection string to use async."
+        )
+    return _async_session_maker()
+
+
+@asynccontextmanager
+async def async_atomic_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provide an async transactional scope — commits on success, rolls back on exception."""
+    engine = get_async_engine()
+    if engine is None:
+        raise RuntimeError(
+            "Async atomic sessions are not available with SQLite. "
+            "Set DATABASE_URL to a PostgreSQL connection string."
+        )
+    session = _async_session_maker()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  DB Initialization
 # ═══════════════════════════════════════════════════════════════════════════════
 

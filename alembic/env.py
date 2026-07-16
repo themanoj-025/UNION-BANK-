@@ -11,13 +11,19 @@ from pathlib import Path
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-from unionbank.infrastructure.database import ModelBase as Base, get_db_url, is_sqlite
-
 # Compute project root for data directory fallback
 _PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 # Alembic Config
 config = context.config
+
+# Set up Python logging from the ini file FIRST
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# Import models AFTER logging is configured
+from unionbank.infrastructure.database import ModelBase as Base, get_db_url, is_sqlite  # noqa: E402
+target_metadata = Base.metadata
 
 # Determine the database URL from settings (respects DATABASE_URL env var)
 db_url = get_db_url()
@@ -30,13 +36,6 @@ if is_sqlite(db_url):
 else:
     # For PostgreSQL, use the DATABASE_URL directly
     config.set_main_option("sqlalchemy.url", db_url)
-
-# Import our models for autogenerate support
-target_metadata = Base.metadata
-
-# Set up Python logging from the ini file
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
 
 
 def run_migrations_offline() -> None:

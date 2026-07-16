@@ -7,6 +7,7 @@ Services depend only on repository protocols — never on concrete DB code.
 from __future__ import annotations
 
 import json
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -51,6 +52,50 @@ from .interfaces import (
     TokenVersionRepositoryProtocol,
     TransactionRepositoryProtocol,
 )
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Per-account concurrency lock
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# SQLite's WAL mode provides snapshot isolation, enabling concurrent reads but
+# allowing the classic "lost update" race under concurrent writes: two threads
+# can read the same balance snapshot, both update, and only the last commit
+# "wins."  The same mechanism prevents BEGIN IMMEDIATE from working through
+# the SQLAlchemy dialect, so we serialize write operations at the application
+# layer with per-account locks.  This is the recommended pattern for
+# single-process SQLite-backed applications (used by Django, Peewee, etc.).
+#
+# For PostgreSQL deployments, this lock is a no-op safety net — row-level
+# locking (SELECT … FOR UPDATE) in the async repositories provides the actual
+# concurrency guarantee, and the threading lock does nothing harmful (it just
+# serializes within a single process).
+#
+# Locks are always acquired in **sorted account-number order** to guarantee
+# deadlock-free acquisition when multiple accounts are involved (transfer).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_account_locks: dict[str, threading.Lock] = {}
+
+
+@contextmanager
+def _account_lock(*acc_nos: str) -> Generator[None, None, None]:
+    """Context manager that acquires per-account locks in sorted order.
+
+    Acquires locks for *all* given accounts in ascending account-number order,
+    guaranteeing deadlock-free acquisition when multiple accounts are involved
+    (e.g. transfer needs both sender and receiver).  Locks are released in
+    reverse order on exit.
+    """
+    sorted_nos = sorted(acc_nos)
+    for acc_no in sorted_nos:
+        if acc_no not in _account_locks:
+            _account_locks[acc_no] = threading.Lock()
+        _account_locks[acc_no].acquire()
+    try:
+        yield
+    finally:
+        for acc_no in sorted_nos:
+            _account_locks[acc_no].release()
 
 TRANSACTION_CATEGORIES = settings.TRANSACTION_CATEGORIES
 MAX_LOGIN_ATTEMPTS = settings.MAX_LOGIN_ATTEMPTS

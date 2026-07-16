@@ -5,7 +5,7 @@ Provides a clean cache abstraction with two implementations:
 - NullCache: no-op fallback for development/testing
 
 Usage:
-    from infrastructure.cache import cache
+    from unionbank.infrastructure.cache import cache
 
     @cache.cached(ttl=60)
     def expensive_query():

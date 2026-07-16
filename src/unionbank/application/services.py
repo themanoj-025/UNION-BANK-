@@ -553,8 +553,11 @@ class TransactionService:
         # ── Atomic transaction: all DB writes succeed or none do ──────────────
         # Wrapped in begin_nested() savepoint so a crash mid-transfer cannot
         # debit one account without crediting the other.
+        # The outer _account_lock serializes concurrent transfers involving
+        # either account, preventing lost updates under SQLite WAL mode.
         try:
-            with self.account_repo.session.begin_nested():
+            with _account_lock(sender_acc_no, receiver_acc_no):
+                with self.account_repo.session.begin_nested():
                 sender.balance -= amount
                 self._ensure_non_negative_balance(sender.balance, "transfer")  # App-level guard
                 receiver.balance += amount

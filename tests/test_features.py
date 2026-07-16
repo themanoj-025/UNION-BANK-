@@ -10,9 +10,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from account import Account
-from ui import prompt_password
-from utils import (
+from unionbank.entrypoints.cli.account import Account
+from unionbank.entrypoints.cli.ui import prompt_password
+from unionbank.utils import (
     LOGIN_LOCKOUT_MINUTES,
     MAX_LOGIN_ATTEMPTS,
     SAVINGS_INTEREST_RATE,
@@ -30,7 +30,7 @@ from utils import (
     record_failed_login,
     reset_login_attempts,
 )
-from utils.file_io import (
+from unionbank.utils.file_io import (
     ACCOUNTS_FILE,
     LOGIN_ATTEMPTS_FILE,
     TRANSACTIONS_FILE,

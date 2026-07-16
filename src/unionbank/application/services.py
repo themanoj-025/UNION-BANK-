@@ -276,6 +276,16 @@ class TransactionService:
         self.notif_service = notif_service
         self.idempotency_repo = idempotency_repo
 
+    def _ensure_non_negative_balance(self, balance: Decimal, operation: str = "transaction") -> None:
+        """App-level guard: raise ValueError if balance would go negative.
+
+        This is a defense-in-depth check — the DB also has a CHECK constraint.
+        The app-level check catches errors before they reach the DB, providing
+        a clearer error message and preventing wasted DB round-trips.
+        """
+        if balance < Decimal("0.00"):
+            raise ValueError(f"Insufficient balance for {operation}.")
+
     def _check_idempotency(
         self, idempotency_key: Optional[str], acc_no: str, operation: str, amount: Decimal
     ) -> Optional[ServiceResult]:
@@ -408,6 +418,7 @@ class TransactionService:
             )
 
         account.balance -= amount
+        self._ensure_non_negative_balance(account.balance, "withdraw")  # App-level guard
         self.account_repo.update(account)
 
         txn = Transaction(
@@ -496,6 +507,7 @@ class TransactionService:
         try:
             with self.account_repo.session.begin_nested():
                 sender.balance -= amount
+                self._ensure_non_negative_balance(sender.balance, "transfer")  # App-level guard
                 receiver.balance += amount
 
                 self.account_repo.update(sender)

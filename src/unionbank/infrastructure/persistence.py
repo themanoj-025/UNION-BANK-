@@ -13,6 +13,7 @@ from decimal import Decimal
 from domain.clock import utcnow as _utcnow  # noqa: F401
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -41,6 +42,8 @@ class AccountModel(ModelBase):
         Index("idx_accounts_created_deleted", "created_at", "deleted_at"),
         # Index for mobile number lookups (admin search)
         Index("idx_accounts_mobile", "mobile"),
+        # DB-level constraint: balance cannot go negative
+        CheckConstraint("balance >= 0", name="ck_accounts_balance_non_negative"),
     )
 
     account_number = Column(String(10), primary_key=True)

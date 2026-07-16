@@ -249,8 +249,8 @@ app.add_middleware(
 # Uses bank.jsonl (the JSON log file) so all structured logs live together.
 from unionbank.utils.logger import JsonFormatter
 
-# Use _PROJECT_ROOT (computed in bootstrap above) for a path that works
-# whether main.py is imported directly or via ASGI transport.
+# Compute project root from this file's location for log file path
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 _JSON_LOG_DIR = os.path.join(_PROJECT_ROOT, 'data')
 os.makedirs(_JSON_LOG_DIR, exist_ok=True)
 _JSON_LOG_FILE = os.path.join(_JSON_LOG_DIR, "bank.jsonl")

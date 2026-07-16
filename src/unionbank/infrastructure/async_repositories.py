@@ -16,11 +16,11 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import case, func, or_, select, update
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from unionbank.application.interfaces import KeysetPage
-from unionbank.domain.clock import utcnow as _utcnow  # noqa: F401
+from unionbank.domain.clock import utcnow as _utcnow
 from unionbank.domain.entities import (
     Account,
     AdminUser,

@@ -12,7 +12,7 @@ from decimal import Decimal
 import pytest
 
 # Import pure functions from analyzr_core (no DB bootstrap needed)
-from utils.analyzr_core import (
+from unionbank.utils.analyzr_core import (
     INTENT_PATTERNS,
     LARGE_AMOUNT_MULTIPLIER,
     SMALL_AMOUNT_MULTIPLIER,

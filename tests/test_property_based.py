@@ -16,12 +16,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from application.services import (
+from unionbank.application.services import (
     AccountService,
     AuthService,
     TransactionService,
 )
-from domain.entities import Account, Transaction, TransactionType
+from unionbank.domain.entities import Account, Transaction, TransactionType
 from hypothesis import assume, given
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule

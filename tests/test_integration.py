@@ -110,7 +110,7 @@ class TestAccountCRUD:
 
     def test_idempotency_repo_create_and_get(self, c):
         """Verify the idempotency repository can create and retrieve records."""
-        from domain.entities import IdempotencyRecord
+        from unionbank.domain.entities import IdempotencyRecord
         repo = c.idempotency_repo()
 
         record = IdempotencyRecord(
@@ -270,7 +270,7 @@ class TestAccountCRUD:
         repo.commit()
 
         # Create a transaction for this account
-        from domain.entities import Transaction
+        from unionbank.domain.entities import Transaction
         txn = Transaction(
             txn_id="TXN-DELETETEST",
             account_number="1000000001",
@@ -576,7 +576,7 @@ class TestAuthFlow:
 
     def test_register_and_login_flow(self, c):
         """Full auth flow: register → login → verify session data."""
-        from utils.hashing import hash_password, verify_password
+        from unionbank.utils.hashing import hash_password, verify_password
 
         # Register via auth service
         auth = c.auth_service()
@@ -602,7 +602,7 @@ class TestAuthFlow:
         admin_repo = c.admin_repo()
 
         # Create admin user directly in DB
-        from domain.entities import AdminUser
+        from unionbank.domain.entities import AdminUser
         admin = AdminUser(
             username="test_admin",
             password=hash_password("AdminStr0ng!"),
@@ -642,7 +642,7 @@ class TestConcurrentTransfers:
         import concurrent.futures
 
         repo = c.account_repo()
-        from domain.entities import Account
+        from unionbank.domain.entities import Account
 
         INITIAL_BALANCE = Decimal("10000.00")
 
@@ -669,7 +669,7 @@ class TestConcurrentTransfers:
 
         def do_transfer(_):
             """Execute one transfer in its own thread-local session."""
-            from infrastructure.container import get_container
+            from unionbank.infrastructure.container import get_container
             local_c = get_container()
             return local_c.transaction_service().transfer(
                 sender_acc_no="1000000001",
@@ -719,7 +719,7 @@ class TestConcurrentTransfers:
         import concurrent.futures
 
         repo = c.account_repo()
-        from domain.entities import Account
+        from unionbank.domain.entities import Account
 
         acc = Account(
             account_number="1000000001",
@@ -735,7 +735,7 @@ class TestConcurrentTransfers:
         num_deposits = 20
 
         def do_deposit(_):
-            from infrastructure.container import get_container
+            from unionbank.infrastructure.container import get_container
             local_c = get_container()
             return local_c.transaction_service().deposit(
                 acc_no="1000000001",

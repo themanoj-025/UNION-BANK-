@@ -444,11 +444,13 @@ class SqlAlchemyAdminRepository:
         return map_admin(model) if model else None
 
     def create(self, admin: AdminUser) -> AdminUser:
+        # Encrypt TOTP secret before storing if present
+        from unionbank.utils.token_security import encrypt_totp_secret
         model = AdminModel(
             username=admin.username,
             password=admin.password,
             role=admin.role or "admin",
-            totp_secret=admin.totp_secret,
+            totp_secret=encrypt_totp_secret(admin.totp_secret),
             totp_enabled=admin.totp_enabled,
         )
         self.session.add(model)
@@ -465,7 +467,9 @@ class SqlAlchemyAdminRepository:
         model = self.session.query(AdminModel).filter_by(username=username).first()
         if model is None:
             return False
-        model.totp_secret = totp_secret
+        # Encrypt TOTP secret before storing (defense-in-depth: plaintext in DB is a liability)
+        from unionbank.utils.token_security import encrypt_totp_secret
+        model.totp_secret = encrypt_totp_secret(totp_secret)
         model.totp_enabled = totp_enabled
         return True
 

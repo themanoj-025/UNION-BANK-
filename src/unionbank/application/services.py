@@ -515,7 +515,7 @@ class TransactionService:
         if sender_acc_no == receiver_acc_no:
             return TransferResult(success=False, error_message="Cannot transfer to your own account.")
 
-        # Check idempotency first
+        # Check idempotency first (outside lock — read-only)
         if idempotency_key and self.idempotency_repo:
             existing = self.idempotency_repo.get(idempotency_key)
             if existing is not None:
@@ -530,25 +530,6 @@ class TransactionService:
                 except (json.JSONDecodeError, KeyError):
                     pass
 
-        sender = self.account_repo.get(sender_acc_no)
-        receiver = self.account_repo.get(receiver_acc_no)
-
-        if sender is None:
-            return TransferResult(success=False, error_message="Sender account not found.")
-        if receiver is None:
-            return TransferResult(success=False, error_message="Recipient account not found.")
-
-        if not sender.can_transact:
-            return TransferResult(success=False, error_message="Your account is frozen or closed.")
-        if not receiver.can_transact:
-            return TransferResult(success=False, error_message="Recipient account is frozen or closed.")
-
-        if amount > sender.balance:
-            return TransferResult(
-                success=False,
-                error_message=f"Insufficient balance. Available: {fmt_currency(float(sender.balance))}",
-            )
-
         cat = category if category in TRANSACTION_CATEGORIES else "General"
 
         # ── Atomic transaction: all DB writes succeed or none do ──────────────
@@ -556,11 +537,45 @@ class TransactionService:
         # debit one account without crediting the other.
         # The outer _account_lock serializes concurrent transfers involving
         # either account, preventing lost updates under SQLite WAL mode.
+        # Crucially, account reads happen INSIDE the lock so each thread sees
+        # the latest committed state (not a stale WAL snapshot).
         try:
             with _account_lock(sender_acc_no, receiver_acc_no):
+                sender = self.account_repo.get(sender_acc_no)
+                receiver = self.account_repo.get(receiver_acc_no)
+
+                if sender is None:
+                    return TransferResult(
+                        success=False, error_message="Sender account not found."
+                    )
+                if receiver is None:
+                    return TransferResult(
+                        success=False, error_message="Recipient account not found."
+                    )
+
+                if not sender.can_transact:
+                    return TransferResult(
+                        success=False, error_message="Your account is frozen or closed."
+                    )
+                if not receiver.can_transact:
+                    return TransferResult(
+                        success=False, error_message="Recipient account is frozen or closed."
+                    )
+
+                if amount > sender.balance:
+                    return TransferResult(
+                        success=False,
+                        error_message=(
+                            f"Insufficient balance. "
+                            f"Available: {fmt_currency(float(sender.balance))}"
+                        ),
+                    )
+
                 with self.account_repo.session.begin_nested():
                     sender.balance -= amount
-                    self._ensure_non_negative_balance(sender.balance, "transfer")  # App-level guard
+                    self._ensure_non_negative_balance(
+                        sender.balance, "transfer"
+                    )  # App-level guard
                     receiver.balance += amount
 
                     self.account_repo.update(sender)
@@ -592,26 +607,35 @@ class TransactionService:
                     )
                     self.txn_repo.create(sender_txn)
                     self.txn_repo.create(receiver_txn)
+
+                # Flush savepoint changes to disk (still inside account lock)
+                self.account_repo.commit()
+
+                # Capture values for use outside the lock
+                sender_balance = sender.balance
+                receiver_balance = receiver.balance
+                sender_txn_id = sender_txn.txn_id
+                receiver_txn_id = receiver_txn.txn_id
+
         except Exception:
             from unionbank.utils.logger import logger
-            logger.error("Transfer savepoint failed, rolling back", exc_info=True)
+            logger.error("Transfer failed, rolling back", exc_info=True)
             self.account_repo.rollback()
             return TransferResult(
                 success=False,
                 error_message="Transfer failed due to a database error. Please try again.",
             )
 
-        # Flush savepoint changes to disk
-        self.account_repo.commit()
-
-        # Send notifications (non-fatal if fails)
+        # Send notifications (non-fatal if fails, outside lock)
         if self.notif_service:
             try:
                 self.notif_service.notify_transfer_sent(
-                    sender_acc_no, amount, receiver_acc_no, sender.balance, sender_txn.txn_id
+                    sender_acc_no, amount, receiver_acc_no,
+                    sender_balance, sender_txn_id,
                 )
                 self.notif_service.notify_transfer_received(
-                    receiver_acc_no, amount, sender_acc_no, receiver.balance, receiver_txn.txn_id
+                    receiver_acc_no, amount, sender_acc_no,
+                    receiver_balance, receiver_txn_id,
                 )
             except Exception:
                 from unionbank.utils.logger import logger
@@ -619,11 +643,11 @@ class TransactionService:
 
         result = TransferResult(
             success=True,
-            sender_balance=sender.balance,
-            receiver_balance=receiver.balance,
+            sender_balance=sender_balance,
+            receiver_balance=receiver_balance,
         )
 
-        # Store idempotency result (non-fatal if fails)
+        # Store idempotency result (non-fatal if fails, outside lock)
         if idempotency_key and self.idempotency_repo:
             try:
                 record = IdempotencyRecord(

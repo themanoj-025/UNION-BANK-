@@ -490,39 +490,53 @@ class TransactionService:
 
         cat = category if category in TRANSACTION_CATEGORIES else "General"
 
-        # Atomic debit/credit
-        sender.balance -= amount
-        receiver.balance += amount
+        # ── Atomic transaction: all DB writes succeed or none do ──────────────
+        # Wrapped in begin_nested() savepoint so a crash mid-transfer cannot
+        # debit one account without crediting the other.
+        try:
+            with self.account_repo.session.begin_nested():
+                sender.balance -= amount
+                receiver.balance += amount
 
-        self.account_repo.update(sender)
-        self.account_repo.update(receiver)
+                self.account_repo.update(sender)
+                self.account_repo.update(receiver)
 
-        # Log both transactions
-        now = _utcnow()
-        sender_txn = Transaction(
-            txn_id=generate_transaction_id(),
-            account_number=sender_acc_no,
-            type=TransactionType.TRANSFER_OUT,
-            amount=amount,
-            balance=sender.balance,
-            description=f"Transfer to {receiver_acc_no}",
-            category=cat,
-            target_account=receiver_acc_no,
-            timestamp=now,
-        )
-        receiver_txn = Transaction(
-            txn_id=generate_transaction_id(),
-            account_number=receiver_acc_no,
-            type=TransactionType.TRANSFER_IN,
-            amount=amount,
-            balance=receiver.balance,
-            description=f"Transfer from {sender_acc_no}",
-            category=cat,
-            target_account=sender_acc_no,
-            timestamp=now,
-        )
-        self.txn_repo.create(sender_txn)
-        self.txn_repo.create(receiver_txn)
+                # Log both transactions
+                now = _utcnow()
+                sender_txn = Transaction(
+                    txn_id=generate_transaction_id(),
+                    account_number=sender_acc_no,
+                    type=TransactionType.TRANSFER_OUT,
+                    amount=amount,
+                    balance=sender.balance,
+                    description=f"Transfer to {receiver_acc_no}",
+                    category=cat,
+                    target_account=receiver_acc_no,
+                    timestamp=now,
+                )
+                receiver_txn = Transaction(
+                    txn_id=generate_transaction_id(),
+                    account_number=receiver_acc_no,
+                    type=TransactionType.TRANSFER_IN,
+                    amount=amount,
+                    balance=receiver.balance,
+                    description=f"Transfer from {sender_acc_no}",
+                    category=cat,
+                    target_account=sender_acc_no,
+                    timestamp=now,
+                )
+                self.txn_repo.create(sender_txn)
+                self.txn_repo.create(receiver_txn)
+        except Exception:
+            from logger import logger
+            logger.error("Transfer savepoint failed, rolling back", exc_info=True)
+            self.account_repo.rollback()
+            return TransferResult(
+                success=False,
+                error_message="Transfer failed due to a database error. Please try again.",
+            )
+
+        # Flush savepoint changes to disk
         self.account_repo.commit()
 
         # Send notifications (non-fatal if fails)

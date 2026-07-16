@@ -59,7 +59,7 @@ from unionbank.entrypoints.api.models import (
     TransferRequest,
     UpdateProfileRequest,
 )
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 router = APIRouter(prefix="/api/v2")
 
@@ -144,8 +144,14 @@ async def v2_generic_exception_handler(request, exc: Exception):
 
 
 @router.post("/auth/login", response_model=ApiResponse[TokenData])
-def v2_customer_login(req: LoginRequest):
-    """Authenticate a customer and return a JWT access + refresh token pair."""
+def v2_customer_login(req: LoginRequest, request: Request, response: Response):
+    """Authenticate a customer and return a JWT access + refresh token pair.
+
+    Tokens are set as httpOnly cookies (primary) and returned in the
+    response body (backward compatibility).
+    """
+    from unionbank.utils.cookie_auth import set_auth_cookies
+
     c = _get_container()
     auth_result = c.auth_service().customer_login(req.account_number, req.password)
 
@@ -158,6 +164,16 @@ def v2_customer_login(req: LoginRequest):
         _err(auth_result.message, status.HTTP_401_UNAUTHORIZED, ErrorCode.AUTH_INVALID_CREDENTIALS)
 
     tokens = create_token_pair(subject=req.account_number, role="customer")
+
+    # Set httpOnly cookies — primary token storage
+    set_auth_cookies(
+        response=response,
+        request=request,
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role="customer",
+    )
+
     return _ok(TokenData(
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
@@ -195,8 +211,14 @@ def v2_customer_register(req: RegisterRequest):
 
 
 @router.post("/auth/admin-login", response_model=ApiResponse[TokenData])
-def v2_admin_login(req: AdminLoginRequest):
-    """Authenticate as admin and return a JWT access + refresh token pair."""
+def v2_admin_login(req: AdminLoginRequest, request: Request, response: Response):
+    """Authenticate as admin and return a JWT access + refresh token pair.
+
+    Tokens are set as httpOnly cookies (primary) and returned in the
+    response body (backward compatibility).
+    """
+    from unionbank.utils.cookie_auth import set_auth_cookies
+
     c = _get_container()
     auth_result = c.auth_service().admin_login(req.username, req.password)
 
@@ -207,6 +229,16 @@ def v2_admin_login(req: AdminLoginRequest):
         _err(auth_result.message, status.HTTP_401_UNAUTHORIZED)
 
     tokens = create_token_pair(subject=req.username, role="admin")
+
+    # Set httpOnly cookies — primary token storage
+    set_auth_cookies(
+        response=response,
+        request=request,
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role="admin",
+    )
+
     return _ok(TokenData(
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
@@ -216,19 +248,38 @@ def v2_admin_login(req: AdminLoginRequest):
 
 
 @router.post("/auth/refresh", response_model=ApiResponse[TokenData])
-def v2_refresh_token(req: RefreshRequest):
+def v2_refresh_token(request: Request, response: Response, req: Optional[RefreshRequest] = None):
     """Exchange a refresh token for a new access + refresh token pair.
+
+    Accepts the refresh token from either:
+    1. The request body (backward compatibility)
+    2. The ub_refresh_token httpOnly cookie (new cookie-based flow)
 
     The previous refresh token is revoked (rotation) so it cannot be reused.
     """
-    result = verify_refresh_token(req.refresh_token)
+    from unionbank.utils.cookie_auth import (
+        get_token_from_cookies, set_auth_cookies, clear_auth_cookies,
+    )
+    from unionbank.utils.logger import logger
+
+    # Get refresh token from body or cookie
+    refresh_token_value = None
+    if req and req.refresh_token:
+        refresh_token_value = req.refresh_token
+    else:
+        refresh_token_value = get_token_from_cookies(request, "ub_refresh_token")
+
+    if not refresh_token_value:
+        _err("No refresh token provided.", status.HTTP_401_UNAUTHORIZED)
+
+    result = verify_refresh_token(refresh_token_value)
     if result is None:
         _err("Invalid or expired refresh token.", status.HTTP_401_UNAUTHORIZED)
 
     # Revoke old refresh token (rotation)
     try:
         old_payload = jwt.decode(
-            req.refresh_token,
+            refresh_token_value,
             _get_verifying_key(),
             algorithms=["RS256", "HS256"],
             options={"verify_exp": False},
@@ -238,10 +289,19 @@ def v2_refresh_token(req: RefreshRequest):
             _, old_token_id = old_sub.rsplit(":", 1)
             revoke_refresh_token(old_token_id)
     except Exception:
-        from unionbank.utils.logger import logger
         logger.warning("Failed to revoke old refresh token during rotation", exc_info=True)
 
     tokens = create_token_pair(subject=result["account_number"], role=result["role"])
+
+    # Set new httpOnly cookies
+    set_auth_cookies(
+        response=response,
+        request=request,
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        role=result["role"],
+    )
+
     return _ok(TokenData(
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],

@@ -382,6 +382,47 @@ class IdempotencyRepositoryProtocol(Protocol):
 
 
 @runtime_checkable
+class NotificationServiceProtocol(Protocol):
+    """Interface for the notification service used as a service dependency.
+
+    This is intentionally narrower than the full NotificationService class
+    — consumers only need convenience methods for common notification types.
+    """
+
+    def notify_deposit(self, acc_no: str, amount: Decimal, balance: Decimal,
+                        txn_id: str): ...
+
+    def notify_withdraw(self, acc_no: str, amount: Decimal, balance: Decimal,
+                         txn_id: str): ...
+
+    def notify_transfer_sent(self, acc_no: str, amount: Decimal, target_acc: str,
+                              balance: Decimal, txn_id: str): ...
+
+    def notify_transfer_received(self, acc_no: str, amount: Decimal, from_acc: str,
+                                  balance: Decimal, txn_id: str): ...
+
+    def notify_interest(self, acc_no: str, amount: Decimal, balance: Decimal,
+                        txn_id: str): ...
+
+    def notify_welcome(self, acc_no: str): ...
+
+    def notify_loan_approved(self, acc_no: str, amount: Decimal,
+                              loan_type: str, loan_id: str): ...
+
+    def notify_loan_rejected(self, acc_no: str, loan_type: str,
+                              loan_id: str, reason: str = ""): ...
+
+    def notify_emi_paid(self, acc_no: str, amount: Decimal, loan_type: str,
+                         loan_id: str, remaining: Decimal): ...
+
+    def notify_loan_closed(self, acc_no: str, loan_type: str, loan_id: str): ...
+
+    def notify_account_frozen(self, acc_no: str, reason: str = ""): ...
+
+    def notify_account_unfrozen(self, acc_no: str): ...
+
+
+@runtime_checkable
 class AuditLogRepositoryProtocol(Protocol):
     """Interface for admin audit log."""
 

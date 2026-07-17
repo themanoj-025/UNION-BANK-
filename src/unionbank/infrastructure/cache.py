@@ -66,6 +66,13 @@ class Cache:
         """Delete all keys matching a glob pattern (e.g. 'accounts:*')."""
         raise NotImplementedError
 
+    def ping(self) -> bool:
+        """Check if the cache backend is reachable.
+
+        Returns True if the cache is available, False otherwise.
+        """
+        return False
+
     def cached(self, ttl: int = 60, key_prefix: str = ""):
         """Decorator: cache the return value of a function.
 
@@ -134,6 +141,9 @@ class NullCache(Cache):
 
     def clear_pattern(self, pattern: str) -> None:
         pass
+
+    def ping(self) -> bool:
+        return False
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -228,6 +238,9 @@ class RedisCache(Cache):
                     break
         except Exception as exc:
             logger.warning("Redis clear_pattern(%r) failed: %s", pattern, exc)
+
+    def ping(self) -> bool:
+        return self._connect()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -22,6 +22,8 @@ from unionbank.domain.entities import (
     AdminUser,
     IdempotencyRecord,
     Loan,
+    LoanStatus,
+    LoanType,
     SavingsGoal,
     ServiceResult,
     TokenVersion,
@@ -49,6 +51,7 @@ from .interfaces import (
     KeysetPage,
     LoanRepositoryProtocol,
     LoginAttemptRepositoryProtocol,
+    NotificationServiceProtocol,
     SavingsGoalRepositoryProtocol,
     TokenVersionRepositoryProtocol,
     TransactionRepositoryProtocol,
@@ -112,7 +115,7 @@ class AuthService:
         admin_repo: AdminRepositoryProtocol,
         login_attempt_repo: LoginAttemptRepositoryProtocol,
         token_version_repo: Optional[TokenVersionRepositoryProtocol] = None,
-        notif_service: Optional = None,
+        notif_service: Optional[NotificationServiceProtocol] = None,
     ):
         self.account_repo = account_repo
         self.admin_repo = admin_repo
@@ -314,8 +317,8 @@ class TransactionService:
         self,
         account_repo: AccountRepositoryProtocol,
         txn_repo: TransactionRepositoryProtocol,
-        notif_service: Optional = None,
-        idempotency_repo: Optional = None,
+        notif_service: Optional[NotificationServiceProtocol] = None,
+        idempotency_repo: Optional[IdempotencyRepositoryProtocol] = None,
     ):
         self.account_repo = account_repo
         self.txn_repo = txn_repo
@@ -684,7 +687,9 @@ class TransactionService:
         if not account.can_transact:
             return ServiceResult(success=False, message="Account is frozen or closed.")
 
-        interest = Decimal(str(calculate_monthly_interest(float(account.balance))))
+        interest = Decimal(str(calculate_monthly_interest(
+            float(account.balance), settings.SAVINGS_INTEREST_RATE
+        )))
         if interest <= 0:
             return ServiceResult(success=False, message="No interest to apply.")
 
@@ -780,7 +785,7 @@ class AdminService:
         txn_repo: TransactionRepositoryProtocol,
         admin_repo: AdminRepositoryProtocol,
         audit_log_repo: Optional[AuditLogRepositoryProtocol] = None,
-        notif_service: Optional = None,
+        notif_service: Optional[NotificationServiceProtocol] = None,
     ):
         self.account_repo = account_repo
         self.txn_repo = txn_repo
@@ -942,16 +947,17 @@ class AdminService:
 #  Loan Service
 # ═══════════════════════════════════════════════════════════════════════════════
 
-LOAN_TYPES = ["Personal", "Home", "Vehicle", "Education", "Business"]
+LOAN_TYPES = ["Personal", "Home", "Vehicle", "Education", "Business"]    # Loan product config per loan type (using LoanType enum values as keys)
+    LOAN_PRODUCTS = {
+        LoanType.PERSONAL.value:  {"max_rate": 15.0, "min_rate": 10.0, "max_tenure": 60},
+        LoanType.HOME.value:      {"max_rate": 10.0, "min_rate": 7.0,  "max_tenure": 360},
+        LoanType.VEHICLE.value:   {"max_rate": 12.0, "min_rate": 8.0,  "max_tenure": 84},
+        LoanType.EDUCATION.value: {"max_rate": 11.0, "min_rate": 7.5,  "max_tenure": 120},
+        LoanType.BUSINESS.value:  {"max_rate": 18.0, "min_rate": 12.0,  "max_tenure": 120},
+    }
 
-# Default interest rates and max tenures per loan type
-LOAN_PRODUCTS = {
-    "Personal":  {"max_rate": 15.0, "min_rate": 10.0, "max_tenure": 60},
-    "Home":      {"max_rate": 10.0, "min_rate": 7.0,  "max_tenure": 360},
-    "Vehicle":   {"max_rate": 12.0, "min_rate": 8.0,  "max_tenure": 84},
-    "Education": {"max_rate": 11.0, "min_rate": 7.5,  "max_tenure": 120},
-    "Business":  {"max_rate": 18.0, "min_rate": 12.0, "max_tenure": 120},
-}
+    # Derive LOAN_TYPES from the enum (single source of truth)
+    LOAN_TYPES = [lt.value for lt in LoanType]
 
 
 class LoanService:
@@ -963,7 +969,7 @@ class LoanService:
         account_repo: AccountRepositoryProtocol,
         txn_repo: TransactionRepositoryProtocol,
         audit_log_repo: Optional[AuditLogRepositoryProtocol] = None,
-        notif_service: Optional = None,
+        notif_service: Optional[NotificationServiceProtocol] = None,
     ):
         self.loan_repo = loan_repo
         self.account_repo = account_repo

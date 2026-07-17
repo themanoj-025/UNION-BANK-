@@ -211,7 +211,7 @@ class Loan:
     emi_amount: Decimal
     amount_paid: Decimal = Decimal("0.00")
     remaining_amount: Decimal = Decimal("0.00")
-    status: str = "PENDING"  # PENDING, APPROVED, ACTIVE, CLOSED, REJECTED
+    status: str = LoanStatus.PENDING.value
     application_date: datetime = field(default_factory=_utcnow)
     approval_date: Optional[datetime] = None
     next_emi_date: Optional[datetime] = None
@@ -235,11 +235,13 @@ class Loan:
 
     @property
     def is_active(self) -> bool:
-        return self.status in ("APPROVED", "ACTIVE")
+        return self.status in (LoanStatus.APPROVED.value, LoanStatus.ACTIVE.value)
 
     @property
     def is_overdue(self) -> bool:
-        if not self.next_emi_date or self.status not in ("APPROVED", "ACTIVE"):
+        if not self.next_emi_date or self.status not in (
+            LoanStatus.APPROVED.value, LoanStatus.ACTIVE.value
+        ):
             return False
         return _utcnow() > self.next_emi_date
 

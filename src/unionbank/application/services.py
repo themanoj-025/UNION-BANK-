@@ -191,6 +191,11 @@ class AuthService:
         if self.notif_service:
             try:
                 self.notif_service.notify_welcome(acc_no)
+            except Exception:from unionbank.utils.logger import logger
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_welcome(acc_no)
+            except pybreaker.CircuitBreakerError:
+                logger.warning("Notification circuit breaker open, skipping welcome")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send welcome notification", exc_info=True)
@@ -438,9 +443,13 @@ class TransactionService:
         # Send notification (non-fatal if fails)
         if self.notif_service and account:
             try:
-                self.notif_service.notify_deposit(
-                    acc_no, amount, account.balance, txn.txn_id
-                )
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_deposit(
+                        acc_no, amount, account.balance, txn.txn_id
+                    )
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping deposit notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send deposit notification", exc_info=True)
@@ -501,9 +510,13 @@ class TransactionService:
         # Send notification (non-fatal if fails)
         if self.notif_service and account:
             try:
-                self.notif_service.notify_withdraw(
-                    acc_no, amount, account.balance, txn.txn_id
-                )
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_withdraw(
+                        acc_no, amount, account.balance, txn.txn_id
+                    )
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping withdraw notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send withdraw notification", exc_info=True)
@@ -634,14 +647,18 @@ class TransactionService:
         # Send notifications (non-fatal if fails, outside lock)
         if self.notif_service:
             try:
-                self.notif_service.notify_transfer_sent(
-                    sender_acc_no, amount, receiver_acc_no,
-                    sender_balance, sender_txn_id,
-                )
-                self.notif_service.notify_transfer_received(
-                    receiver_acc_no, amount, sender_acc_no,
-                    receiver_balance, receiver_txn_id,
-                )
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_transfer_sent(
+                        sender_acc_no, amount, receiver_acc_no,
+                        sender_balance, sender_txn_id,
+                    )
+                    self.notif_service.notify_transfer_received(
+                        receiver_acc_no, amount, sender_acc_no,
+                        receiver_balance, receiver_txn_id,
+                    )
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping transfer notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send transfer notification", exc_info=True)
@@ -713,9 +730,13 @@ class TransactionService:
         # Send notification (non-fatal if fails)
         if self.notif_service and account:
             try:
-                self.notif_service.notify_interest(
-                    acc_no, interest, account.balance, txn.txn_id
-                )
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_interest(
+                        acc_no, interest, account.balance, txn.txn_id
+                    )
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping interest notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send interest notification", exc_info=True)
@@ -837,9 +858,13 @@ class AdminService:
         # Send notification (non-fatal if fails)
         if self.notif_service:
             try:
-                self.notif_service.notify_account_frozen(
-                    acc_no, reason=reason or ""
-                )
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_account_frozen(
+                        acc_no, reason=reason or ""
+                    )
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping freeze notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send freeze notification", exc_info=True)
@@ -870,7 +895,11 @@ class AdminService:
         # Send notification (non-fatal if fails)
         if self.notif_service:
             try:
-                self.notif_service.notify_account_unfrozen(acc_no)
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_account_unfrozen(acc_no)
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping unfreeze notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send unfreeze notification", exc_info=True)
@@ -1166,10 +1195,14 @@ class LoanService:
         # Send notification (non-fatal if fails)
         if self.notif_service:
             try:
-                self.notif_service.notify_loan_approved(
-                    loan.account_number, loan.principal_amount,
-                    loan.loan_type, loan.loan_id,
-                )
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_loan_approved(
+                        loan.account_number, loan.principal_amount,
+                        loan.loan_type, loan.loan_id,
+                    )
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping loan approval notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send loan approval notification", exc_info=True)
@@ -1209,9 +1242,13 @@ class LoanService:
         # Send notification (non-fatal if fails)
         if self.notif_service:
             try:
-                self.notif_service.notify_loan_rejected(
-                    loan.account_number, loan.loan_type, loan.loan_id, reason
-                )
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_loan_rejected(
+                        loan.account_number, loan.loan_type, loan.loan_id, reason
+                    )
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping loan rejection notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send loan rejection notification", exc_info=True)

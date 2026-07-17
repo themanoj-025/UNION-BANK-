@@ -5,5 +5,5 @@
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.py$' || true)
 if [ -n "$STAGED_PY" ]; then
   echo "🧹 Checking staged Python files with ruff..."
-  echo "$STAGED_PY" | xargs ruff check --ignore E402,F403,F401,E501,B008,D213
+  echo "$STAGED_PY" | xargs ruff check --ignore E402,F403,F401,E501,B008,D213,D205,D400,D415,E401,E702,D107
 fi

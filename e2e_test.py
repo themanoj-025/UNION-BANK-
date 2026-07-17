@@ -97,7 +97,9 @@ async def run_tests():
             tests.append(('POST /api/v2/auth/login', 'FAIL - no acc', 0))
             failed += 1
 
-        hdrs = {'Authorization': f'Bearer {token}'}
+        # Extract CSRF token from cookies (set by login endpoint)
+        csrf_token = c.cookies.get('ub_csrf_token', '')
+        hdrs = {'Authorization': f'Bearer {token}', 'X-CSRF-Token': csrf_token}
 
         # 5-12. V2 authenticated endpoints
         for name, method, path, body, expected in [
@@ -222,9 +224,11 @@ async def run_tests():
         tests.append(('POST /api/v2/auth/refresh (invalid)', 'PASS' if ok else 'FAIL', r.status_code))
         passed += ok; failed += not ok
 
-        # 23. Transfer to self
+        # 23. Transfer to self (expects 400 error, not 403 CSRF)
         if token:
-            r = await c.post('/api/v2/account/transfer', headers=hdrs, json={
+            csrf_token = c.cookies.get('ub_csrf_token', '')
+            transfer_hdrs = {'Authorization': f'Bearer {token}', 'X-CSRF-Token': csrf_token}
+            r = await c.post('/api/v2/account/transfer', headers=transfer_hdrs, json={
                 'target_account': acc_no, 'amount': 100, 'category': 'Test'
             })
             ok = r.status_code == 400

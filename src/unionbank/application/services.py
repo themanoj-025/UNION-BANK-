@@ -14,16 +14,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Generator, Optional
 
-import pybreaker
 
-# ── Circuit breaker for notification service calls ──────────────────────────
-# Prevents a slow or unresponsive notification provider from blocking
-# money-movement responses. After 5 failures in 60 seconds the circuit opens
-# for 30 seconds, failing fast instead of waiting for a timeout on each call.
-NOTIFICATION_BREAKER = pybreaker.CircuitBreaker(
-    fail_max=5,
-    reset_timeout=30,
-)
 
 
 # ── Canonical constants (from centralized config) ────────────────────────────

@@ -200,12 +200,11 @@ class AuthService:
         # Send welcome notification (non-fatal if fails)
         if self.notif_service:
             try:
-                self.notif_service.notify_welcome(acc_no)
-            except Exception:from unionbank.utils.logger import logger
                 with NOTIFICATION_BREAKER:
                     self.notif_service.notify_welcome(acc_no)
             except pybreaker.CircuitBreakerError:
-                logger.warning("Notification circuit breaker open, skipping welcome")
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping welcome notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send welcome notification", exc_info=True)
@@ -1348,14 +1347,18 @@ class LoanService:
         # Send notification (non-fatal if fails)
         if self.notif_service:
             try:
-                self.notif_service.notify_emi_paid(
-                    acc_no, actual_payment, loan.loan_type, loan.loan_id,
-                    loan.remaining_amount,
-                )
-                if is_closed:
-                    self.notif_service.notify_loan_closed(
-                        acc_no, loan.loan_type, loan.loan_id
+                with NOTIFICATION_BREAKER:
+                    self.notif_service.notify_emi_paid(
+                        acc_no, actual_payment, loan.loan_type, loan.loan_id,
+                        loan.remaining_amount,
                     )
+                    if is_closed:
+                        self.notif_service.notify_loan_closed(
+                            acc_no, loan.loan_type, loan.loan_id
+                        )
+            except pybreaker.CircuitBreakerError:
+                from unionbank.utils.logger import logger
+                logger.warning("Notification circuit breaker open, skipping EMI notification")
             except Exception:
                 from unionbank.utils.logger import logger
                 logger.warning("Failed to send EMI notification", exc_info=True)

@@ -765,10 +765,10 @@ def v2_list_loans(customer: dict = Depends(get_current_customer)):
             is_overdue=is_overdue,
         ))
 
-    active_loans = sum(1 for l in loans if l.status in ("APPROVED", "ACTIVE"))
-    closed_loans = sum(1 for l in loans if l.status == "CLOSED")
-    total_disbursed = sum(float(l.principal_amount) for l in loans if l.status in ("APPROVED", "ACTIVE", "CLOSED"))
-    total_outstanding = sum(float(l.remaining_amount) for l in loans if l.status in ("APPROVED", "ACTIVE"))
+    active_loans = sum(1 for loan in loans if loan.status in ("APPROVED", "ACTIVE"))
+    closed_loans = sum(1 for loan in loans if loan.status == "CLOSED")
+    total_disbursed = sum(float(loan.principal_amount) for loan in loans if loan.status in ("APPROVED", "ACTIVE", "CLOSED"))
+    total_outstanding = sum(float(loan.remaining_amount) for loan in loans if loan.status in ("APPROVED", "ACTIVE"))
 
     return _ok(LoanSummaryData(
         total_loans=len(loans), active_loans=active_loans,
@@ -891,16 +891,16 @@ def v2_admin_list_pending_loans(admin: dict = Depends(get_current_admin)):
 
     return _ok([
         LoanOut(
-            loan_id=l.loan_id, account_number=l.account_number,
-            loan_type=l.loan_type, principal_amount=float(l.principal_amount),
-            interest_rate=float(l.interest_rate), tenure_months=l.tenure_months,
-            emi_amount=float(l.emi_amount), amount_paid=float(l.amount_paid),
-            remaining_amount=float(l.remaining_amount), status=l.status,
-            application_date=str(l.application_date)[:19],
-            purpose=l.purpose,
-            progress_pct=0.0, remaining_emis=l.tenure_months, is_overdue=False,
+            loan_id=loan.loan_id, account_number=loan.account_number,
+            loan_type=loan.loan_type, principal_amount=float(loan.principal_amount),
+            interest_rate=float(loan.interest_rate), tenure_months=loan.tenure_months,
+            emi_amount=float(loan.emi_amount), amount_paid=float(loan.amount_paid),
+            remaining_amount=float(loan.remaining_amount), status=loan.status,
+            application_date=str(loan.application_date)[:19],
+            purpose=loan.purpose,
+            progress_pct=0.0, remaining_emis=loan.tenure_months, is_overdue=False,
         )
-        for l in loans
+        for loan in loans
     ])
 
 
@@ -943,18 +943,18 @@ def v2_admin_list_all_loans(admin: dict = Depends(get_current_admin)):
 
     return _ok([
         LoanOut(
-            loan_id=l.loan_id, account_number=l.account_number,
-            loan_type=l.loan_type, principal_amount=float(l.principal_amount),
-            interest_rate=float(l.interest_rate), tenure_months=l.tenure_months,
-            emi_amount=float(l.emi_amount), amount_paid=float(l.amount_paid),
-            remaining_amount=float(l.remaining_amount), status=l.status,
-            application_date=str(l.application_date)[:19],
-            approval_date=str(l.approval_date)[:19] if l.approval_date else None,
-            next_emi_date=str(l.next_emi_date)[:19] if l.next_emi_date else None,
-            purpose=l.purpose, admin_notes=l.admin_notes,
+            loan_id=loan.loan_id, account_number=loan.account_number,
+            loan_type=loan.loan_type, principal_amount=float(loan.principal_amount),
+            interest_rate=float(loan.interest_rate), tenure_months=loan.tenure_months,
+            emi_amount=float(loan.emi_amount), amount_paid=float(loan.amount_paid),
+            remaining_amount=float(loan.remaining_amount), status=loan.status,
+            application_date=str(loan.application_date)[:19],
+            approval_date=str(loan.approval_date)[:19] if loan.approval_date else None,
+            next_emi_date=str(loan.next_emi_date)[:19] if loan.next_emi_date else None,
+            purpose=loan.purpose, admin_notes=loan.admin_notes,
             progress_pct=0.0, remaining_emis=0, is_overdue=False,
         )
-        for l in loans
+        for loan in loans
     ])
 
 

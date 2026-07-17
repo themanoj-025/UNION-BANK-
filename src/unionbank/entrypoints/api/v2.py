@@ -1167,7 +1167,8 @@ def v2_health_check():
     cache_status = "connected"
 
     try:
-        from unionbank.infrastructure.database import engine
+        from unionbank.infrastructure.database import get_engine
+        engine = get_engine()
         with engine.connect() as conn:
             from sqlalchemy import text
             conn.execute(text("SELECT 1"))

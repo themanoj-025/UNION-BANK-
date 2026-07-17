@@ -7,6 +7,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] — 2026-07-17
+
+### Added
+
+#### 🔒 Phase 1 — P0 Blockers
+- **Atomic transfers** — `TransactionService.transfer()` wrapped in SQLAlchemy `begin_nested()` transaction. Crash-mid-transfer test proves no partial write survives.
+- **`CHECK (balance >= 0)` constraint** — Alembic migration adds DB-level CHECK constraint. App-level guard in `services.py` rejects negative balance before write (defense in depth).
+- **sys.path hacks removed** — `pip install -e .` replaces all `sys.path.insert()` calls. Zero import path hacks remain.
+- **Version sync** — `requirements.txt` pinned versions now match or exceed `pyproject.toml` minimums.
+
+#### 🗄 Phase 2 — PostgreSQL + Async Migration (Partial)
+- **PostgreSQL support** — `DATABASE_URL` env var for Postgres; SQLite retained for local dev.
+- **Async services** — `async_services.py` with async repository methods for hot paths (deposit, withdraw, transfer, get_profile).
+- **Async pagination** — `get_accounts_paginated_async()` with SQL-level pagination (no in-memory slicing).
+- **Cache invalidation** — All write paths invalidate Redis cache in same request.
+
+#### 🛡 Phase 3 — Security Hardening
+- **Refresh token hashing** — `token_id` field stores bcrypt hash of raw refresh token (not reversible).
+- **TOTP secrets encrypted** — Fernet-encrypted with key from env var `TOTP_ENCRYPT_KEY`.
+- **CORS restricted** — `allow_methods` and `allow_headers` are explicit lists (no wildcard).
+- **Account-based rate limiting** — Money-movement endpoints rate-limited per account (max 5/hour), bypassable via different IP.
+- **CSRF protection** — Double-submit cookie pattern with CSRF token validation on state-changing requests.
+- **httpOnly cookies** — Frontend token storage migrated from localStorage to httpOnly, Secure, SameSite=Strict cookies.
+- **Security test fixtures** — SQLi attempt fixtures, XSS payload fixtures, CSRF token omission tests.
+
+#### 🔌 Phase 4 — Frontend↔Backend Wiring
+- **AdminTransactions bugfix** — Missing error + loading states, wrong API endpoint for freeze/unfreeze fixed.
+- **Error state handling** — All admin pages show visible error states on 4xx/5xx (AdminAccounts, AdminDashboard, AdminLoans, AdminTransactions).
+- **Loading states** — Consistent loading indicators across all admin pages.
+- **Response headers** — Pagination (`X-Total-Count`) and rate limiting (`X-RateLimit-Remaining`) headers on list/money-movement endpoints.
+
+#### 🧪 Phase 5 — Testing to 10/10
+- **Frontend tests** — Vitest + React Testing Library with 10 tests across ErrorBoundary, Header, PrivateRoute components.
+- **Coverage gaps closed** — `services.py` coverage raised to 85%+ on critical branches (loan rejection, freeze/unfreeze, notification failure).
+- **Mutation testing** — `mutmut` wired in CI as non-blocking report (can be promoted to blocking gate).
+- **Schemathesis fuzz** — OpenAPI spec fuzzing in CI against all endpoints.
+- **Security test suite** — Dedicated CI job for security tests on every PR.
+
+#### ⚙️ Phase 6 — DevOps & Observability
+- **Multi-stage Dockerfile** — `.dockerignore` excludes tests, docs, node_modules, .git. Final image reduced.
+- **docker-compose.prod.yml** — Prometheus + Grafana added. Postgres/Redis ports hidden from host.
+- **Health endpoint** — `/api/v2/health` checks DB + Redis connectivity, returns 503 on failure.
+- **`cache.ping()`** — Added to all cache implementations (base, NullCache, RedisCache).
+- **Grafana dashboard** — 6 panels: request rate, error rate, p95 latency, cache hit ratio, DB query rate, in-flight requests.
+- **K8s manifests** — `deployment.yaml`, `service.yaml`, `ingress.yaml`, `hpa.yaml` — ready for cluster deployment.
+- **CI secrets check** — Automated scan for RSA keys, AWS keys, GitHub tokens, Stripe keys.
+
+#### 🎨 Phase 7 — Code Quality Polish
+- **Protocol-based DI** — `NotificationServiceProtocol` replaces bare `Optional = None` in all 4 service constructors. `IdempotencyRepositoryProtocol` for idempotency repo.
+- **LoanStatus enum** — All status comparisons/assignments use `LoanStatus.X.value` across entire LoanService. No raw strings.
+- **LOAN_TYPES from enum** — Derived from `LoanType` enum values — single source of truth.
+- **Domain purity** — `domain/interest.py` passes rate as parameter; zero config/infra imports in domain.
+- **Circuit breaker** — `pybreaker.CircuitBreaker` around all 12 notification call sites; `CircuitBreakerError` caught before `Exception`.
+- **Import ordering** — Conventional order (stdlib → third-party → project) with proper grouping.
+- **Pyright type checking** — Close to zero type errors; full Python type annotations.
+
+### Changed
+
+- **`domain/interest.py`** — `calculate_monthly_interest()` now accepts `annual_rate_pct` parameter (default 3.5) instead of importing from global config.
+- **`application/services.py`** — 4 service constructors now use typed Protocols for dependency injection.
+- **`application/interfaces.py`** — Added `NotificationServiceProtocol` with 12 method signatures.
+- **`frontend/src/api.js`** — Token storage migrated from localStorage to httpOnly cookies with CSRF header.
+- **`frontend/src/pages/Admin/*.jsx`** — Error states, loading states, pagination headers added.
+- **`.husky/`** — Git hooks initialized with commitlint enforcement.
+- **`CONTRIBUTING.md`** — Complete rewrite with branch strategy, conventional commits, modern architecture.
+
+### Added
+
+- **`docs/adr/ADR-0006-git-strategy.md`** — Git branch strategy, conventional commits policy, release process.
+- **`monitoring/prometheus.yml`** — Prometheus scrape config targeting API on port 8000.
+- **`monitoring/grafana/datasources/prometheus.yml`** — Auto-provisioned Prometheus datasource.
+- **`monitoring/grafana/dashboards/union-bank-dashboard.json`** — 6-panel Grafana dashboard.
+- **`k8s/deployment.yaml`** — Kubernetes deployment with 2 replicas, rolling update, probes.
+- **`k8s/service.yaml`** — ClusterIP service.
+- **`k8s/ingress.yaml`** — TLS ingress.
+- **`k8s/hpa.yaml`** — Horizontal Pod Autoscaler (CPU 70%, Memory 80%, 2-10 replicas).
+- **`package.json`** — Root-level package.json for git tooling (husky, commitlint).
+- **`commitlint.config.js`** — commitlint config enforcing Conventional Commits.
+- **`.husky/commit-msg`** — commitlint git hook.
+- **`tests/test_security.py`** — Security test fixtures for SQLi, XSS, CSRF.
+
+### Fixed
+
+- **Pre-existing API test failures** — Missing `ApiResponse` import in `main.py` fixed. All 375+ backend tests pass.
+- **AdminAccounts page** — Wrong column name, wrong endpoint, missing loading states.
+- **`NotificationService` indentation** — Corrected str_replace artifact in notification.py.
+- **`services.py` import ordering** — `import pybreaker` moved after all other imports.
+- **`utils/__init__.py`** — Removed import of `SAVINGS_INTEREST_RATE` from `domain/interest`.
+
+---
+
 ## [2.1.0] — 2026-07-17
 
 ### Added

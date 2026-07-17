@@ -60,6 +60,18 @@ from .interfaces import (
     TransactionRepositoryProtocol,
 )
 
+import pybreaker
+
+# ── Circuit breaker for notification service calls ──────────────────────────
+# Prevents a slow or unresponsive notification provider from blocking
+# money-movement responses. After 5 failures in 60 seconds the circuit opens
+# for 30 seconds, failing fast instead of waiting for a timeout on each call.
+NOTIFICATION_BREAKER = pybreaker.CircuitBreaker(
+    fail_max=5,
+    reset_timeout=30,
+)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Per-account concurrency lock
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1035,11 +1047,11 @@ class LoanService:
 
     def get_loan_statistics(self) -> dict:
         return {
-            "total_pending": self.loan_repo.count_by_status("PENDING"),
-            "total_approved": self.loan_repo.count_by_status("APPROVED"),
-            "total_active": self.loan_repo.count_by_status("ACTIVE"),
-            "total_closed": self.loan_repo.count_by_status("CLOSED"),
-            "total_rejected": self.loan_repo.count_by_status("REJECTED"),
+            "total_pending": self.loan_repo.count_by_status(LoanStatus.PENDING.value),
+            "total_approved": self.loan_repo.count_by_status(LoanStatus.APPROVED.value),
+            "total_active": self.loan_repo.count_by_status(LoanStatus.ACTIVE.value),
+            "total_closed": self.loan_repo.count_by_status(LoanStatus.CLOSED.value),
+            "total_rejected": self.loan_repo.count_by_status(LoanStatus.REJECTED.value),
             "total_disbursed": float(self.loan_repo.total_disbursed()),
             "total_outstanding": float(self.loan_repo.total_outstanding()),
         }
@@ -1147,7 +1159,7 @@ class LoanService:
         loan = self.loan_repo.get(loan_id)
         if loan is None:
             return ServiceResult(success=False, message="Loan not found.")
-        if loan.status != "PENDING":
+        if loan.status != LoanStatus.PENDING.value:
             return ServiceResult(
                 success=False,
                 message=f"Loan is already {loan.status.lower()}. Only pending loans can be approved.",
@@ -1164,7 +1176,7 @@ class LoanService:
         first_emi_date = now + timedelta(days=30)
 
         # Update loan status
-        loan.status = "ACTIVE"
+        loan.status = LoanStatus.ACTIVE.value
         loan.approval_date = now
         loan.next_emi_date = first_emi_date
         self.loan_repo.update(loan)
@@ -1221,13 +1233,13 @@ class LoanService:
         loan = self.loan_repo.get(loan_id)
         if loan is None:
             return ServiceResult(success=False, message="Loan not found.")
-        if loan.status != "PENDING":
+        if loan.status != LoanStatus.PENDING.value:
             return ServiceResult(
                 success=False,
                 message=f"Loan is already {loan.status.lower()}. Only pending loans can be rejected.",
             )
 
-        loan.status = "REJECTED"
+        loan.status = LoanStatus.REJECTED.value
         if reason:
             loan.admin_notes = reason
         self.loan_repo.update(loan)
@@ -1268,7 +1280,7 @@ class LoanService:
         loan = self.loan_repo.get(loan_id)
         if loan is None:
             return ServiceResult(success=False, message="Loan not found.")
-        if loan.status not in ("APPROVED", "ACTIVE"):
+        if loan.status not in (LoanStatus.APPROVED.value, LoanStatus.ACTIVE.value):
             return ServiceResult(
                 success=False,
                 message=f"Loan is {loan.status.lower()}. Only active loans can receive payments.",
@@ -1311,7 +1323,7 @@ class LoanService:
 
         # Check if loan is fully paid
         if loan.remaining_amount <= 0:
-            loan.status = "CLOSED"
+            loan.status = LoanStatus.CLOSED.value
             loan.remaining_amount = Decimal("0.00")
             loan.next_emi_date = None
 

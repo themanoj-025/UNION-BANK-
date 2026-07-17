@@ -106,6 +106,9 @@ def registered_customer(client: TestClient, sample_customer_registration: dict) 
     c = get_container()
     c.transaction_service().deposit(acc_no, Decimal("1000.00"), "Salary")
 
+    # Clear cookies so Bearer-only auth is used (no CSRF cookie present)
+    client.cookies.clear()
+
     return {
         "account_number": acc_no,
         "name": sample_customer_registration["name"],
@@ -139,6 +142,9 @@ def second_registered_customer(client: TestClient) -> dict:
     assert login_resp.status_code == 200
     login_data = login_resp.json()
 
+    # Clear cookies so Bearer-only auth is used (no CSRF cookie present)
+    client.cookies.clear()
+
     return {
         "account_number": acc_no,
         "name": "Bob Smith",
@@ -171,6 +177,10 @@ def admin_token(client: TestClient) -> dict:
     })
     assert resp.status_code == 200
     data = resp.json()
+
+    # Clear cookies so Bearer-only auth is used (no CSRF cookie present)
+    client.cookies.clear()
+
     return {
         "username": "admin",
         "access_token": data["access_token"],

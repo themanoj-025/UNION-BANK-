@@ -15,8 +15,8 @@ function AdminAccounts() {
     setError('');
     try {
       const endpoint = query
-        ? `/api/admin/accounts/search?q=${encodeURIComponent(query)}`
-        : '/api/admin/accounts';
+        ? `/admin/accounts/search?q=${encodeURIComponent(query)}`
+        : '/admin/accounts';
       const response = await api.get(endpoint);
       const data = response.data;
       setAccounts(Array.isArray(data) ? data : data.data || []);
@@ -41,7 +41,7 @@ function AdminAccounts() {
     setError('');
     setSuccess('');
     try {
-      const response = await api.post(`/api/admin/accounts/${accNo}/freeze`);
+      const response = await api.post(`/admin/accounts/${accNo}/freeze`);
       setSuccess(response.data.message);
       fetchAccounts(search);
     } catch (err) {
@@ -54,7 +54,7 @@ function AdminAccounts() {
     setError('');
     setSuccess('');
     try {
-      const response = await api.post(`/api/admin/accounts/${accNo}/unfreeze`);
+      const response = await api.post(`/admin/accounts/${accNo}/unfreeze`);
       setSuccess(response.data.message);
       fetchAccounts(search);
     } catch (err) {
@@ -67,7 +67,7 @@ function AdminAccounts() {
     setError('');
     setSuccess('');
     try {
-      const response = await api.delete(`/api/admin/accounts/${accNo}`);
+      const response = await api.delete(`/admin/accounts/${accNo}`);
       setSuccess(response.data.message);
       fetchAccounts(search);
     } catch (err) {

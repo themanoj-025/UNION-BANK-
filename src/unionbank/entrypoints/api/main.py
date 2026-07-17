@@ -194,46 +194,60 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # ── CSRF Protection Middleware ───────────────────────────────────────────────
 class CSRFProtectMiddleware(BaseHTTPMiddleware):
-    """Validate Origin/Referer on state-changing requests (defense in depth).
+    """CSRF protection via double-submit cookie pattern.
 
-    Since the API uses Bearer tokens in Authorization headers (not cookies),
-    it is inherently immune to traditional CSRF attacks. This middleware adds
-    an extra layer of defense by logging suspicious cross-origin requests.
+    On state-changing requests (POST, PUT, PATCH, DELETE), validates that
+    the X-CSRF-Token header matches the ub_csrf_token cookie. This prevents
+    CSRF attacks when using cookie-based authentication.
 
-    To enable strict blocking (not recommended for Bearer-token APIs):
-        settings.ENABLE_CSRF_BLOCK = True
+    Safe methods (GET, HEAD, OPTIONS) and auth endpoints are exempt.
+    Bearer-token-only clients (no CSRF cookie) are also allowed through
+    for backward compatibility.
     """
 
     SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
+    # Endpoints that set cookies (exempt from CSRF validation)
+    CSRF_EXEMPT_PATHS = {
+        "/api/auth/login",
+        "/api/auth/admin-login",
+        "/api/auth/refresh",
+        "/api/auth/register",
+        "/api/v2/auth/login",
+        "/api/v2/auth/admin-login",
+        "/api/v2/auth/refresh",
+        "/api/v2/auth/register",
+    }
+
     async def dispatch(self, request: Request, call_next):
-        if request.method not in self.SAFE_METHODS:
-            origin = request.headers.get("Origin", "")
-            referer = request.headers.get("Referer", "")
+        if request.method in self.SAFE_METHODS:
+            return await call_next(request)
 
-            if origin or referer:
-                allowed_origins = set(settings.CORS_ALLOWED_ORIGINS)
-                is_valid = False
-                if origin in allowed_origins:
-                    is_valid = True
-                if referer:
-                    for allowed in allowed_origins:
-                        if referer.startswith(allowed):
-                            is_valid = True
-                            break
-                if not is_valid:
-                    logger.warning(
-                        "Cross-origin request blocked",
-                        extra={
-                            "method": request.method,
-                            "path": request.url.path,
-                            "origin": origin or "(missing)",
-                            "referer": referer or "(missing)",
-                        }
-                    )
+        if request.url.path in self.CSRF_EXEMPT_PATHS:
+            return await call_next(request)
 
-        response = await call_next(request)
-        return response
+        from unionbank.utils.cookie_auth import validate_csrf_token, CSRF_TOKEN_COOKIE
+
+        # If no CSRF cookie is present, this is a Bearer-token-only client — allow through
+        if CSRF_TOKEN_COOKIE not in request.cookies:
+            return await call_next(request)
+
+        # CSRF cookie present — must also have matching header
+        if not validate_csrf_token(request):
+            logger.warning(
+                "CSRF token validation failed",
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                },
+            )
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "CSRF token missing or invalid."},
+            )
+
+        return await call_next(request)
 
 app.add_middleware(CSRFProtectMiddleware)
 

@@ -973,14 +973,14 @@ def v2_admin_view_transactions(
     Optionally filter by account number via the `account` query parameter.
     Transactions are returned newest first.
     """
-    from unionbank.infrastructure.container import get_container
-    c = get_container()
+    c = _get_container()
     tx_repo = c.transaction_repo()
 
     if account:
         domain_txns = tx_repo.get_by_account(account)
     else:
         # Get all transactions — iterate over all accounts
+        # TODO: replace with a dedicated paginated query for production
         all_accounts = c.account_repo().get_all()
         domain_txns = []
         for acct in all_accounts:

@@ -947,17 +947,17 @@ class AdminService:
 #  Loan Service
 # ═══════════════════════════════════════════════════════════════════════════════
 
-LOAN_TYPES = ["Personal", "Home", "Vehicle", "Education", "Business"]    # Loan product config per loan type (using LoanType enum values as keys)
-    LOAN_PRODUCTS = {
-        LoanType.PERSONAL.value:  {"max_rate": 15.0, "min_rate": 10.0, "max_tenure": 60},
-        LoanType.HOME.value:      {"max_rate": 10.0, "min_rate": 7.0,  "max_tenure": 360},
-        LoanType.VEHICLE.value:   {"max_rate": 12.0, "min_rate": 8.0,  "max_tenure": 84},
-        LoanType.EDUCATION.value: {"max_rate": 11.0, "min_rate": 7.5,  "max_tenure": 120},
-        LoanType.BUSINESS.value:  {"max_rate": 18.0, "min_rate": 12.0,  "max_tenure": 120},
-    }
+# Loan product config per loan type (using LoanType enum values as keys)
+LOAN_PRODUCTS = {
+    LoanType.PERSONAL.value:  {"max_rate": 15.0, "min_rate": 10.0, "max_tenure": 60},
+    LoanType.HOME.value:      {"max_rate": 10.0, "min_rate": 7.0,  "max_tenure": 360},
+    LoanType.VEHICLE.value:   {"max_rate": 12.0, "min_rate": 8.0,  "max_tenure": 84},
+    LoanType.EDUCATION.value: {"max_rate": 11.0, "min_rate": 7.5,  "max_tenure": 120},
+    LoanType.BUSINESS.value:  {"max_rate": 18.0, "min_rate": 12.0,  "max_tenure": 120},
+}
 
-    # Derive LOAN_TYPES from the enum (single source of truth)
-    LOAN_TYPES = [lt.value for lt in LoanType]
+# Derive LOAN_TYPES from the enum (single source of truth)
+LOAN_TYPES = [lt.value for lt in LoanType]
 
 
 class LoanService:

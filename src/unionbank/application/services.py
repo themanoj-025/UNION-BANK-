@@ -1130,7 +1130,7 @@ class LoanService:
             emi_amount=emi,
             amount_paid=Decimal("0.00"),
             remaining_amount=principal_amount,
-            status="PENDING",
+            status=LoanStatus.PENDING.value,
             application_date=now,
             purpose=purpose,
         )

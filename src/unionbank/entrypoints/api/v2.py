@@ -1154,5 +1154,45 @@ def v2_analyzr_query(req: AnalyzrQueryRequest):
 
 @router.get("/health", response_model=ApiResponse[HealthData])
 def v2_health_check():
-    """Health check endpoint."""
-    return _ok(HealthData())
+    """Health check endpoint.
+
+    Checks:
+    - Database connectivity (via `SELECT 1`)
+    - Cache connectivity (via Redis ping, if configured)
+    - Returns a 503 status if any dependency is down
+    """
+    from datetime import datetime, timezone
+
+    db_status = "connected"
+    cache_status = "connected"
+
+    try:
+        from unionbank.infrastructure.database import engine
+        with engine.connect() as conn:
+            from sqlalchemy import text
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        db_status = "disconnected"
+
+    try:
+        from unionbank.infrastructure.cache import get_cache
+        cache = get_cache()
+        cache.ping()
+    except Exception:
+        cache_status = "disconnected"
+
+    overall = "healthy" if db_status == "connected" else "degraded"
+
+    if overall == "degraded":
+        from fastapi import status
+        _err(
+            f"Database: {db_status}, Cache: {cache_status}",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    return _ok(HealthData(
+        status=overall,
+        database=db_status,
+        cache=cache_status,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    ))

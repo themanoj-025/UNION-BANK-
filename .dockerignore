@@ -1,61 +1,62 @@
-# ── Version control ─────────────────────────────────────────────────────────
-.git/
-.gitattributes
-.gitignore
-.github/
+# ═══════════════════════════════════════════════════════════════════════════════
+#  .dockerignore — exclude non-essential files from Docker build context
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# ── Python ──────────────────────────────────────────────────────────────────
+# ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.egg-info/
-*.egg
-dist/
-build/
-.eggs/
-*.so
-*.whl
-
-# ── Virtual environments ───────────────────────────────────────────────────
-venv/
 .venv/
-env/
-.env/
+venv/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
 
-# ── IDE / Editor ───────────────────────────────────────────────────────────
+# ── Node / Frontend ──────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+node_modules/
+
+# ── Tests (not needed in production image) ──────────────────────────────────
+tests/
+test.bat
+e2e_test.py
+
+# ── Docs (not needed in production image) ────────────────────────────────────
+docs/
+*.md
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+SUPPORT.md
+PROJECT_OVERVIEW.md
+memory.md
+
+# ── CI / Git ────────────────────────────────────────────────────────────────
+.git/
+.github/
+.gitignore
+.gitattributes
+
+# ── Scripts (not needed in production) ──────────────────────────────────────
+scripts/
+Makefile
+start.bat
+
+# ── Database ─────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+data/
+
+# ── IDE / Editor ────────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-.cursorrules
-.cursorignore
 
-# ── Testing & coverage ─────────────────────────────────────────────────────
-.pytest_cache/
-.coverage
-coverage/
-htmlcov/
-.coverage.*
-*.coverage
-nosetests.xml
-coverage.xml
-
-# ── Data files ─────────────────────────────────────────────────────────────
-data/*.db
-data/*.db-shm
-data/*.db-wal
-data/*.log
-data/*.jsonl
-data/*.json
-
-# ── OS files ───────────────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# ── Documentation builds ───────────────────────────────────────────────────
-docs/_build/
-site/
-
-# ── Docker ─────────────────────────────────────────────────────────────────
-.docker/
+# ── Environment ─────────────────────────────────────────────────────────────
+.env
+.env.*

@@ -1,0 +1,85 @@
+{
+  "title": "Union Bank API — Production Overview",
+  "version": 1,
+  "uid": "union-bank-overview",
+  "panels": [
+    {
+      "title": "Request Rate (per second)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(union_bank_requests_total[5m])",
+          "legendFormat": "{{method}} {{endpoint}}"
+        }
+      ],
+      "description": "Total HTTP request rate across all endpoints"
+    },
+    {
+      "title": "Error Rate (per second)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(union_bank_errors_total[5m])",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "description": "Application error rate by error type"
+    },
+    {
+      "title": "p95 Request Latency",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(union_bank_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ],
+      "unit": "s",
+      "description": "95th percentile request duration"
+    },
+    {
+      "title": "Cache Hit Ratio",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(union_bank_cache_hits_total[5m]) / (rate(union_bank_cache_hits_total[5m]) + rate(union_bank_cache_misses_total[5m])) * 100",
+          "legendFormat": "Cache Hit %"
+        }
+      ],
+      "unit": "percent",
+      "description": "Cache hit ratio across all cache operations"
+    },
+    {
+      "title": "Database Query Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(union_bank_db_queries_total[5m])",
+          "legendFormat": "{{operation}}"
+        }
+      ],
+      "description": "Database query rate by operation type"
+    },
+    {
+      "title": "In-flight Requests",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "union_bank_inflight_requests",
+          "legendFormat": "{{method}}"
+        }
+      ],
+      "description": "Currently in-flight requests, useful for detecting stuck requests"
+    }
+  ],
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["union-bank", "production"],
+  "schemaVersion": 39
+}

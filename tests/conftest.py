@@ -70,6 +70,53 @@ def sample_account_data() -> dict:
 
 
 @pytest.fixture
+def c():
+    """Get a fresh DI container with a clean SQLite database.
+
+    Creates a unique temp directory per test so tests never share
+    database state. This mirrors test_integration.py's _fresh_db fixture
+    but is available globally from conftest.py.
+    """
+    import tempfile
+    data_dir = tempfile.mkdtemp(prefix="union_bank_c_")
+    old = os.environ.get("UNION_BANK_DATA_DIR")
+    os.environ["UNION_BANK_DATA_DIR"] = data_dir
+    from unionbank.infrastructure.container import get_container, reset_container
+    reset_container()
+    yield get_container()
+    reset_container()
+    if old:
+        os.environ["UNION_BANK_DATA_DIR"] = old
+    else:
+        os.environ.pop("UNION_BANK_DATA_DIR", None)
+
+
+@pytest.fixture
+def sample_account():
+    """Return an Account domain object for tests.
+
+    The account is created in the database so it can be used with
+    both fake repositories (unit tests) and real repositories (integration tests).
+    """
+    from decimal import Decimal
+    from unionbank.domain.entities import Account
+    from unionbank.utils.hashing import hash_password
+
+    return Account(
+        account_number="1000000001",
+        name="Test User",
+        age=30,
+        gender="Male",
+        mobile="9876543210",
+        email="test@example.com",
+        password=hash_password("Secure1Pass"),
+        balance=Decimal("1000.00"),
+        is_active=True,
+        is_frozen=False,
+    )
+
+
+@pytest.fixture
 def sample_transaction_records() -> list[dict]:
     """Return sample transaction records for CSV/statement tests."""
     return [

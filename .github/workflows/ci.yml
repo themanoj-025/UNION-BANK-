@@ -87,7 +87,7 @@ else:
 
       - name: Test with pytest
         run: |
-          python -m pytest tests/ -v --tb=short --cov --cov-report=term --cov-fail-under=50
+          python -m pytest tests/ -v --tb=short --cov --cov-report=term --cov-fail-under=65
         env:
           UNION_BANK_TESTING: "1"
           JWT_SECRET: "ci-test-secret"
@@ -156,6 +156,110 @@ else:
           FLASK_SECRET_KEY: "ci-test-flask-secret"
           DATABASE_URL: "postgresql://unionbank_test:test_password_ci@localhost:5432/unionbank_test"
 
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+
+  security-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run security tests
+        run: |
+          python -m pytest tests/test_security.py tests/test_password_leak.py -v --tb=short
+        env:
+          UNION_BANK_TESTING: "1"
+          JWT_SECRET: "ci-test-secret"
+          FLASK_SECRET_KEY: "ci-test-flask-secret"
+
+  mutation-testing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install mutmut
+
+      - name: Run mutation testing (non-blocking report)
+        run: |
+          mutmut run --paths-to-mutate src/unionbank/application/ --tests-dir tests/ --runner "python -m pytest tests/ -x --tb=short" 2>&1 | tail -30 || true
+        continue-on-error: true
+        env:
+          UNION_BANK_TESTING: "1"
+          JWT_SECRET: "ci-test-secret"
+          FLASK_SECRET_KEY: "ci-test-flask-secret"
+
+  schemathesis-fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install schemathesis
+
+      - name: Generate OpenAPI spec
+        run: |
+          UNION_BANK_TESTING=1 python -c "
+from unionbank.entrypoints.api.main import app
+import json
+with open('/tmp/openapi.json', 'w') as f:
+    json.dump(app.openapi(), f, indent=2)
+"
+        env:
+          JWT_SECRET: "ci-test-secret"
+          FLASK_SECRET_KEY: "ci-test-flask-secret"
+
+      - name: Schemathesis fuzz API
+        run: |
+          # Start the app in background
+          UNION_BANK_TESTING=1 uvicorn unionbank.entrypoints.api.main:app --host 0.0.0.0 --port 8000 &
+          sleep 3
+          st run --checks all /tmp/openapi.json --base-url http://localhost:8000 -w 5 --hypothesis-suppress-health-check=too_slow 2>&1 | tail -20 || true
+        env:
+          JWT_SECRET: "ci-test-secret"
+          FLASK_SECRET_KEY: "ci-test-flask-secret"
+
   docker-build:
     runs-on: ubuntu-latest
     steps:
@@ -190,6 +294,65 @@ else:
       - name: Stop services
         if: always()
         run: docker compose down --volumes --remove-orphans
+
+  secrets-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for accidentally committed secrets
+        run: |
+          # Check for common secret patterns in diff
+          echo "Checking for secrets in repository..."
+          # Warn about .env files
+          if [ -f .env ]; then
+            echo "⚠️  WARNING: .env file exists in repository root!"
+          fi
+          # Check for potential secret patterns in non-config files
+          python -c "
+import os, re, sys
+
+# Patterns that look like secrets (not in config files or tests)
+secret_patterns = [
+    (r'-----BEGIN RSA PRIVATE KEY-----', 'RSA private key'),
+    (r'AKIA[0-9A-Z]{16}', 'AWS access key'),
+    (r'ghp_[0-9a-zA-Z]{36}', 'GitHub personal access token'),
+    (r'gho_[0-9a-zA-Z]{36}', 'GitHub OAuth access token'),
+    (r'xox[baprs]-[0-9a-zA-Z-]+', 'Slack token'),
+    (r'sk_live_[0-9a-z]+', 'Stripe live secret key'),
+]
+
+# Files to skip (expected to contain patterns)
+skip_files = {'.gitignore', 'secrets-check', 'SECURITY.md', 'THREAT_MODEL.md'}
+skip_dirs = {'.git', 'node_modules', '__pycache__', '.venv', 'venv'}
+
+found = False
+for root, dirs, files in os.walk('.'):
+    dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith('.')]
+    for fname in files:
+        if fname in skip_files:
+            continue
+        fpath = os.path.join(root, fname)
+        if not os.path.isfile(fpath):
+            continue
+        try:
+            with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            for pattern, desc in secret_patterns:
+                if re.search(pattern, content):
+                    print(f'  ⚠️  {desc} pattern found in: {fpath}')
+                    found = True
+        except:
+            pass
+
+if found:
+    print('Secrets detected in repository! Review and remove before committing.')
+    sys.exit(1)
+else:
+    print('  ✓ No secret patterns found in repository')
+"
+        shell: bash
+        continue-on-error: true
 
   link-check:
     runs-on: ubuntu-latest

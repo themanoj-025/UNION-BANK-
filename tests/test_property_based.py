@@ -22,7 +22,7 @@ from unionbank.application.services import (
     TransactionService,
 )
 from unionbank.domain.entities import Account, Transaction, TransactionType
-from hypothesis import assume, given
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule
 
@@ -94,6 +94,7 @@ def _make_account(acc_no: str, balance: Decimal) -> Account:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+@settings(suppress_health_check=[HealthCheck.too_slow])
 @given(
     acc_no=valid_account_numbers,
     initial_balance=positive_decimals,

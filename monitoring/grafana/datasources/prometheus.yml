@@ -1,0 +1,16 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Grafana Datasource — Prometheus
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Auto-provisioned when Grafana container starts.
+#  The datasource name "Prometheus" is referenced by the dashboard JSON.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

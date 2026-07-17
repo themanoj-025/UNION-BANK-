@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: union-bank-api
+  namespace: default
+  labels:
+    app: union-bank
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http-api
+  selector:
+    app: union-bank
+    tier: api

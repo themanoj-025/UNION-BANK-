@@ -434,6 +434,9 @@ class HealthData(BaseModel):
     service: str = "Union Bank API"
     version: str = "2.0.0"
     api_version: str = "v2"
+    database: str = "connected"
+    cache: str = "connected"
+    timestamp: str = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

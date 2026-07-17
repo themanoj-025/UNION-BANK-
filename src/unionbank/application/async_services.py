@@ -436,7 +436,9 @@ class AsyncTransactionService:
         if not account.can_transact:
             return ServiceResult(success=False, message="Account is frozen or closed.")
 
-        interest = Decimal(str(calculate_monthly_interest(float(account.balance))))
+        interest = Decimal(str(calculate_monthly_interest(
+            float(account.balance), settings.SAVINGS_INTEREST_RATE
+        )))
         if interest <= 0:
             return ServiceResult(success=False, message="No interest to apply.")
 

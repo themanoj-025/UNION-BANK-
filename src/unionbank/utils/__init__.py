@@ -13,8 +13,14 @@ This package splits the old monolithic utils.py into focused sub-modules:
 All functions are re-exported here for backward compatibility.
 """
 
+# SAVINGS_INTEREST_RATE lives in config.py (the single source of truth for app settings).
+# It was previously re-exported from domain/interest.py but that module is now a
+# pure domain function with zero external imports — the interest rate is passed as
+# a parameter.  We import it from config directly here for backward compatibility.
+from unionbank.config import settings as _settings
+SAVINGS_INTEREST_RATE = _settings.SAVINGS_INTEREST_RATE
+
 from unionbank.domain.interest import (
-    SAVINGS_INTEREST_RATE,
     calculate_monthly_interest,
 )
 

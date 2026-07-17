@@ -16,8 +16,8 @@ function AdminTransactions() {
     setFetched(true);
     try {
       const endpoint = accountFilter
-        ? `/api/admin/transactions?account=${encodeURIComponent(accountFilter)}`
-        : '/api/admin/transactions';
+        ? `/admin/transactions?account=${encodeURIComponent(accountFilter)}`
+        : '/admin/transactions';
       const response = await api.get(endpoint);
       setTransactions(response.data);
     } catch (err) {

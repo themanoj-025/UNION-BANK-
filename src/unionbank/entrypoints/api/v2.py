@@ -963,17 +963,63 @@ def v2_admin_list_all_loans(admin: dict = Depends(get_current_admin)):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+@router.get("/admin/transactions", response_model=ApiResponse[list[TransactionOut]])
+def v2_admin_view_transactions(
+    account: Optional[str] = Query(None, description="Filter by account number"),
+    admin: dict = Depends(get_current_admin),
+):
+    """View all transactions across all accounts (admin only).
+
+    Optionally filter by account number via the `account` query parameter.
+    Transactions are returned newest first.
+    """
+    from unionbank.infrastructure.container import get_container
+    c = get_container()
+    tx_repo = c.transaction_repo()
+
+    if account:
+        domain_txns = tx_repo.get_by_account(account)
+    else:
+        # Get all transactions — iterate over all accounts
+        all_accounts = c.account_repo().get_all()
+        domain_txns = []
+        for acct in all_accounts:
+            domain_txns.extend(tx_repo.get_by_account(acct.account_number))
+
+    # Sort by timestamp descending
+    domain_txns.sort(key=lambda t: t.timestamp, reverse=True)
+
+    return _ok([
+        TransactionOut(
+            txn_id=t.txn_id,
+            timestamp=str(t.timestamp)[:19],
+            type=t.type.value,
+            amount=float(t.amount),
+            balance=float(t.balance),
+            description=t.description,
+            category=t.category,
+            target_account=t.target_account,
+        )
+        for t in domain_txns
+    ])
+
+
 @router.get("/admin/accounts", response_model=ApiResponse[list[AccountListItem]])
 def v2_admin_view_accounts(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
+    response: Response = None,
     admin: dict = Depends(get_current_admin),
 ):
-    """View all registered accounts with pagination (admin only)."""
+    """View all registered accounts with pagination (admin only).
+
+    Returns X-Total-Count header for pagination-aware UIs.
+    """
     c = _get_container()
     domain_accounts, total = c.admin_service().list_accounts_paginated(
         page=page, per_page=per_page
     )
+    response.headers["X-Total-Count"] = str(total)
     return _ok([
         AccountListItem(
             account_number=a.account_number, name=a.name,

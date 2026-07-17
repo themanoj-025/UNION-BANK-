@@ -1,0 +1,5573 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Union Bank API",
+    "description": "REST API for the Union Bank Management System.\n\n**API Versions**\n- `/api/v1/` \u2014 Legacy endpoints (bare response models, backward compatible)\n- `/api/v2/` \u2014 Current endpoints with standardised `ApiResponse[T]` envelope\n\nAll endpoints return JSON. Authentication uses Bearer JWT tokens.\nUse `/docs` for interactive API documentation.",
+    "termsOfService": "https://union-bank.example.com/terms",
+    "contact": {
+      "name": "Union Bank Dev Team"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/api/v2/auth/login": {
+      "post": {
+        "summary": "V2 Customer Login",
+        "description": "Authenticate a customer and return a JWT access + refresh token pair.\n\nTokens are set as httpOnly cookies (primary) and returned in the\nresponse body (backward compatibility).",
+        "operationId": "v2_customer_login_api_v2_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TokenData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/auth/register": {
+      "post": {
+        "summary": "V2 Customer Register",
+        "description": "Register a new customer account.",
+        "operationId": "v2_customer_register_api_v2_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/auth/admin-login": {
+      "post": {
+        "summary": "V2 Admin Login",
+        "description": "Authenticate as admin and return a JWT access + refresh token pair.\n\nTokens are set as httpOnly cookies (primary) and returned in the\nresponse body (backward compatibility).",
+        "operationId": "v2_admin_login_api_v2_auth_admin_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/unionbank__entrypoints__api__models__AdminLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TokenData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/auth/refresh": {
+      "post": {
+        "summary": "V2 Refresh Token",
+        "description": "Exchange a refresh token for a new access + refresh token pair.\n\nAccepts the refresh token from either:\n1. The request body (backward compatibility)\n2. The ub_refresh_token httpOnly cookie (new cookie-based flow)\n\nThe previous refresh token is revoked (rotation) so it cannot be reused.",
+        "operationId": "v2_refresh_token_api_v2_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/unionbank__entrypoints__api__models__RefreshRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Req"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TokenData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/account/profile": {
+      "get": {
+        "summary": "V2 Get Profile",
+        "description": "Get the authenticated customer's profile details.",
+        "operationId": "v2_get_profile_api_v2_account_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ProfileData_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "V2 Update Profile",
+        "description": "Update the authenticated customer's profile details.",
+        "operationId": "v2_update_profile_api_v2_account_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ProfileData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/change-password": {
+      "post": {
+        "summary": "V2 Change Password",
+        "description": "Change the authenticated customer's password.",
+        "operationId": "v2_change_password_api_v2_account_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/close": {
+      "post": {
+        "summary": "V2 Close Account",
+        "description": "Close the authenticated customer's account.",
+        "operationId": "v2_close_account_api_v2_account_close_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/balance": {
+      "get": {
+        "summary": "V2 Get Balance",
+        "description": "Get the current account balance.",
+        "operationId": "v2_get_balance_api_v2_account_balance_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BalanceData_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/deposit": {
+      "post": {
+        "summary": "V2 Deposit Money",
+        "description": "Deposit money into the authenticated customer's account.",
+        "operationId": "v2_deposit_money_api_v2_account_deposit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/unionbank__entrypoints__api__models__TransactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/withdraw": {
+      "post": {
+        "summary": "V2 Withdraw Money",
+        "description": "Withdraw money from the authenticated customer's account.",
+        "operationId": "v2_withdraw_money_api_v2_account_withdraw_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/unionbank__entrypoints__api__models__TransactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/transfer": {
+      "post": {
+        "summary": "V2 Transfer Funds",
+        "description": "Transfer funds to another account.",
+        "operationId": "v2_transfer_funds_api_v2_account_transfer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/unionbank__entrypoints__api__models__TransferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/statements": {
+      "get": {
+        "summary": "V2 Get Full Statement",
+        "description": "Get the full transaction statement (newest first).",
+        "operationId": "v2_get_full_statement_api_v2_account_statements_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_TransactionOut__"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/statements/mini": {
+      "get": {
+        "summary": "V2 Get Mini Statement",
+        "description": "Get the last 5 transactions (mini statement).",
+        "operationId": "v2_get_mini_statement_api_v2_account_statements_mini_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_TransactionOut__"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/account/statements/keyset": {
+      "get": {
+        "summary": "V2 Get Statement Keyset",
+        "description": "Get paginated statement using keyset (cursor-based) pagination.\n\nMore efficient than offset-based pagination on large datasets.\nInclude the `cursor` value from the previous page's meta to get the next page.",
+        "operationId": "v2_get_statement_keyset_api_v2_account_statements_keyset_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Timestamp cursor from previous page",
+              "title": "Cursor"
+            },
+            "description": "Timestamp cursor from previous page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_TransactionOut__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/account/export-csv": {
+      "get": {
+        "summary": "V2 Export Csv",
+        "description": "Download transaction history as a CSV file.",
+        "operationId": "v2_export_csv_api_v2_account_export_csv_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/savings": {
+      "get": {
+        "summary": "V2 List Savings Goals",
+        "description": "List all savings goals for the authenticated customer.",
+        "operationId": "v2_list_savings_goals_api_v2_savings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SavingsGoalsSummary_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "V2 Create Savings Goal",
+        "description": "Create a new savings goal.",
+        "operationId": "v2_create_savings_goal_api_v2_savings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingsGoalCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SavingsGoalOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/savings/{goal_id}/contribute": {
+      "post": {
+        "summary": "V2 Contribute To Goal",
+        "description": "Contribute money from your balance to a savings goal.",
+        "operationId": "v2_contribute_to_goal_api_v2_savings__goal_id__contribute_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Goal Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingsGoalContribute"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SavingsGoalOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/savings/{goal_id}": {
+      "delete": {
+        "summary": "V2 Delete Savings Goal",
+        "description": "Delete a savings goal and refund the amount to your balance.",
+        "operationId": "v2_delete_savings_goal_api_v2_savings__goal_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Goal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/loans": {
+      "get": {
+        "summary": "V2 List Loans",
+        "description": "List all loans for the authenticated customer.",
+        "operationId": "v2_list_loans_api_v2_loans_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoanSummaryData_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/loans/apply": {
+      "post": {
+        "summary": "V2 Apply Loan",
+        "description": "Apply for a new loan.",
+        "operationId": "v2_apply_loan_api_v2_loans_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/loans/{loan_id}": {
+      "get": {
+        "summary": "V2 Get Loan",
+        "description": "Get details of a specific loan.",
+        "operationId": "v2_get_loan_api_v2_loans__loan_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoanOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/loans/{loan_id}/pay-emi": {
+      "post": {
+        "summary": "V2 Pay Emi",
+        "description": "Pay the monthly EMI for a loan.",
+        "operationId": "v2_pay_emi_api_v2_loans__loan_id__pay_emi_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanPayEMIRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/loans/calculate-emi": {
+      "post": {
+        "summary": "V2 Calculate Emi",
+        "description": "Calculate EMI preview without applying for a loan.",
+        "operationId": "v2_calculate_emi_api_v2_loans_calculate_emi_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EMICalculateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_EMIPreviewData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/admin/loans": {
+      "get": {
+        "summary": "V2 Admin List Loans",
+        "description": "View all loan applications with statistics (admin only).",
+        "operationId": "v2_admin_list_loans_api_v2_admin_loans_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LoanAdminStats_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/admin/loans/pending": {
+      "get": {
+        "summary": "V2 Admin List Pending Loans",
+        "description": "View all pending loan applications (admin only).",
+        "operationId": "v2_admin_list_pending_loans_api_v2_admin_loans_pending_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_LoanOut__"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/admin/loans/{loan_id}/approve": {
+      "post": {
+        "summary": "V2 Admin Approve Loan",
+        "description": "Approve a pending loan application and disburse funds (admin only).",
+        "operationId": "v2_admin_approve_loan_api_v2_admin_loans__loan_id__approve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/admin/loans/{loan_id}/reject": {
+      "post": {
+        "summary": "V2 Admin Reject Loan",
+        "description": "Reject a pending loan application (admin only).",
+        "operationId": "v2_admin_reject_loan_api_v2_admin_loans__loan_id__reject_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanRejectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/admin/loans/all": {
+      "get": {
+        "summary": "V2 Admin List All Loans",
+        "description": "View all loan applications (admin only).",
+        "operationId": "v2_admin_list_all_loans_api_v2_admin_loans_all_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_LoanOut__"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/admin/accounts": {
+      "get": {
+        "summary": "V2 Admin View Accounts",
+        "description": "View all registered accounts with pagination (admin only).\n\nReturns X-Total-Count header for pagination-aware UIs.",
+        "operationId": "v2_admin_view_accounts_api_v2_admin_accounts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Per Page"
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_AccountListItem__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/admin/accounts/search": {
+      "get": {
+        "summary": "V2 Admin Search Accounts",
+        "description": "Search accounts by account number or name (admin only).",
+        "operationId": "v2_admin_search_accounts_api_v2_admin_accounts_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Search by account number or name",
+              "title": "Q"
+            },
+            "description": "Search by account number or name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_AccountListItem__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/admin/accounts/{acc_no}/freeze": {
+      "post": {
+        "summary": "V2 Admin Freeze Account",
+        "description": "Freeze a customer account (admin only).",
+        "operationId": "v2_admin_freeze_account_api_v2_admin_accounts__acc_no__freeze_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "acc_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Acc No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/admin/accounts/{acc_no}/unfreeze": {
+      "post": {
+        "summary": "V2 Admin Unfreeze Account",
+        "description": "Unfreeze a customer account (admin only).",
+        "operationId": "v2_admin_unfreeze_account_api_v2_admin_accounts__acc_no__unfreeze_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "acc_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Acc No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/admin/accounts/{acc_no}": {
+      "delete": {
+        "summary": "V2 Admin Delete Account",
+        "description": "Permanently delete a customer account and all its transactions (admin only).",
+        "operationId": "v2_admin_delete_account_api_v2_admin_accounts__acc_no__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "acc_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Acc No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MessageData_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/admin/statistics": {
+      "get": {
+        "summary": "V2 Admin Statistics",
+        "description": "View bank-wide statistics (admin only).",
+        "operationId": "v2_admin_statistics_api_v2_admin_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_StatisticsData_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v2/categories": {
+      "get": {
+        "summary": "V2 List Categories",
+        "description": "List all available transaction categories.",
+        "operationId": "v2_list_categories_api_v2_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_str__"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/analyzr/query": {
+      "post": {
+        "summary": "V2 Analyzr Query",
+        "description": "Natural-language transaction search.\n\nAccepts plain English queries like:\n  - \"show me large deposits last month\"\n  - \"what did I spend on food this month?\"\n  - \"find suspicious transactions\"\n  - \"show all deposits over 500\"\n\nTranslates the query into structured filters using pattern matching,\nexecutes the search, and returns formatted results.\nNo external API calls \u2014 translation is deterministic and local.",
+        "operationId": "v2_analyzr_query_api_v2_analyzr_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzrQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_dict_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/health": {
+      "get": {
+        "summary": "V2 Health Check",
+        "description": "Health check endpoint.",
+        "operationId": "v2_health_check_api_v2_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HealthData_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Customer Login",
+        "description": "Authenticate a customer and return a JWT access + refresh token pair.\n\nTokens are set as httpOnly cookies (Secure, SameSite=Strict) and also\nreturned in the response body for backward compatibility with Bearer\ntoken clients.",
+        "operationId": "customer_login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "summary": "Customer Register",
+        "description": "Register a new customer account.",
+        "operationId": "customer_register_api_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/admin-login": {
+      "post": {
+        "summary": "Admin Login",
+        "description": "Authenticate as admin and return a JWT access + refresh token pair.\n\nTokens are set as httpOnly cookies (Secure, SameSite=Strict) and also\nreturned in the response body for backward compatibility.",
+        "operationId": "admin_login_api_auth_admin_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/unionbank__entrypoints__api__main__AdminLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/profile": {
+      "get": {
+        "summary": "Get Profile",
+        "description": "Get the authenticated customer's profile details.",
+        "operationId": "get_profile_api_account_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Update Profile",
+        "description": "Update the authenticated customer's profile details.",
+        "operationId": "update_profile_api_account_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/change-password": {
+      "post": {
+        "summary": "Change Password",
+        "description": "Change the authenticated customer's password.",
+        "operationId": "change_password_api_account_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/close": {
+      "post": {
+        "summary": "Close Account",
+        "description": "Close the authenticated customer's account.",
+        "operationId": "close_account_api_account_close_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/balance": {
+      "get": {
+        "summary": "Get Balance",
+        "description": "Get the current account balance.",
+        "operationId": "get_balance_api_account_balance_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/deposit": {
+      "post": {
+        "summary": "Deposit Money",
+        "description": "Deposit money into the authenticated customer's account.",
+        "operationId": "deposit_money_api_account_deposit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/unionbank__entrypoints__api__main__TransactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/withdraw": {
+      "post": {
+        "summary": "Withdraw Money",
+        "description": "Withdraw money from the authenticated customer's account.",
+        "operationId": "withdraw_money_api_account_withdraw_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/unionbank__entrypoints__api__main__TransactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/transfer": {
+      "post": {
+        "summary": "Transfer Funds",
+        "description": "Transfer funds to another account.",
+        "operationId": "transfer_funds_api_account_transfer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/unionbank__entrypoints__api__main__TransferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/statements": {
+      "get": {
+        "summary": "Get Full Statement",
+        "description": "Get the full transaction statement (newest first).",
+        "operationId": "get_full_statement_api_account_statements_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/unionbank__entrypoints__api__main__TransactionOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get Full Statement Api Account Statements Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/statements/mini": {
+      "get": {
+        "summary": "Get Mini Statement",
+        "description": "Get the last 5 transactions (mini statement).",
+        "operationId": "get_mini_statement_api_account_statements_mini_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/unionbank__entrypoints__api__main__TransactionOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get Mini Statement Api Account Statements Mini Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/account/export-csv": {
+      "get": {
+        "summary": "Export Csv",
+        "description": "Download transaction history as a CSV file.",
+        "operationId": "export_csv_api_account_export_csv_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/savings": {
+      "get": {
+        "summary": "List Savings Goals",
+        "description": "List all savings goals for the authenticated customer.",
+        "operationId": "list_savings_goals_api_savings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsGoalsSummary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Savings Goal",
+        "description": "Create a new savings goal.",
+        "operationId": "create_savings_goal_api_savings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingsGoalCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsGoalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/savings/{goal_id}": {
+      "put": {
+        "summary": "Update Savings Goal",
+        "description": "Update a savings goal.",
+        "operationId": "update_savings_goal_api_savings__goal_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Goal Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingsGoalUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsGoalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Savings Goal",
+        "description": "Delete a savings goal and refund the amount to your balance.",
+        "operationId": "delete_savings_goal_api_savings__goal_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Goal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/savings/{goal_id}/contribute": {
+      "post": {
+        "summary": "Contribute To Goal",
+        "description": "Contribute money from your balance to a savings goal.",
+        "operationId": "contribute_to_goal_api_savings__goal_id__contribute_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Goal Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingsGoalContribute"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsGoalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/apply-interest": {
+      "post": {
+        "summary": "Apply Interest",
+        "description": "Apply monthly interest (3.5% p.a.) using an atomic SQLite transaction.",
+        "operationId": "apply_interest_api_account_apply_interest_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/accounts": {
+      "get": {
+        "summary": "Admin View Accounts",
+        "description": "View all registered accounts with pagination (admin only).",
+        "operationId": "admin_view_accounts_api_admin_accounts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Per Page"
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/unionbank__entrypoints__api__main__AccountListItem"
+                  },
+                  "title": "Response Admin View Accounts Api Admin Accounts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/accounts/search": {
+      "get": {
+        "summary": "Admin Search Accounts",
+        "description": "Search accounts by account number or name (admin only).",
+        "operationId": "admin_search_accounts_api_admin_accounts_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Search by account number or name",
+              "title": "Q"
+            },
+            "description": "Search by account number or name"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Per Page"
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/unionbank__entrypoints__api__main__AccountListItem"
+                  },
+                  "title": "Response Admin Search Accounts Api Admin Accounts Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/accounts/{acc_no}/freeze": {
+      "post": {
+        "summary": "Admin Freeze Account",
+        "description": "Freeze a customer account (admin only).",
+        "operationId": "admin_freeze_account_api_admin_accounts__acc_no__freeze_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "acc_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Acc No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/accounts/{acc_no}/unfreeze": {
+      "post": {
+        "summary": "Admin Unfreeze Account",
+        "description": "Unfreeze a customer account (admin only).",
+        "operationId": "admin_unfreeze_account_api_admin_accounts__acc_no__unfreeze_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "acc_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Acc No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/accounts/{acc_no}": {
+      "delete": {
+        "summary": "Admin Delete Account",
+        "description": "Permanently delete a customer account and all its transactions (admin only).",
+        "operationId": "admin_delete_account_api_admin_accounts__acc_no__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "acc_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Acc No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/statistics": {
+      "get": {
+        "summary": "Admin Statistics",
+        "description": "View bank-wide statistics (admin only).",
+        "operationId": "admin_statistics_api_admin_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/transactions": {
+      "get": {
+        "summary": "Admin View Transactions",
+        "description": "View all transactions, optionally filtered by account (admin only).\n\nReturns a flat array (not grouped by account) for easier client-side processing.\nUse the `account_number` field to group on the client side.\nPaginated via offset-based pagination.",
+        "operationId": "admin_view_transactions_api_admin_transactions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by account number",
+              "title": "Account"
+            },
+            "description": "Filter by account number"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 50,
+              "title": "Per Page"
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/unionbank__entrypoints__api__main__TransactionOut"
+                  },
+                  "title": "Response Admin View Transactions Api Admin Transactions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/password": {
+      "put": {
+        "summary": "Admin Change Password",
+        "description": "Change the admin password (admin only).",
+        "operationId": "admin_change_password_api_admin_password_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "summary": "Refresh Token",
+        "description": "Exchange a refresh token for a new access + refresh token pair.\n\nAccepts the refresh token from either:\n1. The request body (backward compatibility with Bearer token clients)\n2. The ub_refresh_token httpOnly cookie (new cookie-based flow)\n\nThe previous refresh token is revoked (rotation) so it cannot be reused.",
+        "operationId": "refresh_token_api_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/unionbank__entrypoints__api__main__RefreshRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Req"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/2fa/status": {
+      "get": {
+        "summary": "Admin Totp Status",
+        "description": "Check if 2FA is enabled for the current admin.",
+        "operationId": "admin_totp_status_api_admin_2fa_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TOTPStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/2fa/setup": {
+      "get": {
+        "summary": "Admin Totp Setup",
+        "description": "Generate a new TOTP secret and provisioning URI for the admin user.",
+        "operationId": "admin_totp_setup_api_admin_2fa_setup_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TOTPSetupResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/2fa/verify": {
+      "post": {
+        "summary": "Admin Totp Verify",
+        "description": "Verify a TOTP code to enable 2FA for the admin account.",
+        "operationId": "admin_totp_verify_api_admin_2fa_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TOTPVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/2fa/disable": {
+      "post": {
+        "summary": "Admin Totp Disable",
+        "description": "Disable 2FA for the admin account (requires current TOTP code).",
+        "operationId": "admin_totp_disable_api_admin_2fa_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TOTPVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "summary": "List Categories",
+        "description": "List all available transaction categories.",
+        "operationId": "list_categories_api_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Categories Api Categories Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Health check endpoint.",
+        "operationId": "health_check_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/healthz": {
+      "get": {
+        "summary": "Liveness Probe",
+        "description": "Kubernetes liveness probe \u2014 returns 200 if the process is alive.",
+        "operationId": "liveness_probe_api_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/readyz": {
+      "get": {
+        "summary": "Readiness Probe",
+        "description": "Kubernetes readiness probe \u2014 checks database connectivity.",
+        "operationId": "readiness_probe_api_readyz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Metrics Endpoint",
+        "description": "Prometheus metrics endpoint. Scraped by Prometheus or any metrics collector.",
+        "operationId": "metrics_endpoint_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 8,
+            "title": "New Password"
+          },
+          "confirm_password": {
+            "type": "string",
+            "title": "Confirm Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password",
+          "confirm_password"
+        ],
+        "title": "AdminChangePasswordRequest"
+      },
+      "AnalyzrQueryRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Query",
+            "description": "Natural-language query (e.g. 'large deposits last month')"
+          },
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number",
+            "description": "Account number to scope the search"
+          },
+          "max_results": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Max Results",
+            "description": "Maximum number of results",
+            "default": 50
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "AnalyzrQueryRequest",
+        "description": "Natural-language transaction search request."
+      },
+      "ApiResponse_BalanceData_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BalanceData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[BalanceData]"
+      },
+      "ApiResponse_EMIPreviewData_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EMIPreviewData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[EMIPreviewData]"
+      },
+      "ApiResponse_HealthData_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HealthData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[HealthData]"
+      },
+      "ApiResponse_LoanAdminStats_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoanAdminStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[LoanAdminStats]"
+      },
+      "ApiResponse_LoanOut_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoanOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[LoanOut]"
+      },
+      "ApiResponse_LoanSummaryData_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LoanSummaryData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[LoanSummaryData]"
+      },
+      "ApiResponse_MessageData_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[MessageData]"
+      },
+      "ApiResponse_ProfileData_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[ProfileData]"
+      },
+      "ApiResponse_SavingsGoalOut_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SavingsGoalOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[SavingsGoalOut]"
+      },
+      "ApiResponse_SavingsGoalsSummary_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SavingsGoalsSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[SavingsGoalsSummary]"
+      },
+      "ApiResponse_StatisticsData_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatisticsData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[StatisticsData]"
+      },
+      "ApiResponse_TokenData_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[TokenData]"
+      },
+      "ApiResponse_dict_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[dict]"
+      },
+      "ApiResponse_list_AccountListItem__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/unionbank__entrypoints__api__models__AccountListItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[list[AccountListItem]]"
+      },
+      "ApiResponse_list_LoanOut__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/LoanOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[list[LoanOut]]"
+      },
+      "ApiResponse_list_TransactionOut__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/unionbank__entrypoints__api__models__TransactionOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[list[TransactionOut]]"
+      },
+      "ApiResponse_list_str__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[list[str]]"
+      },
+      "BalanceData": {
+        "properties": {
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "balance_formatted": {
+            "type": "string",
+            "title": "Balance Formatted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_number",
+          "name",
+          "balance",
+          "balance_formatted"
+        ],
+        "title": "BalanceData",
+        "description": "Account balance payload."
+      },
+      "BalanceResponse": {
+        "properties": {
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "balance_formatted": {
+            "type": "string",
+            "title": "Balance Formatted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_number",
+          "name",
+          "balance",
+          "balance_formatted"
+        ],
+        "title": "BalanceResponse"
+      },
+      "ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 8,
+            "title": "New Password"
+          },
+          "confirm_password": {
+            "type": "string",
+            "title": "Confirm Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password",
+          "confirm_password"
+        ],
+        "title": "ChangePasswordRequest"
+      },
+      "CloseAccountRequest": {
+        "properties": {
+          "confirm_text": {
+            "type": "string",
+            "title": "Confirm Text",
+            "description": "Must be 'CLOSE'"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirm_text",
+          "password"
+        ],
+        "title": "CloseAccountRequest"
+      },
+      "EMICalculateRequest": {
+        "properties": {
+          "principal": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Principal",
+            "description": "Principal amount"
+          },
+          "annual_rate": {
+            "type": "number",
+            "maximum": 50.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Annual Rate",
+            "description": "Annual interest rate %"
+          },
+          "tenure_months": {
+            "type": "integer",
+            "maximum": 360.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Tenure Months",
+            "description": "Tenure in months"
+          }
+        },
+        "type": "object",
+        "required": [
+          "principal",
+          "annual_rate",
+          "tenure_months"
+        ],
+        "title": "EMICalculateRequest"
+      },
+      "EMIPreviewData": {
+        "properties": {
+          "principal": {
+            "type": "number",
+            "title": "Principal"
+          },
+          "annual_rate": {
+            "type": "number",
+            "title": "Annual Rate"
+          },
+          "tenure_months": {
+            "type": "integer",
+            "title": "Tenure Months"
+          },
+          "emi": {
+            "type": "number",
+            "title": "Emi"
+          },
+          "total_payable": {
+            "type": "number",
+            "title": "Total Payable"
+          },
+          "total_interest": {
+            "type": "number",
+            "title": "Total Interest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "principal",
+          "annual_rate",
+          "tenure_months",
+          "emi",
+          "total_payable",
+          "total_interest"
+        ],
+        "title": "EMIPreviewData"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthData": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "healthy"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "default": "Union Bank API"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "2.0.0"
+          },
+          "api_version": {
+            "type": "string",
+            "title": "Api Version",
+            "default": "v2"
+          }
+        },
+        "type": "object",
+        "title": "HealthData"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "healthy"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "default": "Union Bank API"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "2.0.0"
+          }
+        },
+        "type": "object",
+        "title": "HealthResponse"
+      },
+      "LoanAdminStats": {
+        "properties": {
+          "total_pending": {
+            "type": "integer",
+            "title": "Total Pending"
+          },
+          "total_approved": {
+            "type": "integer",
+            "title": "Total Approved"
+          },
+          "total_active": {
+            "type": "integer",
+            "title": "Total Active"
+          },
+          "total_closed": {
+            "type": "integer",
+            "title": "Total Closed"
+          },
+          "total_rejected": {
+            "type": "integer",
+            "title": "Total Rejected"
+          },
+          "total_disbursed": {
+            "type": "number",
+            "title": "Total Disbursed"
+          },
+          "total_disbursed_formatted": {
+            "type": "string",
+            "title": "Total Disbursed Formatted"
+          },
+          "total_outstanding": {
+            "type": "number",
+            "title": "Total Outstanding"
+          },
+          "total_outstanding_formatted": {
+            "type": "string",
+            "title": "Total Outstanding Formatted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_pending",
+          "total_approved",
+          "total_active",
+          "total_closed",
+          "total_rejected",
+          "total_disbursed",
+          "total_disbursed_formatted",
+          "total_outstanding",
+          "total_outstanding_formatted"
+        ],
+        "title": "LoanAdminStats"
+      },
+      "LoanApplyRequest": {
+        "properties": {
+          "loan_type": {
+            "type": "string",
+            "title": "Loan Type",
+            "description": "Personal, Home, Vehicle, Education, Business"
+          },
+          "principal_amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Principal Amount",
+            "description": "Desired loan amount"
+          },
+          "interest_rate": {
+            "type": "number",
+            "maximum": 50.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Interest Rate",
+            "description": "Annual interest rate %"
+          },
+          "tenure_months": {
+            "type": "integer",
+            "maximum": 360.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Tenure Months",
+            "description": "Loan tenure in months"
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Purpose",
+            "description": "Purpose of the loan",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "loan_type",
+          "principal_amount",
+          "interest_rate",
+          "tenure_months"
+        ],
+        "title": "LoanApplyRequest"
+      },
+      "LoanOut": {
+        "properties": {
+          "loan_id": {
+            "type": "string",
+            "title": "Loan Id"
+          },
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "loan_type": {
+            "type": "string",
+            "title": "Loan Type"
+          },
+          "principal_amount": {
+            "type": "number",
+            "title": "Principal Amount"
+          },
+          "interest_rate": {
+            "type": "number",
+            "title": "Interest Rate"
+          },
+          "tenure_months": {
+            "type": "integer",
+            "title": "Tenure Months"
+          },
+          "emi_amount": {
+            "type": "number",
+            "title": "Emi Amount"
+          },
+          "amount_paid": {
+            "type": "number",
+            "title": "Amount Paid"
+          },
+          "remaining_amount": {
+            "type": "number",
+            "title": "Remaining Amount"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "application_date": {
+            "type": "string",
+            "title": "Application Date"
+          },
+          "approval_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Date"
+          },
+          "next_emi_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Emi Date"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose",
+            "default": ""
+          },
+          "admin_notes": {
+            "type": "string",
+            "title": "Admin Notes",
+            "default": ""
+          },
+          "progress_pct": {
+            "type": "number",
+            "title": "Progress Pct",
+            "default": 0.0
+          },
+          "remaining_emis": {
+            "type": "integer",
+            "title": "Remaining Emis",
+            "default": 0
+          },
+          "is_overdue": {
+            "type": "boolean",
+            "title": "Is Overdue",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "loan_id",
+          "account_number",
+          "loan_type",
+          "principal_amount",
+          "interest_rate",
+          "tenure_months",
+          "emi_amount",
+          "amount_paid",
+          "remaining_amount",
+          "status",
+          "application_date"
+        ],
+        "title": "LoanOut"
+      },
+      "LoanPayEMIRequest": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount",
+            "description": "Amount to pay (defaults to full EMI)"
+          }
+        },
+        "type": "object",
+        "title": "LoanPayEMIRequest"
+      },
+      "LoanRejectRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Reason",
+            "description": "Rejection reason",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "LoanRejectRequest"
+      },
+      "LoanSummaryData": {
+        "properties": {
+          "total_loans": {
+            "type": "integer",
+            "title": "Total Loans"
+          },
+          "active_loans": {
+            "type": "integer",
+            "title": "Active Loans"
+          },
+          "closed_loans": {
+            "type": "integer",
+            "title": "Closed Loans"
+          },
+          "total_disbursed": {
+            "type": "number",
+            "title": "Total Disbursed"
+          },
+          "total_disbursed_formatted": {
+            "type": "string",
+            "title": "Total Disbursed Formatted"
+          },
+          "total_outstanding": {
+            "type": "number",
+            "title": "Total Outstanding"
+          },
+          "total_outstanding_formatted": {
+            "type": "string",
+            "title": "Total Outstanding Formatted"
+          },
+          "loans": {
+            "items": {
+              "$ref": "#/components/schemas/LoanOut"
+            },
+            "type": "array",
+            "title": "Loans"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_loans",
+          "active_loans",
+          "closed_loans",
+          "total_disbursed",
+          "total_disbursed_formatted",
+          "total_outstanding",
+          "total_outstanding_formatted",
+          "loans"
+        ],
+        "title": "LoanSummaryData"
+      },
+      "LoginRequest": {
+        "properties": {
+          "account_number": {
+            "type": "string",
+            "title": "Account Number",
+            "description": "10-digit account number"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Password",
+            "description": "Account password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_number",
+          "password"
+        ],
+        "title": "LoginRequest"
+      },
+      "MessageData": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "MessageData"
+      },
+      "MessageResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "success"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "MessageResponse"
+      },
+      "ProfileData": {
+        "properties": {
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender"
+          },
+          "mobile": {
+            "type": "string",
+            "title": "Mobile"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "balance_formatted": {
+            "type": "string",
+            "title": "Balance Formatted"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_number",
+          "name",
+          "age",
+          "gender",
+          "mobile",
+          "email",
+          "balance",
+          "balance_formatted",
+          "status",
+          "created_at"
+        ],
+        "title": "ProfileData",
+        "description": "Customer profile payload."
+      },
+      "ProfileResponse": {
+        "properties": {
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender"
+          },
+          "mobile": {
+            "type": "string",
+            "title": "Mobile"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "balance_formatted": {
+            "type": "string",
+            "title": "Balance Formatted"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_number",
+          "name",
+          "age",
+          "gender",
+          "mobile",
+          "email",
+          "balance",
+          "balance_formatted",
+          "status",
+          "created_at"
+        ],
+        "title": "ProfileResponse"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Full name (2-50 chars, letters/spaces only)"
+          },
+          "age": {
+            "type": "integer",
+            "maximum": 120.0,
+            "minimum": 18.0,
+            "title": "Age",
+            "description": "Age (18-120)"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender",
+            "description": "Gender"
+          },
+          "mobile": {
+            "type": "string",
+            "title": "Mobile",
+            "description": "10-digit mobile number starting with 6-9"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "Valid email address"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "title": "Password",
+            "description": "Password: min 8 chars, upper+lower+digit"
+          },
+          "confirm_password": {
+            "type": "string",
+            "title": "Confirm Password",
+            "description": "Must match password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "age",
+          "gender",
+          "mobile",
+          "email",
+          "password",
+          "confirm_password"
+        ],
+        "title": "RegisterRequest"
+      },
+      "SavingsGoalContribute": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "Amount to contribute"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "SavingsGoalContribute"
+      },
+      "SavingsGoalCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "title": "Name",
+            "description": "Goal name"
+          },
+          "target_amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Target Amount",
+            "description": "Savings target"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date",
+            "description": "Optional target date (YYYY-MM-DD)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "target_amount"
+        ],
+        "title": "SavingsGoalCreate"
+      },
+      "SavingsGoalOut": {
+        "properties": {
+          "goal_id": {
+            "type": "string",
+            "title": "Goal Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "target_amount": {
+            "type": "number",
+            "title": "Target Amount"
+          },
+          "current_amount": {
+            "type": "number",
+            "title": "Current Amount"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "is_completed": {
+            "type": "boolean",
+            "title": "Is Completed"
+          },
+          "progress_pct": {
+            "type": "number",
+            "title": "Progress Pct",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "goal_id",
+          "name",
+          "target_amount",
+          "current_amount",
+          "created_at",
+          "is_completed"
+        ],
+        "title": "SavingsGoalOut"
+      },
+      "SavingsGoalUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "target_amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Amount"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          }
+        },
+        "type": "object",
+        "title": "SavingsGoalUpdate"
+      },
+      "SavingsGoalsSummary": {
+        "properties": {
+          "total_goals": {
+            "type": "integer",
+            "title": "Total Goals"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "total_saved": {
+            "type": "number",
+            "title": "Total Saved"
+          },
+          "total_saved_formatted": {
+            "type": "string",
+            "title": "Total Saved Formatted"
+          },
+          "total_target": {
+            "type": "number",
+            "title": "Total Target"
+          },
+          "total_target_formatted": {
+            "type": "string",
+            "title": "Total Target Formatted"
+          },
+          "goals": {
+            "items": {
+              "$ref": "#/components/schemas/SavingsGoalOut"
+            },
+            "type": "array",
+            "title": "Goals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_goals",
+          "completed",
+          "total_saved",
+          "total_saved_formatted",
+          "total_target",
+          "total_target_formatted",
+          "goals"
+        ],
+        "title": "SavingsGoalsSummary"
+      },
+      "StatisticsData": {
+        "properties": {
+          "total_customers": {
+            "type": "integer",
+            "title": "Total Customers"
+          },
+          "active_accounts": {
+            "type": "integer",
+            "title": "Active Accounts"
+          },
+          "frozen_accounts": {
+            "type": "integer",
+            "title": "Frozen Accounts"
+          },
+          "closed_accounts": {
+            "type": "integer",
+            "title": "Closed Accounts"
+          },
+          "total_balance": {
+            "type": "number",
+            "title": "Total Balance"
+          },
+          "total_balance_formatted": {
+            "type": "string",
+            "title": "Total Balance Formatted"
+          },
+          "total_deposits": {
+            "type": "number",
+            "title": "Total Deposits"
+          },
+          "total_withdrawals": {
+            "type": "number",
+            "title": "Total Withdrawals"
+          },
+          "total_transfers": {
+            "type": "number",
+            "title": "Total Transfers"
+          },
+          "total_transactions": {
+            "type": "integer",
+            "title": "Total Transactions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_customers",
+          "active_accounts",
+          "frozen_accounts",
+          "closed_accounts",
+          "total_balance",
+          "total_balance_formatted",
+          "total_deposits",
+          "total_withdrawals",
+          "total_transfers",
+          "total_transactions"
+        ],
+        "title": "StatisticsData"
+      },
+      "StatisticsResponse": {
+        "properties": {
+          "total_customers": {
+            "type": "integer",
+            "title": "Total Customers"
+          },
+          "active_accounts": {
+            "type": "integer",
+            "title": "Active Accounts"
+          },
+          "frozen_accounts": {
+            "type": "integer",
+            "title": "Frozen Accounts"
+          },
+          "closed_accounts": {
+            "type": "integer",
+            "title": "Closed Accounts"
+          },
+          "total_balance": {
+            "type": "number",
+            "title": "Total Balance"
+          },
+          "total_balance_formatted": {
+            "type": "string",
+            "title": "Total Balance Formatted"
+          },
+          "total_deposits": {
+            "type": "number",
+            "title": "Total Deposits"
+          },
+          "total_withdrawals": {
+            "type": "number",
+            "title": "Total Withdrawals"
+          },
+          "total_transfers": {
+            "type": "number",
+            "title": "Total Transfers"
+          },
+          "total_transactions": {
+            "type": "integer",
+            "title": "Total Transactions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_customers",
+          "active_accounts",
+          "frozen_accounts",
+          "closed_accounts",
+          "total_balance",
+          "total_balance_formatted",
+          "total_deposits",
+          "total_withdrawals",
+          "total_transfers",
+          "total_transactions"
+        ],
+        "title": "StatisticsResponse"
+      },
+      "TOTPSetupResponse": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "qr_uri": {
+            "type": "string",
+            "title": "Qr Uri"
+          },
+          "manual": {
+            "type": "string",
+            "title": "Manual"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "qr_uri",
+          "manual"
+        ],
+        "title": "TOTPSetupResponse"
+      },
+      "TOTPStatusResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "TOTPStatusResponse"
+      },
+      "TOTPVerifyRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "title": "Code",
+            "description": "6-digit TOTP code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "TOTPVerifyRequest"
+      },
+      "TokenData": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "role"
+        ],
+        "title": "TokenData",
+        "description": "Payload inside ApiResponse.data for /auth/* endpoints."
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "role"
+        ],
+        "title": "TokenResponse"
+      },
+      "UpdateProfileRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 18.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "mobile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mobile"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "title": "UpdateProfileRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "unionbank__entrypoints__api__main__AccountListItem": {
+        "properties": {
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "balance_formatted": {
+            "type": "string",
+            "title": "Balance Formatted"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "mobile": {
+            "type": "string",
+            "title": "Mobile"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_number",
+          "name",
+          "balance",
+          "balance_formatted",
+          "status",
+          "mobile",
+          "email",
+          "age",
+          "gender",
+          "created_at"
+        ],
+        "title": "AccountListItem"
+      },
+      "unionbank__entrypoints__api__main__AdminLoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "description": "Admin username"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Password",
+            "description": "Admin password"
+          },
+          "totp_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 6,
+                "minLength": 6
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totp Code",
+            "description": "TOTP code (required if 2FA is enabled)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "AdminLoginRequest"
+      },
+      "unionbank__entrypoints__api__main__RefreshRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest"
+      },
+      "unionbank__entrypoints__api__main__TransactionOut": {
+        "properties": {
+          "txn_id": {
+            "type": "string",
+            "title": "Txn Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "target_account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Account"
+          },
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "txn_id",
+          "timestamp",
+          "type",
+          "amount",
+          "balance",
+          "description",
+          "category"
+        ],
+        "title": "TransactionOut"
+      },
+      "unionbank__entrypoints__api__main__TransactionRequest": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "Positive transaction amount"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "Transaction category",
+            "default": "General"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "TransactionRequest"
+      },
+      "unionbank__entrypoints__api__main__TransferRequest": {
+        "properties": {
+          "target_account": {
+            "type": "string",
+            "title": "Target Account",
+            "description": "Recipient account number"
+          },
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "Transfer amount"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "Transaction category",
+            "default": "General"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_account",
+          "amount"
+        ],
+        "title": "TransferRequest"
+      },
+      "unionbank__entrypoints__api__models__AccountListItem": {
+        "properties": {
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "balance_formatted": {
+            "type": "string",
+            "title": "Balance Formatted"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "mobile": {
+            "type": "string",
+            "title": "Mobile"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_number",
+          "name",
+          "balance",
+          "balance_formatted",
+          "status",
+          "mobile",
+          "email",
+          "age",
+          "gender",
+          "created_at"
+        ],
+        "title": "AccountListItem",
+        "description": "Account list item for admin views."
+      },
+      "unionbank__entrypoints__api__models__AdminLoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "description": "Admin username"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Password",
+            "description": "Admin password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "AdminLoginRequest"
+      },
+      "unionbank__entrypoints__api__models__RefreshRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token",
+            "description": "Refresh token from previous login"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest"
+      },
+      "unionbank__entrypoints__api__models__TransactionOut": {
+        "properties": {
+          "txn_id": {
+            "type": "string",
+            "title": "Txn Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "target_account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Account"
+          }
+        },
+        "type": "object",
+        "required": [
+          "txn_id",
+          "timestamp",
+          "type",
+          "amount",
+          "balance",
+          "description",
+          "category"
+        ],
+        "title": "TransactionOut",
+        "description": "Single transaction in a statement."
+      },
+      "unionbank__entrypoints__api__models__TransactionRequest": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "Positive transaction amount"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "Transaction category",
+            "default": "General"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key",
+            "description": "Idempotency key for retry-safe operations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "TransactionRequest"
+      },
+      "unionbank__entrypoints__api__models__TransferRequest": {
+        "properties": {
+          "target_account": {
+            "type": "string",
+            "title": "Target Account",
+            "description": "Recipient account number"
+          },
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "Transfer amount"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "Transaction category",
+            "default": "General"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key",
+            "description": "Idempotency key for retry-safe operations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_account",
+          "amount"
+        ],
+        "title": "TransferRequest"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "v2 - Auth",
+      "description": "Authentication and token management (v2 envelope)"
+    },
+    {
+      "name": "v2 - Account",
+      "description": "Customer account profile and management (v2 envelope)"
+    },
+    {
+      "name": "v2 - Transactions",
+      "description": "Deposit, withdraw, transfer, and statements (v2 envelope)"
+    },
+    {
+      "name": "v2 - Savings Goals",
+      "description": "Create, contribute to, and manage savings goals (v2 envelope)"
+    },
+    {
+      "name": "v2 - Admin",
+      "description": "Admin operations: account oversight and statistics (v2 envelope)"
+    },
+    {
+      "name": "v2 - Utilities",
+      "description": "Health check and category listing (v2 envelope)"
+    }
+  ]
+}

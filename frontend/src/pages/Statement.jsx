@@ -6,6 +6,7 @@ import api from '../api';
 function Statement() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchStatement = async () => {
@@ -14,6 +15,7 @@ function Statement() {
         setTransactions(response.data);
       } catch (err) {
         console.error('Failed to fetch statement', err);
+        setError(err.response?.data?.detail || 'Failed to load statement');
       } finally {
         setLoading(false);
       }
@@ -52,6 +54,8 @@ function Statement() {
           Download CSV
         </button>
       </div>
+
+      {error && <div style={{ padding: '15px', marginBottom: '20px', borderRadius: '8px', backgroundColor: '#fdecea', color: 'red' }}>{error}</div>}
 
       <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
         {loading ? (

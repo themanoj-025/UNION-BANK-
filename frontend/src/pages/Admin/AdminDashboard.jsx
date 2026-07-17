@@ -8,6 +8,7 @@ function AdminDashboard() {
   const { logout } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -16,6 +17,7 @@ function AdminDashboard() {
         setStats(response.data);
       } catch (err) {
         console.error('Failed to fetch admin statistics', err);
+        setError(err.response?.data?.detail || 'Failed to load statistics');
       } finally {
         setLoading(false);
       }
@@ -92,7 +94,7 @@ function AdminDashboard() {
           </div>
         </div>
       ) : (
-        <p style={{ color: 'red' }}>Failed to load statistics.</p>
+        <p style={{ color: 'red' }}>{error || 'Failed to load statistics.'}</p>
       )}
     </motion.div>
   );

@@ -21,6 +21,8 @@ function Dashboard() {
         setTransactions(txRes.data);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
+        setTransactions([]);
+        setBalance('0.00');
       } finally {
         setLoading(false);
       }

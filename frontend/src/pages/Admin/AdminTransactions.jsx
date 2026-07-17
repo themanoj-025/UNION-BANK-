@@ -19,7 +19,19 @@ function AdminTransactions() {
         ? `/admin/transactions?account=${encodeURIComponent(accountFilter)}`
         : '/admin/transactions';
       const response = await api.get(endpoint);
-      setTransactions(response.data);
+      // V2 returns a flat list; group by account number for the grouped UI
+      const data = response.data;
+      if (Array.isArray(data)) {
+        const grouped = {};
+        for (const tx of data) {
+          const acc = tx.target_account || 'Unknown';
+          if (!grouped[acc]) grouped[acc] = [];
+          grouped[acc].push(tx);
+        }
+        setTransactions(grouped);
+      } else {
+        setTransactions(data);
+      }
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load transactions');
     } finally {

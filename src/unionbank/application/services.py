@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Generator, Optional
 
+import pybreaker
+
 # ── Canonical constants (from centralized config) ────────────────────────────
 from unionbank.config import settings
 from unionbank.domain.clock import utcnow as _utcnow

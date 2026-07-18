@@ -1,4 +1,5 @@
-"""utils  –  Utility package for Union Bank Management System.
+"""
+utils  –  Utility package for Union Bank Management System.
 
 This package splits the old monolithic utils.py into focused sub-modules:
   - file_io.py:      JSON load/save with corruption recovery, file path constants

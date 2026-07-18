@@ -9,15 +9,15 @@ Usage:
 """
 
 import os
-import sys
+import secrets
 import time
 from decimal import Decimal
 from datetime import datetime, timezone
 
 # Set testing env vars so Config doesn't require real secrets
 os.environ.setdefault("UNION_BANK_TESTING", "1")
-os.environ.setdefault("JWT_SECRET", "migration-secret")
-os.environ.setdefault("FLASK_SECRET_KEY", "migration-flask-secret")
+os.environ.setdefault("JWT_SECRET", secrets.token_hex(32))
+os.environ.setdefault("FLASK_SECRET_KEY", secrets.token_hex(24))
 
 from unionbank.utils import (
     load_json,
@@ -28,10 +28,7 @@ from unionbank.utils.logger import logger
 from unionbank.infrastructure.backward_compat import get_session, close_session
 from unionbank.infrastructure.repositories import (
     SqlAlchemyAccountRepository,
-    SqlAlchemyTransactionRepository,
     SqlAlchemyAdminRepository,
-    SqlAlchemySavingsGoalRepository,
-    SqlAlchemyLoginAttemptRepository,
 )
 from unionbank.infrastructure.persistence import (
     AccountModel, TransactionModel, SavingsGoalModel,
@@ -185,7 +182,6 @@ def migrate_login_attempts() -> int:
     session = get_session()
     try:
         total = 0
-        from datetime import timedelta
 
         for key, record in raw.items():
             existing = session.query(LoginAttemptModel).filter_by(key=key).first()
@@ -278,7 +274,7 @@ def main():
 
     print()
     print(f"  {'-' * 42}")
-    print(f"  Migration complete!")
+    print("  Migration complete!")
     print(f"  {'-' * 42}")
     print(f"    Accounts        : {a:>8}")
     print(f"    Transactions    : {t:>8}")

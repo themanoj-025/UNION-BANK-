@@ -1,4 +1,5 @@
-"""cookie_auth.py  –  httpOnly cookie-based token storage with CSRF protection.
+"""
+cookie_auth.py  –  httpOnly cookie-based token storage with CSRF protection.
 
 Replaces localStorage token storage with Secure, httpOnly, SameSite=Strict cookies.
 CSRF protection uses the double-submit cookie pattern: a random CSRF token is set
@@ -57,7 +58,8 @@ def set_auth_cookies(
     refresh_token: Optional[str] = None,
     role: Optional[str] = None,
 ) -> None:
-    """Set httpOnly auth cookies on the response.
+    """
+    Set httpOnly auth cookies on the response.
 
     Args:
         response:  FastAPI Response object to set cookies on.
@@ -130,7 +132,8 @@ def get_token_from_cookies(request: Request, cookie_name: str = ACCESS_TOKEN_COO
 
 
 def validate_csrf_token(request: Request) -> bool:
-    """Validate the CSRF double-submit token.
+    """
+    Validate the CSRF double-submit token.
 
     Compares the X-CSRF-Token header against the ub_csrf_token cookie.
     Returns True if valid, False otherwise.

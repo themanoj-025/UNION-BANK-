@@ -1,4 +1,5 @@
-"""validation.py  –  Input validation helpers for Union Bank.
+"""
+validation.py  –  Input validation helpers for Union Bank.
 """
 
 import re
@@ -16,7 +17,8 @@ def validate_phone(phone: str) -> bool:
 
 
 def validate_password(password: str) -> tuple:
-    """Validate password strength.
+    """
+    Validate password strength.
     Returns (is_valid: bool, error_message: str).
     Rules: min 8 chars, at least 1 uppercase, 1 lowercase, 1 digit.
     """

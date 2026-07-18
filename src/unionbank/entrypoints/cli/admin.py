@@ -1,4 +1,5 @@
-"""admin.py  –  Admin Panel for Union Bank Management System.
+"""
+admin.py  –  Admin Panel for Union Bank Management System.
 
 All operations use the DI container (repositories/services) — no direct JSON.
 Admin accounts are created via the bootstrap CLI command:
@@ -25,7 +26,6 @@ from unionbank.entrypoints.cli.ui import (
 from unionbank.utils import (
     fmt_currency,
     hash_password,
-    now_str,
     validate_password,
     verify_password,
 )

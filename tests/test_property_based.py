@@ -1,4 +1,5 @@
-"""tests/test_property_based.py  –  Property-based tests (Hypothesis) for money invariants.
+"""
+tests/test_property_based.py  –  Property-based tests (Hypothesis) for money invariants.
 
 These tests verify that fundamental financial invariants hold for ALL possible inputs,
 not just hand-picked examples. If a bug exists, Hypothesis will find the minimal
@@ -17,20 +18,15 @@ from __future__ import annotations
 from decimal import Decimal
 
 from unionbank.application.services import (
-    AccountService,
-    AuthService,
     TransactionService,
 )
-from unionbank.domain.entities import Account, Transaction, TransactionType
+from unionbank.domain.entities import Account
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
-from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule
+from hypothesis.stateful import RuleBasedStateMachine, invariant, rule
 
 from tests.fakes import (
     FakeAccountRepository,
-    FakeAdminRepository,
-    FakeLoginAttemptRepository,
-    FakeTokenVersionRepository,
     FakeTransactionRepository,
 )
 
@@ -101,7 +97,8 @@ def _make_account(acc_no: str, balance: Decimal) -> Account:
     deposit_amount=amounts,
 )
 def test_deposit_preserves_invariant(acc_no, initial_balance, deposit_amount):
-    """Deposit increases balance by exactly the amount deposited.
+    """
+    Deposit increases balance by exactly the amount deposited.
 
     Property: ∀ account a, initial balance b, deposit amount d:
         execute(deposit(a, d)).balance == b + d
@@ -133,7 +130,8 @@ def test_deposit_preserves_invariant(acc_no, initial_balance, deposit_amount):
     withdraw_amount=amounts,
 )
 def test_no_overdraft(acc_no, initial_balance, withdraw_amount):
-    """Withdrawal fails if amount > balance.
+    """
+    Withdrawal fails if amount > balance.
 
     Property: balance - withdraw >= 0  ⇒  success
               balance - withdraw < 0   ⇒  failure (no change)
@@ -172,7 +170,8 @@ def test_no_overdraft(acc_no, initial_balance, withdraw_amount):
 def test_transfer_preserves_total_balance(
     sender_acc, receiver_acc, sender_balance, receiver_balance, transfer_amount
 ):
-    """Total system balance is conserved during transfers.
+    """
+    Total system balance is conserved during transfers.
 
     Property: ∀ transfer(a, b, amount):
         total_balance_before == total_balance_after
@@ -229,7 +228,8 @@ def test_transfer_preserves_total_balance(
     ),
 )
 def test_interest_monotonicity(acc_no, balance):
-    """Interest is always >= 0 and strictly positive for sufficiently large balances.
+    """
+    Interest is always >= 0 and strictly positive for sufficiently large balances.
 
     Property: balance >= MIN_INTEREST_BALANCE  ⇒  interest > 0
               balance = 0  ⇒  interest = 0
@@ -276,7 +276,8 @@ def test_interest_monotonicity(acc_no, balance):
 
 
 class MoneyInvariantMachine(RuleBasedStateMachine):
-    """Stateful state machine that simulates a sequence of operations.
+    """
+    Stateful state machine that simulates a sequence of operations.
 
     After ANY sequence of deposits, withdrawals, and transfers, the total
     system balance must equal the sum of all deposits minus all withdrawals.

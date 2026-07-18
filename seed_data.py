@@ -20,8 +20,8 @@ from decimal import Decimal
 
 # Set testing-friendly env vars so Config doesn't require real secrets
 os.environ.setdefault("UNION_BANK_TESTING", "1")
-os.environ.setdefault("JWT_SECRET", "seed-data-secret")
-os.environ.setdefault("FLASK_SECRET_KEY", "seed-data-flask-key")
+os.environ.setdefault("JWT_SECRET", secrets.token_hex(32))
+os.environ.setdefault("FLASK_SECRET_KEY", secrets.token_hex(24))
 
 from unionbank.utils.hashing import hash_password
 from unionbank.config import settings
@@ -179,7 +179,7 @@ def seed_data(fast_mode: bool = True):
         SqlAlchemyTransactionRepository,
     )
     from unionbank.infrastructure.mappers import map_account_to_model
-    from unionbank.infrastructure.persistence import AccountModel, TransactionModel
+    from unionbank.infrastructure.persistence import AccountModel
     from unionbank.domain.entities import Account, Transaction, TransactionType
 
     print(f"\n  {'=' * 50}")
@@ -316,7 +316,7 @@ def seed_data(fast_mode: bool = True):
     close_session()
 
     print(f"\n  {'=' * 50}")
-    print(f"  Seeding Complete!")
+    print("  Seeding Complete!")
     print(f"  {'=' * 50}")
     print(f"     Accounts      : {total_accounts:>8,}")
     print(f"     Transactions  : {total_txns:>8,}")

@@ -3,14 +3,17 @@ End-to-end API test script for Union Bank.
 Runs 23 tests across V1, V2, and Admin endpoints.
 Usage: python e2e_test.py
 """
-import os, sys
+import os
+import sys
 # Disable rate limiting for tests
 os.environ["UNION_BANK_TESTING"] = "1"
 
 # The unionbank package is installed via pip install -e ., so all
 # imports use the unionbank. prefix. No sys.path manipulation needed.
 
-import httpx, anyio, json, re
+import httpx
+import anyio
+import re
 
 
 def _ensure_admin_exists():

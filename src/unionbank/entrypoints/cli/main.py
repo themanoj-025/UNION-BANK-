@@ -1,4 +1,5 @@
-"""main.py - Entry point for Union Bank Management System
+"""
+main.py - Entry point for Union Bank Management System
 
 Boot sequence:
   1. SQLite database (init_db)
@@ -16,7 +17,7 @@ import sys
 from unionbank.entrypoints.cli.admin import Admin
 from unionbank.entrypoints.cli.bank import Bank
 from unionbank.utils.logger import logger
-from unionbank.entrypoints.cli.ui import BOLD, CYAN, GREEN, RESET, WHITE, YELLOW, divider, error, header, info, success
+from unionbank.entrypoints.cli.ui import BOLD, CYAN, GREEN, RESET, YELLOW, error
 
 
 def main_menu():
@@ -63,7 +64,8 @@ def main_menu():
 
 
 def create_admin_bootstrap():
-    """CLI command: create the initial admin user with a strong password.
+    """
+    CLI command: create the initial admin user with a strong password.
 
     Usage: python main.py create-admin
 

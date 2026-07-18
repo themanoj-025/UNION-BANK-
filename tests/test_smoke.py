@@ -1,17 +1,10 @@
-"""Smoke tests – verify that all project modules import correctly after changes.
 """
-import tempfile
+Smoke tests – verify that all project modules import correctly after changes.
+"""
 
 from unionbank.utils import (
-    fmt_currency,
-    generate_account_number,
-    generate_transaction_id,
     hash_password,
     validate_email,
-    validate_name,
-    validate_password,
-    validate_phone,
-    verify_password,
 )
 from unionbank.utils.logger import logger
 from unionbank.entrypoints.cli.account import Account

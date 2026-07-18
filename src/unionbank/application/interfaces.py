@@ -1,4 +1,5 @@
-"""application/interfaces.py  –  Repository protocols (interfaces).
+"""
+application/interfaces.py  –  Repository protocols (interfaces).
 
 These ABCs/Protocols define the contract between the application layer
 and the infrastructure layer. No concrete DB code lives here.
@@ -6,7 +7,6 @@ and the infrastructure layer. No concrete DB code lives here.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -22,7 +22,6 @@ from unionbank.domain.entities import (
     NotificationPreference,
     RefreshToken,
     SavingsGoal,
-    TokenVersion,
     Transaction,
 )
 
@@ -36,7 +35,8 @@ T = TypeVar("T")
 
 @dataclass(frozen=True)
 class KeysetPage(Generic[T]):
-    """A page of results returned by keyset (cursor-based) pagination.
+    """
+    A page of results returned by keyset (cursor-based) pagination.
 
     Attributes:
         items:       The items on this page.
@@ -383,7 +383,8 @@ class IdempotencyRepositoryProtocol(Protocol):
 
 @runtime_checkable
 class NotificationServiceProtocol(Protocol):
-    """Interface for the notification service used as a service dependency.
+    """
+    Interface for the notification service used as a service dependency.
 
     This is intentionally narrower than the full NotificationService class
     — consumers only need convenience methods for common notification types.

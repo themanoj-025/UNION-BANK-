@@ -1,5 +1,3 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
 # Run ruff on staged Python files (lint check, not fix)
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.py$' || true)

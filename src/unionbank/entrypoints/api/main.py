@@ -1,4 +1,5 @@
-"""main.py  –  FastAPI REST API for Union Bank Management System.
+"""
+main.py  –  FastAPI REST API for Union Bank Management System.
 
 Canonical location: src/unionbank/entrypoints/api/main.py
 
@@ -16,9 +17,7 @@ import io
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta
 from decimal import Decimal
-from enum import Enum
 from typing import Optional
 
 import jwt
@@ -32,8 +31,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -61,18 +59,13 @@ from unionbank.config import settings
 # ── Account-based rate limiter (defense in depth against IP rotation) ───────
 from unionbank.utils.account_rate_limit import get_account_rate_limiter
 from unionbank.infrastructure.metrics import MetricsMiddleware, metrics_response
-from unionbank.utils.logger import clear_context, get_request_id, logger, set_account_context, set_request_id
+from unionbank.utils.logger import clear_context, logger, set_request_id
 
 # ── Import existing business logic ───────────────────────────────────────────
 from unionbank.utils import (
-    LOGIN_LOCKOUT_MINUTES,
-    MAX_LOGIN_ATTEMPTS,
     TRANSACTION_CATEGORIES,
-    calculate_monthly_interest,
     fmt_currency,
-    generate_account_number,
     hash_password,
-    now_str,
     validate_email,
     validate_name,
     validate_password,
@@ -83,7 +76,8 @@ from unionbank.utils import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize the database on startup and clean up on shutdown.
+    """
+    Initialize the database on startup and clean up on shutdown.
 
     Using a lifespan handler instead of module-level init_db() call
     ensures that all imports are fully resolved and __package__ is
@@ -194,7 +188,8 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # ── CSRF Protection Middleware ───────────────────────────────────────────────
 class CSRFProtectMiddleware(BaseHTTPMiddleware):
-    """CSRF protection via double-submit cookie pattern.
+    """
+    CSRF protection via double-submit cookie pattern.
 
     On state-changing requests (POST, PUT, PATCH, DELETE), validates that
     the X-CSRF-Token header matches the ub_csrf_token cookie. This prevents
@@ -296,8 +291,10 @@ from unionbank.entrypoints.api.models import ApiResponse as _V2ApiResponse
 
 @app.exception_handler(HTTPException)
 async def _v2_aware_http_exception_handler(request: Request, exc: HTTPException):
-    """For V2 routes, return the ApiResponse dict directly (not wrapped in detail).
-    For V1 routes, delegate to FastAPI's default handler."""
+    """
+    For V2 routes, return the ApiResponse dict directly (not wrapped in detail).
+    For V1 routes, delegate to FastAPI's default handler.
+    """
     if request.url.path.startswith("/api/v2/"):
         from fastapi.responses import JSONResponse
 
@@ -475,7 +472,8 @@ class HealthResponse(BaseModel):
 @app.post("/api/auth/login", response_model=TokenResponse, deprecated=True)
 @limiter.limit("10/minute")
 def customer_login(request: Request, req: LoginRequest):
-    """Authenticate a customer and return a JWT access + refresh token pair.
+    """
+    Authenticate a customer and return a JWT access + refresh token pair.
 
     Tokens are set as httpOnly cookies (Secure, SameSite=Strict) and also
     returned in the response body for backward compatibility with Bearer
@@ -572,7 +570,8 @@ def customer_register(request: Request, req: RegisterRequest):
 @app.post("/api/auth/admin-login", response_model=TokenResponse)
 @limiter.limit("10/minute")
 def admin_login(request: Request, req: AdminLoginRequest):
-    """Authenticate as admin and return a JWT access + refresh token pair.
+    """
+    Authenticate as admin and return a JWT access + refresh token pair.
 
     Tokens are set as httpOnly cookies (Secure, SameSite=Strict) and also
     returned in the response body for backward compatibility.
@@ -1443,7 +1442,8 @@ def admin_view_transactions(
     per_page: int = Query(50, ge=1, le=500, description="Items per page"),
     admin: dict = Depends(get_current_admin),
 ):
-    """View all transactions, optionally filtered by account (admin only).
+    """
+    View all transactions, optionally filtered by account (admin only).
 
     Returns a flat array (not grouped by account) for easier client-side processing.
     Use the `account_number` field to group on the client side.
@@ -1507,7 +1507,8 @@ def admin_change_password(
 @app.post("/api/auth/refresh", response_model=TokenResponse)
 @limiter.limit("10/minute")
 def refresh_token(request: Request, req: Optional[RefreshRequest] = None):
-    """Exchange a refresh token for a new access + refresh token pair.
+    """
+    Exchange a refresh token for a new access + refresh token pair.
 
     Accepts the refresh token from either:
     1. The request body (backward compatibility with Bearer token clients)

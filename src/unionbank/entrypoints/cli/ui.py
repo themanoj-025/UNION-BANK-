@@ -1,4 +1,5 @@
-"""ui.py  –  Centralised terminal-UI helpers for Union Bank.
+"""
+ui.py  –  Centralised terminal-UI helpers for Union Bank.
 
 Provides colored output (via colorama), password masking (via getpass),
 and consistent styling for all terminal interactions.
@@ -6,9 +7,8 @@ and consistent styling for all terminal interactions.
 
 import getpass
 import os
-import sys
 
-from colorama import Back, Fore, Style
+from colorama import Fore, Style
 from colorama import init as colorama_init
 
 # ── Initialise colorama (required on Windows) ───────────────────────────────

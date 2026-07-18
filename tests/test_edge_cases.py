@@ -1,4 +1,5 @@
-"""tests/test_edge_cases.py  –  Edge-case tests for low-coverage modules.
+"""
+tests/test_edge_cases.py  –  Edge-case tests for low-coverage modules.
 
 Targets uncovered lines identified by coverage report:
   - categories.py (20%)   → get_category_choice() error paths

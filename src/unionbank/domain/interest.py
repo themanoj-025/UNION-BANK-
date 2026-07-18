@@ -1,4 +1,5 @@
-"""interest.py  –  Interest calculation (domain-level pure function).
+"""
+interest.py  –  Interest calculation (domain-level pure function).
 
 Extracted from the old utils/auth.py god module.
 Moved here because it's a domain computation, not a utility.
@@ -9,7 +10,8 @@ Configuration (interest rate) is passed as a parameter.
 
 
 def calculate_monthly_interest(balance: float, annual_rate_pct: float = 3.5) -> float:
-    """Calculate monthly interest on a balance.
+    """
+    Calculate monthly interest on a balance.
 
     Args:
         balance: The account balance to calculate interest on.

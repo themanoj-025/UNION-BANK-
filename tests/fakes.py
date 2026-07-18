@@ -1,4 +1,5 @@
-"""tests/fakes.py  –  In-memory repository fakes for unit testing.
+"""
+tests/fakes.py  –  In-memory repository fakes for unit testing.
 
 Each fake implements the corresponding Protocol from application/interfaces.py
 using plain dicts/lists instead of SQLite. This makes unit tests:
@@ -32,16 +33,15 @@ from unionbank.domain.entities import (
     NotificationPreference,
     RefreshToken,
     SavingsGoal,
-    TokenVersion,
     Transaction,
-    TransactionType,
 )
 
 # ── Simulated database error classes ─────────────────────────────────────────
 
 
 class SimulatedDuplicateKeyError(Exception):
-    """Raised when a fake repository simulates a unique constraint violation.
+    """
+    Raised when a fake repository simulates a unique constraint violation.
 
     The real DB raises IntegrityError on duplicate account_number or email.
     This fake mirrors that behavior when simulate_duplicate_key is True.
@@ -56,7 +56,8 @@ class SimulatedDuplicateKeyError(Exception):
 
 
 class SimulatedForeignKeyViolation(Exception):
-    """Raised when a fake repository simulates a foreign key violation.
+    """
+    Raised when a fake repository simulates a foreign key violation.
 
     The real DB raises IntegrityError when a referenced row doesn't exist.
     Usage:
@@ -69,7 +70,8 @@ class SimulatedForeignKeyViolation(Exception):
 
 
 class SimulatedRaceConditionError(Exception):
-    """Raised when a fake repository simulates a concurrent-write race.
+    """
+    Raised when a fake repository simulates a concurrent-write race.
 
     The real DB raises OperationalError (database is locked) in WAL mode
     under high concurrency. This fake mirrors that behavior for testing
@@ -85,7 +87,8 @@ class SimulatedRaceConditionError(Exception):
 
 
 class SimulatedDatabaseTimeout(Exception):
-    """Raised when a fake repository simulates a database timeout.
+    """
+    Raised when a fake repository simulates a database timeout.
 
     Usage:
         fake.simulate_timeout = True
@@ -106,7 +109,8 @@ def _utcnow() -> datetime:
 
 
 class _FakeSession:
-    """Minimal fake SQLAlchemy session stub for fake repositories.
+    """
+    Minimal fake SQLAlchemy session stub for fake repositories.
 
     Provides a no-op begin_nested() context manager so services that use
     savepoints (e.g. atomic transfer) work transparently with fakes without
@@ -123,7 +127,8 @@ class _FakeSession:
 
 
 class FakeAccountRepository:
-    """In-memory account repository — stores accounts in a dict keyed by account_number.
+    """
+    In-memory account repository — stores accounts in a dict keyed by account_number.
 
     Provides a `.session` attribute (a no-op _FakeSession) so that
     savepoint-based transactions like begin_nested() work transparently
@@ -196,7 +201,8 @@ class FakeAccountRepository:
         return True
 
     def set_frozen(self, acc_no: str, frozen: bool) -> bool:
-        """Set the frozen status of an account.
+        """
+        Set the frozen status of an account.
 
         NOTE: This does NOT change is_active. Freezing does not imply
         closing, and unfreezing does not imply reactivating.

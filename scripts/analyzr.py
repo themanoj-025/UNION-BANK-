@@ -15,8 +15,6 @@ This script is just the CLI entry point.
 from __future__ import annotations
 
 import json
-import os
-import sys
 
 # The unionbank package is installed via pip install -e ., so all
 # imports use the unionbank. prefix. No sys.path manipulation needed.

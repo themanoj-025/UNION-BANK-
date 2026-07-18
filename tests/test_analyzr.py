@@ -1,4 +1,5 @@
-"""tests/test_analyzr.py  –  Unit tests for the analyzr natural-language search engine.
+"""
+tests/test_analyzr.py  –  Unit tests for the analyzr natural-language search engine.
 
 Tests every intent pattern, amount extraction format, time window calculation,
 and edge case independently — without needing a database connection (uses fakes).
@@ -9,7 +10,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-import pytest
 
 # Import pure functions from analyzr_core (no DB bootstrap needed)
 from unionbank.utils.analyzr_core import (

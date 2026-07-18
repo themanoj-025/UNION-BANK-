@@ -1,4 +1,5 @@
-"""infrastructure/metrics.py  –  Prometheus metrics for Union Bank.
+"""
+infrastructure/metrics.py  –  Prometheus metrics for Union Bank.
 
 Provides a shared set of metric instruments and a convenience middleware
 that automatically records request counts, durations, and errors.
@@ -15,7 +16,6 @@ Then add a route for ``/metrics`` that calls ``generate_latest()``.
 from __future__ import annotations
 
 import time
-from typing import Optional
 
 from prometheus_client import (
     REGISTRY,
@@ -89,7 +89,8 @@ CACHE_MISSES = Counter(
 
 
 def _normalize_endpoint(path: str) -> str:
-    """Normalize a request path to a metric-label-friendly endpoint name.
+    """
+    Normalize a request path to a metric-label-friendly endpoint name.
 
     Strips trailing slashes, removes query strings, and replaces dynamic
     path segments (like account numbers and IDs) with a placeholder.
@@ -104,7 +105,6 @@ def _normalize_endpoint(path: str) -> str:
     path = path.split("?")[0].rstrip("/")
 
     # Replace UUID-like / hex segments with placeholder
-    import re
     parts = path.split("/")
     cleaned = []
     for part in parts:
@@ -124,7 +124,8 @@ def _normalize_endpoint(path: str) -> str:
 
 
 class MetricsMiddleware:
-    """ASGI middleware that automatically records Prometheus metrics.
+    """
+    ASGI middleware that automatically records Prometheus metrics.
 
     Tracks request count, duration, in-flight gauge, and error counts.
     Normalises dynamic URL segments for clean label cardinality.
@@ -179,7 +180,8 @@ class MetricsMiddleware:
 
 
 def metrics_response() -> tuple[str, str]:
-    """Return (content, content_type) for the /metrics endpoint.
+    """
+    Return (content, content_type) for the /metrics endpoint.
 
     Usage (FastAPI):
         @app.get("/metrics")

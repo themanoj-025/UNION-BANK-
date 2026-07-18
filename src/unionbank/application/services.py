@@ -1,4 +1,5 @@
-"""application/services.py  –  Use-case service classes.
+"""
+application/services.py  –  Use-case service classes.
 
 Each service has a single `execute()` method (or multiple focused methods).
 Services depend only on repository protocols — never on concrete DB code.
@@ -22,20 +23,17 @@ from unionbank.config import settings
 from unionbank.domain.clock import utcnow as _utcnow
 from unionbank.domain.entities import (
     Account,
-    AdminUser,
     IdempotencyRecord,
     Loan,
     LoanStatus,
     LoanType,
     SavingsGoal,
     ServiceResult,
-    TokenVersion,
     Transaction,
     TransactionType,
     TransferResult,
 )
 from unionbank.domain.interest import calculate_monthly_interest
-from sqlalchemy.orm import Session
 from unionbank.utils.formatting import (
     calculate_emi,
     fmt_currency,
@@ -100,7 +98,8 @@ _account_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
 
 @contextmanager
 def _account_lock(*acc_nos: str) -> Generator[None, None, None]:
-    """Context manager that acquires per-account locks in sorted order.
+    """
+    Context manager that acquires per-account locks in sorted order.
 
     Acquires locks for *all* given accounts in ascending account-number order,
     guaranteeing deadlock-free acquisition when multiple accounts are involved
@@ -324,7 +323,8 @@ class AccountService:
 
 
 class TransactionService:
-    """Transaction use-cases (deposit, withdraw, transfer, statement, interest).
+    """
+    Transaction use-cases (deposit, withdraw, transfer, statement, interest).
 
     Idempotency: deposit/withdraw/transfer operations check the idempotency
     repository before executing. If a duplicate key is found, the cached
@@ -344,7 +344,8 @@ class TransactionService:
         self.idempotency_repo = idempotency_repo
 
     def _ensure_non_negative_balance(self, balance: Decimal, operation: str = "transaction") -> None:
-        """App-level guard: raise ValueError if balance would go negative.
+        """
+        App-level guard: raise ValueError if balance would go negative.
 
         This is a defense-in-depth check — the DB also has a CHECK constraint.
         The app-level check catches errors before they reach the DB, providing
@@ -356,7 +357,8 @@ class TransactionService:
     def _check_idempotency(
         self, idempotency_key: Optional[str], acc_no: str, operation: str, amount: Decimal
     ) -> Optional[ServiceResult]:
-        """Check if a request with this idempotency_key has already been processed.
+        """
+        Check if a request with this idempotency_key has already been processed.
 
         Returns the cached ServiceResult if found, None if this is a new request.
         """
@@ -781,7 +783,8 @@ class TransactionService:
         to_date: Optional[datetime] = None,
         txn_type: Optional[str] = None,
     ) -> KeysetPage[Transaction]:
-        """Keyset (cursor-based) pagination — more efficient than OFFSET on large datasets.
+        """
+        Keyset (cursor-based) pagination — more efficient than OFFSET on large datasets.
 
         Args:
             acc_no:     Optional account filter.
@@ -934,7 +937,8 @@ class AdminService:
         return self.account_repo.get_all_paginated(page=page, per_page=per_page)
 
     def get_statistics(self) -> dict:
-        """Compute bank-wide statistics using consolidated aggregate queries.
+        """
+        Compute bank-wide statistics using consolidated aggregate queries.
 
         Previously made 10 separate DB queries. Now uses 2 aggregate queries:
         1. get_statistics() on account_repo — single query for all account stats
@@ -1264,7 +1268,8 @@ class LoanService:
     # ── Pay EMI ─────────────────────────────────────────────────────────────────
 
     def pay_emi(self, acc_no: str, loan_id: str, amount: Optional[Decimal] = None) -> ServiceResult:
-        """Pay the monthly EMI for a loan.
+        """
+        Pay the monthly EMI for a loan.
 
         If amount is None, pays the full EMI amount.
         """

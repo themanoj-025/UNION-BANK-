@@ -1,4 +1,5 @@
-"""infrastructure/persistence.py  –  SQLAlchemy ORM models.
+"""
+infrastructure/persistence.py  –  SQLAlchemy ORM models.
 
 These are the database-visible representations of domain entities.
 Only infrastructure code imports these — domain and application layers
@@ -7,7 +8,6 @@ use the pure dataclasses from domain/entities.py.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from decimal import Decimal
 
 from unionbank.domain.clock import utcnow as _utcnow  # noqa: F401
@@ -21,7 +21,6 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
-    Text,
 )
 from sqlalchemy.orm import relationship
 

@@ -1,16 +1,13 @@
-"""Tests for new features: rate limiting, CSV export, interest, categories, session mgmt.
 """
-import json
+Tests for new features: rate limiting, CSV export, interest, categories, session mgmt.
+"""
 import os
 import tempfile
 import time
 
-import pytest
 
 from unionbank.entrypoints.cli.account import Account
-from unionbank.entrypoints.cli.ui import prompt_password
 from unionbank.utils import (
-    LOGIN_LOCKOUT_MINUTES,
     MAX_LOGIN_ATTEMPTS,
     SAVINGS_INTEREST_RATE,
     SESSION_TIMEOUT_SECONDS,
@@ -19,11 +16,8 @@ from unionbank.utils import (
     check_login_locked,
     check_session_timeout,
     export_transactions_to_csv,
-    fmt_currency,
     generate_csv_filename,
-    get_category_choice,
     get_session_timeout_seconds,
-    now_str,
     record_failed_login,
     reset_login_attempts,
 )
@@ -383,7 +377,8 @@ class TestAtomicTransfer:
         assert "Insufficient" in result.error_message
 
     def test_atomic_transfer_preserves_total_balance_on_crash(self, tmp_data_dir):
-        """⭐ CRASH TEST: If the transfer is interrupted after debiting the sender
+        """
+        ⭐ CRASH TEST: If the transfer is interrupted after debiting the sender
         but before crediting the receiver, total system balance must remain unchanged.
 
         This simulates the old JSON race condition where money was lost.
@@ -420,7 +415,8 @@ class TestAtomicTransfer:
         )
 
     def test_atomic_transfer_rolls_back_on_exception(self, tmp_data_dir):
-        """⭐ CRASH TEST: Prove that if an exception occurs DURING a transaction,
+        """
+        ⭐ CRASH TEST: Prove that if an exception occurs DURING a transaction,
         the SQLite atomic_session context manager rolls back all changes,
         leaving both sender and receiver balances unchanged.
 
@@ -473,7 +469,7 @@ class TestAtomicTransfer:
 
         from unionbank.infrastructure.persistence import AccountModel as DbAccount
 
-        from unionbank.infrastructure.backward_compat import atomic_close_account, get_db_balance
+        from unionbank.infrastructure.backward_compat import atomic_close_account
         from unionbank.infrastructure.database import get_session
 
         result = atomic_close_account(self.SENDER)

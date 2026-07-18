@@ -1,11 +1,11 @@
-"""config.py  –  Centralized configuration for Union Bank Management System.
+"""
+config.py  –  Centralized configuration for Union Bank Management System.
 
 All environment variables, file paths, and application constants live here.
 The app will refuse to boot if required env vars are missing (outside TESTING mode).
 """
 
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional

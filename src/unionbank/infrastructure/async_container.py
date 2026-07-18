@@ -45,7 +45,8 @@ from unionbank.infrastructure.database import get_async_session
 
 
 class AsyncContainer:
-    """Dependency injection container with async repository and service access.
+    """
+    Dependency injection container with async repository and service access.
 
     All repository methods return coroutines. Services using this container
     must ``await`` every repository call.

@@ -1,4 +1,5 @@
-"""tests/test_services.py  –  Unit tests for application services using in-memory fakes.
+"""
+tests/test_services.py  –  Unit tests for application services using in-memory fakes.
 
 These tests run entirely in memory — no SQLite, no I/O.
 The services depend only on repository protocols, which we satisfy with Fakes.
@@ -16,7 +17,7 @@ from unionbank.application.services import (
     SavingsGoalService,
     TransactionService,
 )
-from unionbank.domain.entities import Account, AdminUser, SavingsGoal, Transaction, TransactionType
+from unionbank.domain.entities import Account, AdminUser, SavingsGoal
 from unionbank.utils.hashing import hash_password
 
 from tests.fakes import (

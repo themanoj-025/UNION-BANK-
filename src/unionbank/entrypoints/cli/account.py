@@ -1,7 +1,7 @@
-"""account.py  –  Account model + all account-level operations (with logging).
+"""
+account.py  –  Account model + all account-level operations (with logging).
 """
 
-import os
 from datetime import datetime
 
 from unionbank.domain.clock import utcnow as _utcnow  # noqa: F401
@@ -23,12 +23,9 @@ from unionbank.entrypoints.cli.ui import (
     warning,
 )
 from unionbank.utils import (
-    calculate_monthly_interest,
     export_transactions_to_csv,
     fmt_currency,
-    generate_account_number,
     generate_csv_filename,
-    generate_goal_id,
     generate_transaction_id,
     get_category_choice,
     get_float,

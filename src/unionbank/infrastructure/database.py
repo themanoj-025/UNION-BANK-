@@ -1,4 +1,5 @@
-"""infrastructure/database.py  –  SQLAlchemy engine, session management, and init.
+"""
+infrastructure/database.py  –  SQLAlchemy engine, session management, and init.
 
 Provides both synchronous (SQLite dev) and asynchronous (Postgres prod) database
 access. The engine type is selected automatically based on the DATABASE_URL:
@@ -16,7 +17,6 @@ from __future__ import annotations
 import os
 import threading
 from contextlib import asynccontextmanager, contextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncGenerator, Generator, Optional
 
@@ -69,7 +69,8 @@ _thread_local = threading.local()
 
 
 def get_engine():
-    """Get or create the synchronous SQLAlchemy engine.
+    """
+    Get or create the synchronous SQLAlchemy engine.
 
     Prefers DATABASE_URL (for PostgreSQL) when configured.
     Falls back to SQLite at the current DATA_DIR.
@@ -103,7 +104,8 @@ def get_engine():
 
         @event.listens_for(_engine_instance, "connect")
         def _set_pragmas(dbapi_connection, connection_record):
-            """Enable WAL mode and foreign keys for better performance and integrity.
+            """
+            Enable WAL mode and foreign keys for better performance and integrity.
 
             WAL mode allows concurrent reads while a write is in progress,
             which improves performance under concurrent access. Concurrency
@@ -136,7 +138,8 @@ _async_session_maker = None
 
 
 def get_async_engine():
-    """Get or create the async SQLAlchemy engine (for asyncpg Postgres).
+    """
+    Get or create the async SQLAlchemy engine (for asyncpg Postgres).
 
     Falls back to the synchronous engine if the URL is SQLite (which doesn't
     support async). Returns None if the current URL is SQLite.
@@ -250,7 +253,8 @@ def atomic_session() -> Generator[Session, None, None]:
 
 
 async def get_async_session() -> AsyncSession:
-    """Get an async database session (for asyncpg Postgres connections).
+    """
+    Get an async database session (for asyncpg Postgres connections).
 
     Raises RuntimeError if the current database URL is SQLite (which doesn't
     support async access).
@@ -290,7 +294,8 @@ async def async_atomic_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 def init_db():
-    """Create all tables if they don't exist.
+    """
+    Create all tables if they don't exist.
 
     Uses absolute imports to avoid relative-import issues when called
     from contexts where __package__ is not set (e.g., E2E test imports).

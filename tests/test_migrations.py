@@ -1,4 +1,5 @@
-"""tests/test_migrations.py  –  Alembic migration round-trip tests.
+"""
+tests/test_migrations.py  –  Alembic migration round-trip tests.
 
 Verifies that:
   1. Alembic can upgrade to the latest migration
@@ -16,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from alembic.command import current, downgrade, history, upgrade
+from alembic.command import downgrade, upgrade
 from alembic.config import Config
 
 
@@ -41,7 +42,8 @@ def alembic_config() -> Config:
 class TestAlembicMigrations:
 
     def test_upgrade_to_head(self, alembic_config):
-        """Upgrade from empty DB to latest migration should succeed.
+        """
+        Upgrade from empty DB to latest migration should succeed.
 
         This verifies that all migrations in the versions/ directory
         apply cleanly without errors.
@@ -50,7 +52,8 @@ class TestAlembicMigrations:
         # Success means upgrade completed without exception
 
     def test_downgrade_to_base(self, alembic_config):
-        """Upgrade to head, then downgrade to base should succeed.
+        """
+        Upgrade to head, then downgrade to base should succeed.
 
         This verifies that the entire migration chain is reversible.
         """
@@ -61,7 +64,8 @@ class TestAlembicMigrations:
         downgrade(alembic_config, "base")
 
     def test_upgrade_downgrade_roundtrip(self, alembic_config):
-        """Full upgrade + downgrade round-trip should be clean.
+        """
+        Full upgrade + downgrade round-trip should be clean.
 
         This verifies that:
         1. All migrations can be applied (up -> head)

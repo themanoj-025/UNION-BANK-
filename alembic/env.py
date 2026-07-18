@@ -1,4 +1,5 @@
-"""Alembic environment configuration for Union Bank.
+"""
+Alembic environment configuration for Union Bank.
 
 Supports both SQLite (development/testing) and PostgreSQL (production).
 The database type is selected by the DATABASE_URL environment variable.

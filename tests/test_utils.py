@@ -1,10 +1,9 @@
-"""Tests for utils.py – validation helpers, password hashing, generators, etc.
 """
-import json
+Tests for utils.py – validation helpers, password hashing, generators, etc.
+"""
 import os
 import tempfile
 
-import pytest
 
 from unionbank.utils import (
     fmt_currency,
@@ -19,7 +18,6 @@ from unionbank.utils import (
     verify_password,
 )
 from unionbank.utils.file_io import (
-    ACCOUNTS_FILE,
     load_json,
     save_json,
 )

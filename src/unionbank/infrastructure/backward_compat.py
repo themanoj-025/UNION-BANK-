@@ -147,7 +147,8 @@ def atomic_transfer(
 
 
 def atomic_apply_interest(acc_no: str, interest_amount: float) -> bool:
-    """Apply interest atomically (backward-compatible wrapper).
+    """
+    Apply interest atomically (backward-compatible wrapper).
 
     If interest_amount is provided, uses it directly for precise control
     (needed by tests that bypass interest calculation).
@@ -191,7 +192,8 @@ def atomic_apply_interest(acc_no: str, interest_amount: float) -> bool:
 
 
 def atomic_close_account(acc_no: str) -> bool:
-    """Mark an account as inactive atomically (backward-compatible wrapper).
+    """
+    Mark an account as inactive atomically (backward-compatible wrapper).
 
     Bypasses password verification for backward compatibility with tests
     and internal API calls. Production code should use AccountService directly.

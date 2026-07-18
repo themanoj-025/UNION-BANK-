@@ -1,4 +1,5 @@
-"""application/async_services.py  –  Async use-case service classes.
+"""
+application/async_services.py  –  Async use-case service classes.
 
 These mirror the synchronous services in services.py but use async/await for
 all database operations. They are used when the application is configured
@@ -12,18 +13,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
-from typing import AsyncGenerator, Optional
+from typing import Optional
 
 from unionbank.config import settings
 from unionbank.domain.clock import utcnow as _utcnow
 from unionbank.domain.entities import (
     Account,
-    AdminUser,
     IdempotencyRecord,
-    Loan,
     SavingsGoal,
     ServiceResult,
     Transaction,
@@ -32,25 +30,15 @@ from unionbank.domain.entities import (
 )
 from unionbank.domain.interest import calculate_monthly_interest
 from unionbank.utils.formatting import (
-    calculate_emi,
     fmt_currency,
     generate_account_number,
     generate_goal_id,
-    generate_loan_id,
     generate_transaction_id,
 )
 from unionbank.utils.hashing import hash_password, verify_password
 
 from .interfaces import (
-    AccountRepositoryProtocol,
-    AuditLogRepositoryProtocol,
-    IdempotencyRepositoryProtocol,
     KeysetPage,
-    LoanRepositoryProtocol,
-    LoginAttemptRepositoryProtocol,
-    SavingsGoalRepositoryProtocol,
-    TokenVersionRepositoryProtocol,
-    TransactionRepositoryProtocol,
 )
 
 TRANSACTION_CATEGORIES = settings.TRANSACTION_CATEGORIES
@@ -66,7 +54,8 @@ _account_locks: dict[str, asyncio.Lock] = {}
 
 
 def _get_account_lock(*acc_nos: str) -> asyncio.Lock:
-    """Get an asyncio.Lock for the given accounts, creating if needed.
+    """
+    Get an asyncio.Lock for the given accounts, creating if needed.
 
     For single-account operations, returns the lock for that account.
     For multi-account operations (transfer), returns a lock based on the
@@ -86,7 +75,8 @@ def _get_account_lock(*acc_nos: str) -> asyncio.Lock:
 
 
 class AsyncTransactionService:
-    """Async transaction use-cases (deposit, withdraw, transfer, statement, interest).
+    """
+    Async transaction use-cases (deposit, withdraw, transfer, statement, interest).
 
     All database operations are awaited. Uses asyncio.Lock for per-account
     serialization to prevent lost updates under concurrent access.

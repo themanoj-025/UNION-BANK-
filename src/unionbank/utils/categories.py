@@ -1,4 +1,5 @@
-"""categories.py  –  Transaction category selection (CLI helper).
+"""
+categories.py  –  Transaction category selection (CLI helper).
 
 Extracted from the old utils/auth.py god module.
 """

@@ -1,4 +1,5 @@
-"""rate_limit.py  –  Rate limiting (login attempts) and session management.
+"""
+rate_limit.py  –  Rate limiting (login attempts) and session management.
 
 Extracted from the old utils/auth.py god module.
 Uses the container's LoginAttemptRepository (SQLite) instead of JSON.
@@ -25,7 +26,8 @@ def _get_login_attempt_repo():
 
 
 def check_login_locked(acc_no: str) -> tuple:
-    """Check if an account is locked due to too many failed attempts.
+    """
+    Check if an account is locked due to too many failed attempts.
     Returns (is_locked: bool, remaining_minutes: int).
     Uses SQLite-backed LoginAttemptRepository.
     """
@@ -34,7 +36,8 @@ def check_login_locked(acc_no: str) -> tuple:
 
 
 def record_failed_login(acc_no: str) -> int:
-    """Record a failed login attempt via SQLite repository.
+    """
+    Record a failed login attempt via SQLite repository.
     Returns remaining attempts before lockout.
     """
     from unionbank.utils.logger import logger
@@ -60,7 +63,8 @@ def reset_login_attempts(acc_no: str) -> None:
 # ─────────────────────────────────────────────
 
 def check_session_timeout(last_activity: float) -> bool:
-    """Check if the session has timed out.
+    """
+    Check if the session has timed out.
     Returns True if session is still valid, False if timed out.
     """
     return (time.time() - last_activity) < SESSION_TIMEOUT_SECONDS

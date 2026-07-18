@@ -1,4 +1,5 @@
-"""utils/analyzr_core.py  –  Natural-language transaction search engine.
+"""
+utils/analyzr_core.py  –  Natural-language transaction search engine.
 
 This module contains the core parsing and search logic for analyzr.
 It is importable from the unionbank package (unlike scripts/analyzr.py
@@ -19,7 +20,6 @@ Design constraints:
 
 from __future__ import annotations
 
-import json
 import re
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -329,7 +329,8 @@ def execute_query(
     account_number: Optional[str] = None,
     max_results: int = 50,
 ) -> dict:
-    """Execute a natural-language transaction search query.
+    """
+    Execute a natural-language transaction search query.
 
     Args:
         query: Natural language query string.

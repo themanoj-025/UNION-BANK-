@@ -1,4 +1,5 @@
-"""domain/clock.py  –  Shared time utilities for the domain layer.
+"""
+domain/clock.py  –  Shared time utilities for the domain layer.
 
 Provides a single source of truth for timezone-aware UTC timestamps,
 eliminating the ``_utcnow()`` copy-paste that previously existed across
@@ -12,7 +13,8 @@ from datetime import datetime, timezone
 
 
 def utcnow() -> datetime:
-    """Return the current UTC time as a timezone-aware datetime.
+    """
+    Return the current UTC time as a timezone-aware datetime.
 
     All timestamps in the system use timezone-aware UTC datetimes
     to ensure consistency across:

@@ -1,11 +1,11 @@
-"""pytest fixtures for Union Bank tests.
+"""
+pytest fixtures for Union Bank tests.
 
 All tests use temporary directories — never touch real production data/ files.
 Test-safe env vars are set BEFORE any project module is imported.
 """
 
 import os
-import sys
 import tempfile
 from pathlib import Path
 
@@ -29,7 +29,8 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _unset_env_vars_for_safety():
-    """Prevent accidental use of real env secrets during tests.
+    """
+    Prevent accidental use of real env secrets during tests.
 
     This runs after module imports (at test function time), but the module-level
     os.environ.setdefault() calls above ensure safe defaults exist already.
@@ -41,7 +42,8 @@ def _unset_env_vars_for_safety():
 
 @pytest.fixture
 def tmp_data_dir(tmp_path: Path) -> Path:
-    """Provide a temporary data directory for JSON file-based tests.
+    """
+    Provide a temporary data directory for JSON file-based tests.
 
     Sets UNION_BANK_DATA_DIR so that utils.py's file resolution uses the temp dir.
     """
@@ -71,7 +73,8 @@ def sample_account_data() -> dict:
 
 @pytest.fixture
 def c():
-    """Get a fresh DI container with a clean SQLite database.
+    """
+    Get a fresh DI container with a clean SQLite database.
 
     Creates a unique temp directory per test so tests never share
     database state. This mirrors test_integration.py's _fresh_db fixture
@@ -93,7 +96,8 @@ def c():
 
 @pytest.fixture
 def sample_account():
-    """Return an Account domain object for tests.
+    """
+    Return an Account domain object for tests.
 
     The account is created in the database so it can be used with
     both fake repositories (unit tests) and real repositories (integration tests).

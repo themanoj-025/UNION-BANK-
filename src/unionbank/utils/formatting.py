@@ -1,4 +1,5 @@
-"""formatting.py  –  Formatting helpers, ID generators, and CLI input helpers.
+"""
+formatting.py  –  Formatting helpers, ID generators, and CLI input helpers.
 """
 
 import random
@@ -27,7 +28,8 @@ def now_str() -> str:
 # ─────────────────────────────────────────────
 
 def generate_account_number(max_attempts: int = 1000) -> str:
-    """Return a unique 10-digit account number (as string).
+    """
+    Return a unique 10-digit account number (as string).
 
     Checks uniqueness against the SQLite database via the container.
     Raises RuntimeError if a unique number cannot be found within max_attempts.
@@ -71,7 +73,8 @@ def generate_notification_id() -> str:
 
 
 def calculate_emi(principal: float, annual_rate: float, tenure_months: int) -> float:
-    """Calculate EMI using the standard formula.
+    """
+    Calculate EMI using the standard formula.
 
     EMI = P × r × (1+r)^n / ((1+r)^n - 1)
 
@@ -138,7 +141,8 @@ def mask_account_number(acc_no: str) -> str:
 
 
 def mask_sensitive_data(msg: str) -> str:
-    """Mask sensitive data in a log message for PII safety.
+    """
+    Mask sensitive data in a log message for PII safety.
 
     Masks:
     - Account numbers (8+ digit sequences)

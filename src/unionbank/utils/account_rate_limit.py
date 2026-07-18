@@ -1,4 +1,5 @@
-"""account_rate_limit.py  –  Account-based rate limiting for money-movement endpoints.
+"""
+account_rate_limit.py  –  Account-based rate limiting for money-movement endpoints.
 
 Unlike IP-based rate limiting (slowapi), this tracks operations per ACCOUNT,
 so an attacker cannot bypass limits by rotating IPs. Each account is limited
@@ -19,7 +20,8 @@ from unionbank.config import settings
 
 
 class AccountRateLimiter:
-    """Per-account sliding window rate limiter for money-movement operations.
+    """
+    Per-account sliding window rate limiter for money-movement operations.
     
     Tracks deposit/withdraw/transfer operations per account within a rolling
     time window. When the limit is exceeded, the operation is rejected with
@@ -55,7 +57,8 @@ class AccountRateLimiter:
         ]
 
     def check_and_record(self, acc_no: str) -> tuple[bool, Optional[str]]:
-        """Check if an operation is allowed for this account, and record it.
+        """
+        Check if an operation is allowed for this account, and record it.
         
         Returns:
             (allowed, retry_after_message):

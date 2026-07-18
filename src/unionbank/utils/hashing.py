@@ -1,4 +1,5 @@
-"""hashing.py  –  Password hashing (bcrypt).
+"""
+hashing.py  –  Password hashing (bcrypt).
 
 Extracted from the old utils/auth.py god module.
 """

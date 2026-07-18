@@ -1,4 +1,5 @@
-"""application/notifications.py  –  Notification service for Union Bank.
+"""
+application/notifications.py  –  Notification service for Union Bank.
 
 Provides in-app notification creation, email/SMS alert delivery,
 and preference management. Integrates with existing service hooks
@@ -27,7 +28,8 @@ from .interfaces import (
 
 
 class LogNotificationSender:
-    """Notification sender that logs to the application logger.
+    """
+    Notification sender that logs to the application logger.
 
     This is the default sender — it logs email/SMS alerts instead of
     actually sending them. When real email/SMS providers are configured
@@ -109,7 +111,8 @@ class NotificationService:
         message: str,
         related_txn_id: Optional[str] = None,
     ) -> Notification:
-        """Create an in-app notification and send alerts based on preferences.
+        """
+        Create an in-app notification and send alerts based on preferences.
 
         Returns the created Notification entity (without committing —
         caller must commit).

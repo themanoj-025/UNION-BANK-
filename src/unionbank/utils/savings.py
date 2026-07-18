@@ -1,4 +1,5 @@
-"""savings.py  –  Savings goals persistence helpers.
+"""
+savings.py  –  Savings goals persistence helpers.
 
 Uses the container (SQLite) instead of JSON files for storage.
 Falls back to JSON for backward compatibility during migration.
@@ -24,7 +25,8 @@ def load_goals(acc_no: str) -> list:
 
 
 def save_goals(acc_no: str, goals: list) -> None:
-    """Save savings goals for a specific account to SQLite.
+    """
+    Save savings goals for a specific account to SQLite.
 
     Note: This replaces ALL goals for the account with the provided list.
     For fine-grained operations, use the container's SavingsGoalService directly.

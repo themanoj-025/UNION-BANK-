@@ -1,4 +1,5 @@
-"""api/models.py  –  Shared Pydantic models for the Union Bank REST API.
+"""
+api/models.py  –  Shared Pydantic models for the Union Bank REST API.
 
 Includes the generic ApiResponse[T] envelope type and all request/response
 models used by v1 and v2 endpoints.
@@ -6,8 +7,6 @@ models used by v1 and v2 endpoints.
 
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
 from enum import Enum
 from typing import Any, Generic, Optional, TypeVar
 
@@ -19,7 +18,8 @@ from pydantic import BaseModel, Field
 
 
 class ErrorCode(str, Enum):
-    """Standardised error codes clients can handle programmatically.
+    """
+    Standardised error codes clients can handle programmatically.
 
     Format: ER### where:
         ER0xx = Auth errors
@@ -97,7 +97,8 @@ T = TypeVar("T")
 
 
 class ApiResponse(BaseModel, Generic[T]):
-    """Generic API response envelope.
+    """
+    Generic API response envelope.
 
     Every v2 endpoint returns a standardised wrapper with:
       success  – boolean indicating operation success.

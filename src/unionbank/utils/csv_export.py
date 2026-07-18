@@ -1,4 +1,5 @@
-"""csv_export.py  –  CSV export for transaction statements.
+"""
+csv_export.py  –  CSV export for transaction statements.
 
 Extracted from the old utils/auth.py god module.
 """
@@ -9,7 +10,8 @@ from datetime import datetime
 
 
 def export_transactions_to_csv(acc_no: str, records: list, filepath: str) -> str:
-    """Export transaction records to a CSV file.
+    """
+    Export transaction records to a CSV file.
     Returns the filepath of the created file.
     """
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)

@@ -1,4 +1,5 @@
-"""infrastructure/repositories.py  –  SQLAlchemy repository implementations.
+"""
+infrastructure/repositories.py  –  SQLAlchemy repository implementations.
 
 Each repository implements the corresponding Protocol from application/interfaces.py.
 These are the only classes that directly use SQLAlchemy ORM models.
@@ -22,9 +23,7 @@ from unionbank.domain.entities import (
     NotificationPreference,
     RefreshToken,
     SavingsGoal,
-    TokenVersion,
     Transaction,
-    TransactionType,
 )
 from unionbank.infrastructure.mappers import (
     map_account,
@@ -118,7 +117,8 @@ class SqlAlchemyAccountRepository:
         return True
 
     def set_frozen(self, acc_no: str, frozen: bool) -> bool:
-        """Set the frozen status of an account.
+        """
+        Set the frozen status of an account.
 
         NOTE: This does NOT change is_active. Freezing does not imply
         closing, and unfreezing does not imply reactivating.
@@ -133,7 +133,8 @@ class SqlAlchemyAccountRepository:
         return True
 
     def delete(self, acc_no: str) -> bool:
-        """Soft-delete: set deleted_at timestamp instead of removing the row.
+        """
+        Soft-delete: set deleted_at timestamp instead of removing the row.
 
         Transaction history and related records are preserved for audit/compliance.
         Soft-deleted accounts are excluded from all default queries via the
@@ -221,7 +222,8 @@ class SqlAlchemyAccountRepository:
         return map_account(model) if model else None
 
     def get_statistics(self) -> dict:
-        """Get bank-wide account statistics in a single aggregate query.
+        """
+        Get bank-wide account statistics in a single aggregate query.
 
         Returns:
             dict with keys: total_customers, active, frozen, closed, total_balance
@@ -259,7 +261,8 @@ class SqlAlchemyAccountRepository:
         }
 
     def get_all_paginated(self, page: int = 1, per_page: int = 20) -> tuple[list[Account], int]:
-        """Get accounts with offset-based pagination.
+        """
+        Get accounts with offset-based pagination.
 
         Returns:
             Tuple of (accounts list, total count).
@@ -382,7 +385,8 @@ class SqlAlchemyTransactionRepository:
         to_date: Optional[datetime] = None,
         txn_type: Optional[str] = None,
     ) -> KeysetPage[Transaction]:
-        """Keyset (cursor-based) pagination for transactions.
+        """
+        Keyset (cursor-based) pagination for transactions.
 
         Instead of OFFSET/LIMIT (which degrades on large datasets), this
         uses WHERE timestamp < :cursor to fetch the next page. The cursor

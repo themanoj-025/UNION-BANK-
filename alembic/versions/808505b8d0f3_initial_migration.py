@@ -1,4 +1,5 @@
-"""initial_migration
+"""
+initial_migration
 
 Revision ID: 808505b8d0f3
 Revises: 

@@ -1,4 +1,5 @@
-"""Tests targeting specific coverage gaps identified in the audit.
+"""
+Tests targeting specific coverage gaps identified in the audit.
 
 Focuses on:
 - Loan rejection error paths
@@ -8,10 +9,7 @@ Focuses on:
 """
 
 from decimal import Decimal
-from unittest.mock import patch, MagicMock
 
-import pytest
-from fastapi import HTTPException
 
 from unionbank.domain.entities import Account
 

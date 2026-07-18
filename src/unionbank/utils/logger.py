@@ -1,4 +1,5 @@
-"""logger.py  –  Centralised logging for Union Bank.
+"""
+logger.py  –  Centralised logging for Union Bank.
 
 Supports both text-based logging (file + console) and structured JSON
 logging with automatic request-ID injection for traceability.
@@ -72,7 +73,8 @@ def clear_context() -> None:
 
 
 class JsonFormatter(logging.Formatter):
-    """Log formatter that outputs JSON objects.
+    """
+    Log formatter that outputs JSON objects.
 
     Adds structured fields including request_id and account_number from
     thread-local context when available. Extra keyword arguments passed
@@ -169,7 +171,8 @@ def log_with_context(
     account: Optional[str] = None,
     **extra: Any,
 ) -> None:
-    """Log a message with structured extra context.
+    """
+    Log a message with structured extra context.
 
     The context dict is separate from the message so the JSON formatter
     can include it as a structured ``extra`` field.

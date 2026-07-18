@@ -31,9 +31,7 @@ from unionbank.domain.entities import (
     NotificationPreference,
     RefreshToken,
     SavingsGoal,
-    TokenVersion,
     Transaction,
-    TransactionType,
 )
 from unionbank.infrastructure.mappers import (
     map_account,

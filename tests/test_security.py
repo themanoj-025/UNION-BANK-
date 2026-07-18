@@ -1,4 +1,5 @@
-"""tests/test_security.py  –  Security test fixtures for Phase 3 hardening.
+"""
+tests/test_security.py  –  Security test fixtures for Phase 3 hardening.
 
 Tests SQL injection payloads, XSS payloads, and CSRF token enforcement.
 These tests verify that the application rejects malicious input and
@@ -11,7 +12,6 @@ import os
 import tempfile
 
 import pytest
-from fastapi import status
 from fastapi.testclient import TestClient
 from unionbank.infrastructure.container import get_container, reset_container
 from unionbank.utils.hashing import hash_password
@@ -47,7 +47,8 @@ def client():
 
 @pytest.fixture
 def registered_customer(client: TestClient) -> dict:
-    """Register a customer and return auth tokens.
+    """
+    Register a customer and return auth tokens.
 
     After login, clears cookies so subsequent requests use Bearer-only auth
     (no CSRF cookie), preventing 403s from the CSRF middleware.
@@ -84,7 +85,8 @@ def registered_customer(client: TestClient) -> dict:
 
 @pytest.fixture
 def admin_token(client: TestClient) -> dict:
-    """Create an admin user and return auth token.
+    """
+    Create an admin user and return auth token.
 
     Clears cookies after login for Bearer-only auth.
     """

@@ -1,4 +1,5 @@
-"""bank.py  -  Bank class: registration, login, all menu loops (with logging).
+"""
+bank.py  -  Bank class: registration, login, all menu loops (with logging).
 
 All persistence flows go through the DI container (repositories/services) —
 no direct JSON reads or writes.
@@ -15,11 +16,9 @@ from unionbank.entrypoints.cli.ui import (
     RESET,
     WHITE,
     YELLOW,
-    clear_screen,
     divider,
     error,
     header,
-    info,
     prompt_password,
     success,
     warning,
@@ -35,7 +34,6 @@ from unionbank.utils import (
     validate_name,
     validate_password,
     validate_phone,
-    verify_password,
 )
 
 

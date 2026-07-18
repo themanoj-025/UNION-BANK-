@@ -1,4 +1,5 @@
-"""domain/entities.py  –  Pure domain entities (no framework/DB imports).
+"""
+domain/entities.py  –  Pure domain entities (no framework/DB imports).
 
 All monetary values use Decimal — never float — to avoid precision loss.
 Timestamps are timezone-aware datetime objects, never strings.
@@ -9,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from enum import Enum, auto
+from enum import Enum
 from typing import Optional
 
 from unionbank.domain.clock import (
@@ -290,7 +291,8 @@ class RefreshToken:
 
 @dataclass
 class IdempotencyRecord:
-    """Tracks idempotency keys for money-movement operations.
+    """
+    Tracks idempotency keys for money-movement operations.
 
     When a client retries a deposit/withdraw/transfer with the same
     idempotency key, the server returns the cached result instead of

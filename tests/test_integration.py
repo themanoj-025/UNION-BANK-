@@ -1,4 +1,5 @@
-"""tests/test_integration.py  –  Integration tests with real SQLite in-memory DB.
+"""
+tests/test_integration.py  –  Integration tests with real SQLite in-memory DB.
 
 These tests use the actual DI container and SQLite (in-memory, via temp file)
 to verify that the infrastructure layer, repositories, and services work
@@ -26,7 +27,8 @@ from unionbank.domain.entities import Account, TransactionType
 
 @pytest.fixture(autouse=True)
 def _fresh_db():
-    """Set up a fresh SQLite database for each test.
+    """
+    Set up a fresh SQLite database for each test.
 
     Uses a temp directory for the database file and resets the DI container
     so each test starts with a clean database.
@@ -129,7 +131,8 @@ class TestAccountCRUD:
         assert fetched.operation == "deposit"
 
     def test_idempotency_deposit_prevents_double_spend(self, c):
-        """⭐ IDEMPOTENCY: Depositing twice with the same idempotency_key
+        """
+        ⭐ IDEMPOTENCY: Depositing twice with the same idempotency_key
         should only move the money once. The second call returns the
         cached result without modifying the balance.
         """
@@ -168,7 +171,8 @@ class TestAccountCRUD:
         )
 
     def test_idempotency_withdraw_prevents_double_spend(self, c):
-        """Withdrawing twice with the same idempotency_key should only
+        """
+        Withdrawing twice with the same idempotency_key should only
         debit the account once.
         """
         account = Account(
@@ -225,7 +229,8 @@ class TestAccountCRUD:
         assert account.balance == Decimal("625.00"), f"Expected 625, got {account.balance}"
 
     def test_idempotency_without_key_still_works(self, c):
-        """Backward compatibility: not sending an idempotency_key should
+        """
+        Backward compatibility: not sending an idempotency_key should
         behave exactly as before (no dedup, no errors).
         """
         account = Account(
@@ -250,7 +255,8 @@ class TestAccountCRUD:
         assert r2.data["balance"] == 200.0
 
     def test_soft_delete_preserves_transactions(self, c):
-        """⭐ COMPLIANCE: Soft-deleting an account must preserve transaction history.
+        """
+        ⭐ COMPLIANCE: Soft-deleting an account must preserve transaction history.
 
         In a banking domain, destroying transaction records on account deletion
         is a compliance violation (record-retention requirements).
@@ -375,7 +381,8 @@ class TestTransactionFlow:
         assert len(txns) == 4  # 1 deposit + 1 withdraw + 2 transfer
 
     def test_transfer_rollback_on_failure(self, c):
-        """If a transfer fails mid-way, NO changes persist.
+        """
+        If a transfer fails mid-way, NO changes persist.
 
         The atomic transfer should roll back both the debit and the credit
         if any part of the operation fails.
@@ -412,7 +419,8 @@ class TestTransactionFlow:
 class TestAdminOperations:
 
     def test_freeze_account_via_service(self, c):
-        """Freezing an account via AdminService should persist in SQLite.
+        """
+        Freezing an account via AdminService should persist in SQLite.
 
         Freeze now explicitly also deactivates the account (via AdminService),
         but unfreezing does NOT reactivate it.
@@ -509,7 +517,8 @@ class TestSavingsGoalPersistence:
 
 
     def test_unfreeze_does_not_reactivate_closed_account(self, c):
-        """⭐ REGRESSION TEST: Unfreezing must NOT reactivate a closed account.
+        """
+        ⭐ REGRESSION TEST: Unfreezing must NOT reactivate a closed account.
 
         This tests the fix for the set_frozen() hidden side-effect.
         Previously, set_frozen(frozen=False) would silently set
@@ -576,8 +585,6 @@ class TestAuthFlow:
 
     def test_register_and_login_flow(self, c):
         """Full auth flow: register → login → verify session data."""
-        from unionbank.utils.hashing import hash_password, verify_password
-
         # Register via auth service
         auth = c.auth_service()
         result = auth.customer_register(
@@ -623,7 +630,8 @@ class TestAuthFlow:
 
 
 class TestConcurrentTransfers:
-    """⭐ Concurrency tests: fire simultaneous transfers and assert no lost updates.
+    """
+    ⭐ Concurrency tests: fire simultaneous transfers and assert no lost updates.
 
     These are the single most convincing tests in a banking app because they
     directly demonstrate understanding of the domain's hardest problem:
@@ -631,7 +639,8 @@ class TestConcurrentTransfers:
     """
 
     def test_simultaneous_transfers_no_lost_updates(self, c):
-        """Fire 10 concurrent transfers from one account and verify:
+        """
+        Fire 10 concurrent transfers from one account and verify:
         1. Money is ALWAYS conserved (sender + receiver = initial total)
         2. At least some transfers succeeded
 
@@ -711,7 +720,8 @@ class TestConcurrentTransfers:
         )
 
     def test_concurrent_deposits_no_lost_updates(self, c):
-        """Fire 20 concurrent deposits into the same account.
+        """
+        Fire 20 concurrent deposits into the same account.
         Under SQLite's WAL mode, some may fail due to locking.
         The critical invariant: final balance = amount × successful_count.
         No money should appear or disappear.
@@ -800,7 +810,8 @@ class TestPagination:
         assert len(page2) == 5
 
     def test_keyset_pagination_roundtrip(self, c):
-        """Verify keyset cursor-based pagination works end-to-end.
+        """
+        Verify keyset cursor-based pagination works end-to-end.
 
         Creates 15 transactions and pages through them with limit=5,
         verifying that has_more is correct and the cursor advances properly.

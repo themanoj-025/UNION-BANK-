@@ -1,4 +1,5 @@
-"""token_security.py – Token security utilities for Phase 3 hardening.
+"""
+token_security.py – Token security utilities for Phase 3 hardening.
 
 Provides:
 - SHA-256 hashing for refresh token IDs (prevents plaintext storage in DB)
@@ -27,7 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 def hash_token_id(token_id: str) -> str:
-    """Hash a refresh token ID with SHA-256 for safe storage in the DB.
+    """
+    Hash a refresh token ID with SHA-256 for safe storage in the DB.
 
     The raw token_id is embedded in the JWT (subject field) and sent by the
     client. We never store the raw value — only this hash — so a DB leak
@@ -68,7 +70,8 @@ def _get_fernet():
 
 
 def encrypt_totp_secret(secret: Optional[str]) -> Optional[str]:
-    """Encrypt a TOTP secret for storage in the DB.
+    """
+    Encrypt a TOTP secret for storage in the DB.
 
     Returns None if secret is None (2FA disabled).
     Falls back to plaintext if TOKEN_ENCRYPTION_KEY is not set (dev mode).
@@ -90,7 +93,8 @@ def encrypt_totp_secret(secret: Optional[str]) -> Optional[str]:
 
 
 def decrypt_totp_secret(encrypted_secret: Optional[str]) -> Optional[str]:
-    """Decrypt a TOTP secret retrieved from the DB.
+    """
+    Decrypt a TOTP secret retrieved from the DB.
 
     Handles three formats:
     - "enc:<fernet-ciphertext>" — encrypted with Fernet (production)

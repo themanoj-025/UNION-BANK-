@@ -1,4 +1,5 @@
-"""infrastructure/cache.py  –  Cache abstraction for Union Bank.
+"""
+infrastructure/cache.py  –  Cache abstraction for Union Bank.
 
 Provides a clean cache abstraction with two implementations:
 - RedisCache: production-grade, backed by Redis
@@ -30,7 +31,8 @@ logger = logging.getLogger("union_bank.cache")
 
 
 class Cache:
-    """Abstract cache interface.
+    """
+    Abstract cache interface.
 
     All operations are safe to call even if the backing store is unavailable
     — failures are logged and treated as cache misses.
@@ -67,14 +69,16 @@ class Cache:
         raise NotImplementedError
 
     def ping(self) -> bool:
-        """Check if the cache backend is reachable.
+        """
+        Check if the cache backend is reachable.
 
         Returns True if the cache is available, False otherwise.
         """
         return False
 
     def cached(self, ttl: int = 60, key_prefix: str = ""):
-        """Decorator: cache the return value of a function.
+        """
+        Decorator: cache the return value of a function.
 
         The cache key is derived from the function name + args.
         Only works for functions with JSON-serializable arguments.
@@ -125,7 +129,8 @@ class Cache:
 
 
 class NullCache(Cache):
-    """No-op cache — every operation is a miss/no-op.
+    """
+    No-op cache — every operation is a miss/no-op.
 
     Used when Redis is not configured or unavailable.
     """
@@ -152,7 +157,8 @@ class NullCache(Cache):
 
 
 class RedisCache(Cache):
-    """Production cache backed by Redis.
+    """
+    Production cache backed by Redis.
 
     Falls back to NullCache silently if Redis is unreachable at init time.
     """
@@ -251,7 +257,8 @@ _cache_instance: Optional[Cache] = None
 
 
 def get_cache() -> Cache:
-    """Get the global cache singleton.
+    """
+    Get the global cache singleton.
 
     Returns a RedisCache if Redis is configured and reachable,
     otherwise returns a NullCache.

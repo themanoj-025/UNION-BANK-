@@ -1,4 +1,5 @@
-"""add_balance_check_constraint
+"""
+add_balance_check_constraint
 
 Revision ID: bc2a4f8e9d1b
 Revises: 808505b8d0f3
@@ -8,7 +9,6 @@ Create Date: 2026-07-16 23:45:00.000000
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -19,7 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add CHECK (balance >= 0) constraint to accounts table.
+    """
+    Add CHECK (balance >= 0) constraint to accounts table.
 
     This is a defense-in-depth measure — the application layer already
     prevents negative balances in withdraw() and transfer(), but the
@@ -38,7 +39,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Remove the CHECK constraint.
+    """
+    Remove the CHECK constraint.
 
     Note: SQLite does not support ALTER TABLE DROP CONSTRAINT directly.
     The only way to remove a CHECK constraint in SQLite is to recreate

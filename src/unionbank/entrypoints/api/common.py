@@ -1,4 +1,5 @@
-"""api/common.py  –  Shared JWT authentication helpers.
+"""
+api/common.py  –  Shared JWT authentication helpers.
 
 Extracted from api.py so that both api.py (v1) and api/v2.py (v2)
 can import these without circular dependencies.
@@ -75,7 +76,8 @@ def _generate_refresh_token_id() -> str:
 
 
 def create_token(subject: str, role: str, token_type: str = "access") -> str:
-    """Create a JWT token (access or refresh).
+    """
+    Create a JWT token (access or refresh).
 
     Access tokens are short-lived (default 15 minutes).
     Refresh tokens live longer (default 7 days).
@@ -123,7 +125,8 @@ def decode_token(token: str) -> dict:
 
 
 def create_token_pair(subject: str, role: str) -> dict:
-    """Create an access + refresh token pair.
+    """
+    Create an access + refresh token pair.
 
     The refresh token is persisted in the DB (not just in-memory),
     enabling revocation, expiry tracking, and rotation.
@@ -220,7 +223,8 @@ def verify_refresh_token(refresh_token: str) -> Optional[dict]:
 
 
 def _check_token_version(payload: dict) -> None:
-    """Check that the token's version matches the current version in the DB.
+    """
+    Check that the token's version matches the current version in the DB.
 
     This invalidates all existing JWTs when a password is changed.
     """

@@ -1,4 +1,5 @@
-"""tests/test_password_leak.py  –  Verify password hash is never leaked in API responses.
+"""
+tests/test_password_leak.py  –  Verify password hash is never leaked in API responses.
 
 The get_current_customer() dependency previously returned the bcrypt password hash
 in every authenticated response. This test asserts that no API response schema
@@ -11,7 +12,6 @@ so it doesn't depend on TestClient or database connectivity.
 from __future__ import annotations
 
 import ast
-import os
 from pathlib import Path
 
 # Resolve the path to api/common.py (now lives in src/unionbank/entrypoints/api/)
@@ -22,7 +22,8 @@ _COMMON_PY_PATH = (
 
 
 def _get_all_response_model_fields() -> dict[str, set[str]]:
-    """Inspect all response Pydantic model field names for password leaks.
+    """
+    Inspect all response Pydantic model field names for password leaks.
 
     Checks every v2 response model defined in api/models.py.
     Fields named "password" or containing "password" are security vulnerabilities.
@@ -76,7 +77,8 @@ def _get_all_response_model_fields() -> dict[str, set[str]]:
 
 
 def _get_current_customer_return_dict() -> list[str]:
-    """Extract the keys of the return dict from get_current_customer() in api/common.py.
+    """
+    Extract the keys of the return dict from get_current_customer() in api/common.py.
 
     Uses AST parsing to find the function and the dict literal it returns.
     Returns a list of all keys in that dict.
@@ -110,7 +112,8 @@ class TestNoPasswordLeak:
         )
 
     def test_get_current_customer_does_not_return_password(self):
-        """Verify that get_current_customer() in api/common.py does not include password.
+        """
+        Verify that get_current_customer() in api/common.py does not include password.
 
         Parses the return dict keys from the AST and asserts 'password' is absent.
         This is a compile-time regression check — if someone re-adds the password key,

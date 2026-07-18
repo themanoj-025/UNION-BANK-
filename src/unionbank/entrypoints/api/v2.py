@@ -1,4 +1,5 @@
-"""api/v2.py  –  V2 API Router with standardised ApiResponse[T] envelopes.
+"""
+api/v2.py  –  V2 API Router with standardised ApiResponse[T] envelopes.
 
 All endpoints return the same shape:
     { "success": true/false, "data": ..., "error": ..., "meta": ... }
@@ -91,7 +92,8 @@ def _ok(data, meta: Optional[dict] = None) -> ApiResponse:
 
 
 def _err(message: str, status_code: int = 400, error_code: str | None = None):
-    """Build an error response (raises HTTPException with envelope body).
+    """
+    Build an error response (raises HTTPException with envelope body).
 
     Args:
         message:     Human-readable error message.
@@ -109,7 +111,8 @@ def _err(message: str, status_code: int = 400, error_code: str | None = None):
 
 # Exception handlers must be added to the FastAPI app instance, not APIRouter
 async def v2_http_exception_handler(request, exc: HTTPException):
-    """Override FastAPI's default exception handler for the v2 router.
+    """
+    Override FastAPI's default exception handler for the v2 router.
 
     Instead of wrapping the error in {"detail": {...}}, we return the
     ApiResponse envelope directly as the response body.
@@ -145,7 +148,8 @@ async def v2_generic_exception_handler(request, exc: Exception):
 
 @router.post("/auth/login", response_model=ApiResponse[TokenData])
 def v2_customer_login(req: LoginRequest, request: Request, response: Response):
-    """Authenticate a customer and return a JWT access + refresh token pair.
+    """
+    Authenticate a customer and return a JWT access + refresh token pair.
 
     Tokens are set as httpOnly cookies (primary) and returned in the
     response body (backward compatibility).
@@ -212,7 +216,8 @@ def v2_customer_register(req: RegisterRequest):
 
 @router.post("/auth/admin-login", response_model=ApiResponse[TokenData])
 def v2_admin_login(req: AdminLoginRequest, request: Request, response: Response):
-    """Authenticate as admin and return a JWT access + refresh token pair.
+    """
+    Authenticate as admin and return a JWT access + refresh token pair.
 
     Tokens are set as httpOnly cookies (primary) and returned in the
     response body (backward compatibility).
@@ -249,7 +254,8 @@ def v2_admin_login(req: AdminLoginRequest, request: Request, response: Response)
 
 @router.post("/auth/refresh", response_model=ApiResponse[TokenData])
 def v2_refresh_token(request: Request, response: Response, req: Optional[RefreshRequest] = None):
-    """Exchange a refresh token for a new access + refresh token pair.
+    """
+    Exchange a refresh token for a new access + refresh token pair.
 
     Accepts the refresh token from either:
     1. The request body (backward compatibility)
@@ -258,7 +264,7 @@ def v2_refresh_token(request: Request, response: Response, req: Optional[Refresh
     The previous refresh token is revoked (rotation) so it cannot be reused.
     """
     from unionbank.utils.cookie_auth import (
-        get_token_from_cookies, set_auth_cookies, clear_auth_cookies,
+        get_token_from_cookies, set_auth_cookies,
     )
     from unionbank.utils.logger import logger
 
@@ -553,7 +559,8 @@ def v2_get_statement_keyset(
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
     customer: dict = Depends(get_current_customer),
 ):
-    """Get paginated statement using keyset (cursor-based) pagination.
+    """
+    Get paginated statement using keyset (cursor-based) pagination.
 
     More efficient than offset-based pagination on large datasets.
     Include the `cursor` value from the previous page's meta to get the next page.
@@ -968,7 +975,8 @@ def v2_admin_view_transactions(
     account: Optional[str] = Query(None, description="Filter by account number"),
     admin: dict = Depends(get_current_admin),
 ):
-    """View all transactions across all accounts (admin only).
+    """
+    View all transactions across all accounts (admin only).
 
     Optionally filter by account number via the `account` query parameter.
     Transactions are returned newest first.
@@ -1011,7 +1019,8 @@ def v2_admin_view_accounts(
     response: Response = None,
     admin: dict = Depends(get_current_admin),
 ):
-    """View all registered accounts with pagination (admin only).
+    """
+    View all registered accounts with pagination (admin only).
 
     Returns X-Total-Count header for pagination-aware UIs.
     """
@@ -1130,7 +1139,8 @@ def v2_list_categories():
 
 @router.post("/analyzr/query", response_model=ApiResponse[dict])
 def v2_analyzr_query(req: AnalyzrQueryRequest):
-    """Natural-language transaction search.
+    """
+    Natural-language transaction search.
 
     Accepts plain English queries like:
       - "show me large deposits last month"
@@ -1154,7 +1164,8 @@ def v2_analyzr_query(req: AnalyzrQueryRequest):
 
 @router.get("/health", response_model=ApiResponse[HealthData])
 def v2_health_check():
-    """Health check endpoint.
+    """
+    Health check endpoint.
 
     Checks:
     - Database connectivity (via `SELECT 1`)

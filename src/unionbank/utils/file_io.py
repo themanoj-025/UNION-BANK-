@@ -1,4 +1,5 @@
-"""file_io.py  –  JSON file persistence with corruption recovery and atomic writes.
+"""
+file_io.py  –  JSON file persistence with corruption recovery and atomic writes.
 """
 
 import json
@@ -33,7 +34,8 @@ def _get_logger():
 
 
 def load_json(filepath: str) -> dict:
-    """Load JSON file safely with corruption recovery.
+    """
+    Load JSON file safely with corruption recovery.
     Returns empty dict if file is missing, empty, or corrupted.
     On corruption, attempts to restore from backup.
     """
@@ -72,7 +74,8 @@ def load_json(filepath: str) -> dict:
 
 
 def save_json(filepath: str, data) -> None:
-    """Persist data to JSON file atomically with auto-backup.
+    """
+    Persist data to JSON file atomically with auto-backup.
     - Creates a .bak copy of the previous version before overwriting
     - Writes to a temp file first, then atomically renames (reduces corruption)
     """

@@ -1,4 +1,5 @@
-"""container.py  –  Dependency Injection Container.
+"""
+container.py  –  Dependency Injection Container.
 
 Wires together the application's dependencies using simple factory functions.
 All dependencies flow inward: interfaces → application services → infrastructure repos.
@@ -6,7 +7,6 @@ All dependencies flow inward: interfaces → application services → infrastruc
 
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import Optional
 
 from unionbank.application.notifications import LogNotificationSender, NotificationService

@@ -17,7 +17,7 @@ pyotp==2.9.0
 redis==7.2.0
 slowapi==0.1.9
 SQLAlchemy==2.0.46
-uvicorn==0.30.6
+uvicorn==0.51.0
 
 # Pyproject-matched dependencies
 pydantic==2.10.4

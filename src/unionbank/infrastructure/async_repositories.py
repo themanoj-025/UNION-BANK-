@@ -59,9 +59,7 @@ from .persistence import (
 )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Account Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyAccountRepository:
@@ -326,9 +324,7 @@ class AsyncSqlAlchemyAccountRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Transaction Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyTransactionRepository:
@@ -501,9 +497,7 @@ class AsyncSqlAlchemyTransactionRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Admin Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyAdminRepository:
@@ -566,9 +560,7 @@ class AsyncSqlAlchemyAdminRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Savings Goal Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemySavingsGoalRepository:
@@ -648,9 +640,7 @@ class AsyncSqlAlchemySavingsGoalRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Loan Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyLoanRepository:
@@ -772,9 +762,7 @@ class AsyncSqlAlchemyLoanRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Login Attempt Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyLoginAttemptRepository:
@@ -864,9 +852,7 @@ class AsyncSqlAlchemyLoginAttemptRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Token Version Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyTokenVersionRepository:
@@ -905,9 +891,7 @@ class AsyncSqlAlchemyTokenVersionRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Notification Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyNotificationRepository:
@@ -1013,9 +997,7 @@ class AsyncSqlAlchemyNotificationRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Notification Preference Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyNotificationPreferenceRepository:
@@ -1087,9 +1069,7 @@ class AsyncSqlAlchemyNotificationPreferenceRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Refresh Token Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyRefreshTokenRepository:
@@ -1168,9 +1148,7 @@ class AsyncSqlAlchemyRefreshTokenRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Idempotency Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyIdempotencyRepository:
@@ -1215,9 +1193,7 @@ class AsyncSqlAlchemyIdempotencyRepository:
         await self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Audit Log Repository (async)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSqlAlchemyAuditLogRepository:

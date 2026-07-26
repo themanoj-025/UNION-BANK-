@@ -19,9 +19,7 @@ import pytest
 from unionbank.infrastructure.container import get_container, reset_container
 from fastapi.testclient import TestClient
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fixtures
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +62,7 @@ def client():
         yield tc
 
 
-# ── Customer account fixtures ──────────────────────────────────────────────
+# ─
 
 
 @pytest.fixture
@@ -187,9 +185,7 @@ def admin_token(client: TestClient) -> dict:
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  1.  Health & Utility Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestHealthAndUtilities:
@@ -214,9 +210,7 @@ class TestHealthAndUtilities:
         assert "Salary" in categories
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  2.  Authentication
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAuth:
@@ -298,7 +292,6 @@ class TestAuth:
     def test_admin_login_success(self, client, admin_token):
         """Admin login should succeed."""
         # admin_token fixture already verified the login
-        pass
 
     def test_admin_login_wrong_password(self, client):
         """Admin login with wrong password should fail."""
@@ -309,9 +302,7 @@ class TestAuth:
         assert resp.status_code == 401
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  3.  Account Profile
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAccountProfile:
@@ -364,9 +355,7 @@ class TestAccountProfile:
         assert login_resp.status_code == 200
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  4.  Transactions (Deposit, Withdraw, Transfer, Statement)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestTransactions:
@@ -499,9 +488,7 @@ class TestTransactions:
         assert "DEPOSIT" in content
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  5.  Savings Goals
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestSavingsGoals:
@@ -576,9 +563,7 @@ class TestSavingsGoals:
         assert "deleted" in resp.json()["message"].lower()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  6.  Admin Operations
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAdminOperations:
@@ -692,9 +677,7 @@ class TestAdminOperations:
         assert resp.status_code in (400, 403)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  7.  Error Handling & Edge Cases
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestErrorHandling:
@@ -718,9 +701,7 @@ class TestErrorHandling:
         assert resp.status_code == 422  # Pydantic min_length validation
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  8.  V2 API Tests (ApiResponse envelope)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestV2API:

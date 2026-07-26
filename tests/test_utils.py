@@ -22,9 +22,7 @@ from unionbank.utils.file_io import (
     save_json,
 )
 
-# ───────────────────────────────────────────────
 #  Password hashing tests
-# ───────────────────────────────────────────────
 
 class TestPasswordHashing:
     def test_hash_and_verify(self):
@@ -55,9 +53,7 @@ class TestPasswordHashing:
         assert h1 != h2
 
 
-# ───────────────────────────────────────────────
 #  Email validation tests
-# ───────────────────────────────────────────────
 
 class TestEmailValidation:
     def test_valid_emails(self):
@@ -77,9 +73,7 @@ class TestEmailValidation:
         assert validate_email("user@domain.c") is False  # TLD too short
 
 
-# ───────────────────────────────────────────────
 #  Phone validation tests
-# ───────────────────────────────────────────────
 
 class TestPhoneValidation:
     def test_valid_phones(self):
@@ -96,9 +90,7 @@ class TestPhoneValidation:
         assert validate_phone("0876543210") is False   # starts with 0
 
 
-# ───────────────────────────────────────────────
 #  Password strength validation tests
-# ───────────────────────────────────────────────
 
 class TestPasswordValidation:
     def test_valid_passwords(self):
@@ -137,9 +129,7 @@ class TestPasswordValidation:
         assert valid is False
 
 
-# ───────────────────────────────────────────────
 #  Name validation tests
-# ───────────────────────────────────────────────
 
 class TestNameValidation:
     def test_valid_names(self):
@@ -156,9 +146,7 @@ class TestNameValidation:
         assert validate_name("John@Doe") is False  # special chars
 
 
-# ───────────────────────────────────────────────
 #  Generator tests
-# ───────────────────────────────────────────────
 
 class TestGenerators:
     def test_generate_account_number_structure(self):
@@ -178,9 +166,7 @@ class TestGenerators:
         assert len(ids) == 100
 
 
-# ───────────────────────────────────────────────
 #  Currency formatting tests
-# ───────────────────────────────────────────────
 
 class TestCurrencyFormatting:
     def test_basic_format(self):
@@ -193,9 +179,7 @@ class TestCurrencyFormatting:
         assert fmt_currency(-100) == "₹-100.00"
 
 
-# ───────────────────────────────────────────────
 #  JSON file helpers tests
-# ───────────────────────────────────────────────
 
 class TestJsonHelpers:
     def test_save_and_load_json(self):
@@ -226,9 +210,7 @@ class TestJsonHelpers:
             os.unlink(tmp_path)
 
 
-# ───────────────────────────────────────────────
 #  get_float tests (simulated input)
-# ───────────────────────────────────────────────
 
 class TestGetFloat:
     def test_valid_amount(self, monkeypatch):

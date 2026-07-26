@@ -20,9 +20,7 @@ import pytest
 from unionbank.infrastructure.container import get_container, reset_container
 from unionbank.domain.entities import Account, TransactionType
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fixtures
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @pytest.fixture(autouse=True)
@@ -75,9 +73,7 @@ def sample_account() -> dict:
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Integration: Account CRUD via Container
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAccountCRUD:
@@ -313,9 +309,7 @@ class TestAccountCRUD:
         assert txns[0].amount == Decimal("50.00")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Integration: Transaction flow via Services
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestTransactionFlow:
@@ -411,9 +405,7 @@ class TestTransactionFlow:
         assert repo.get("2000000002").balance == Decimal("50.00")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Integration: Admin operations via Container
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAdminOperations:
@@ -465,9 +457,7 @@ class TestAdminOperations:
         assert entries[0]["reason"] == "Testing audit log"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Integration: Savings Goals via Container
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestSavingsGoalPersistence:
@@ -576,9 +566,7 @@ class TestSavingsGoalPersistence:
         assert "permanently closed" in result.message.lower()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Integration: Auth flow via Container
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAuthFlow:
@@ -624,9 +612,7 @@ class TestAuthFlow:
         assert result.data["role"] == "admin"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Integration: Concurrency (no lost updates)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestConcurrentTransfers:
@@ -773,9 +759,7 @@ class TestConcurrentTransfers:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Integration: Pagination and Filtering
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestPagination:

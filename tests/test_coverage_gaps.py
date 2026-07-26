@@ -14,9 +14,7 @@ from decimal import Decimal
 from unionbank.domain.entities import Account
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Loan Rejection Error Paths
-# ═══════════════════════════════════════════════════════════════════════════════
 
 class TestLoanRejectionErrorPaths:
     """Test edge cases in loan rejection that are currently uncovered."""
@@ -89,9 +87,7 @@ class TestLoanRejectionErrorPaths:
         assert result.success
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Admin Freeze / Unfreeze Edge Cases
-# ═══════════════════════════════════════════════════════════════════════════════
 
 class TestAdminFreezeUnfreeze:
     """Test edge cases in admin freeze/unfreeze operations."""
@@ -170,9 +166,7 @@ class TestAdminFreezeUnfreeze:
         assert "frozen" in result.message.lower() or "not found" in result.message.lower()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Notification Service Failure Handling
-# ═══════════════════════════════════════════════════════════════════════════════
 
 class TestNotificationFailures:
     """Test that notification failures do not crash the system."""
@@ -205,9 +199,7 @@ class TestNotificationFailures:
         assert result.success
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Service-level Validation Edge Cases
-# ═══════════════════════════════════════════════════════════════════════════════
 
 class TestServiceValidation:
     """Test edge cases in service-level validation."""

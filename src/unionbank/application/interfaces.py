@@ -25,9 +25,7 @@ from unionbank.domain.entities import (
     Transaction,
 )
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Shared types
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 T = TypeVar("T")
@@ -53,15 +51,11 @@ class KeysetPage(Generic[T]):
     cursor_key: str = "timestamp"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Repository Protocols
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Account Repository Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -109,9 +103,7 @@ class AccountRepositoryProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Transaction Repository Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -159,9 +151,7 @@ class TransactionRepositoryProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Admin Repository Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -183,9 +173,7 @@ class AdminRepositoryProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Savings Goal Repository Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -209,9 +197,7 @@ class SavingsGoalRepositoryProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Login Attempt Repository Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -233,9 +219,7 @@ class LoginAttemptRepositoryProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Token Version Repository Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -251,9 +235,7 @@ class TokenVersionRepositoryProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Loan Repository Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -285,9 +267,7 @@ class LoanRepositoryProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Notification Repository Protocols
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -328,9 +308,7 @@ class NotificationPreferenceRepositoryProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Notification Sender Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
@@ -342,9 +320,7 @@ class NotificationSenderProtocol(Protocol):
     def send_sms(self, to_phone: str, message: str) -> bool: ...
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Audit Log Repository Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable

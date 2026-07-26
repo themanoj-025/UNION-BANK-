@@ -34,9 +34,7 @@ from tests.fakes import (
 _BCRYPT_TEST_HASH = "$2b$12$LJ3m4ys3Lk0TSwHnbfOMqeM5YsgCJTiEP6Kj.EXON7pE0uuo1VcuS"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Strategies — generate random valid account data
-# ═══════════════════════════════════════════════════════════════════════════════
 
 valid_account_numbers = st.text(
     alphabet=st.characters(min_codepoint=48, max_codepoint=57),
@@ -65,9 +63,7 @@ passwords = st.text(
 )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Helpers
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _make_account(acc_no: str, balance: Decimal) -> Account:
@@ -85,9 +81,7 @@ def _make_account(acc_no: str, balance: Decimal) -> Account:
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Test: Balance conservation — deposit increases balance by exactly the amount
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @settings(suppress_health_check=[HealthCheck.too_slow])
@@ -119,9 +113,7 @@ def test_deposit_preserves_invariant(acc_no, initial_balance, deposit_amount):
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Test: No overdraft — withdrawal fails if amount > balance
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @given(
@@ -155,9 +147,7 @@ def test_no_overdraft(acc_no, initial_balance, withdraw_amount):
         assert updated.balance == initial_balance  # Unchanged
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Test: Transfer preserves total system balance
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @given(
@@ -213,9 +203,7 @@ def test_transfer_preserves_total_balance(
         assert repo.get(receiver_acc).balance == receiver_balance
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Test: Interest is always non-negative and proportional to balance
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @given(
@@ -270,9 +258,7 @@ def test_interest_monotonicity(acc_no, balance):
         assert "no interest" in result.message.lower()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Test: Stateful — money never lost in transfer sequence
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class MoneyInvariantMachine(RuleBasedStateMachine):

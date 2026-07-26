@@ -46,9 +46,7 @@ MAX_LOGIN_ATTEMPTS = settings.MAX_LOGIN_ATTEMPTS
 LOGIN_LOCKOUT_MINUTES = settings.LOGIN_LOCKOUT_MINUTES
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Async per-account concurrency lock
-# ═══════════════════════════════════════════════════════════════════════════════
 
 _account_locks: dict[str, asyncio.Lock] = {}
 
@@ -69,9 +67,7 @@ def _get_account_lock(*acc_nos: str) -> asyncio.Lock:
     return _account_locks[key]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Async Transaction Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncTransactionService:
@@ -497,9 +493,7 @@ class AsyncTransactionService:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Async Account Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncAccountService:
@@ -567,9 +561,7 @@ class AsyncAccountService:
         return account.balance if account else None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Async Auth Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncAuthService:
@@ -696,9 +688,7 @@ class AsyncAuthService:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Async Admin Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncAdminService:
@@ -847,9 +837,7 @@ class AsyncAdminService:
         return ServiceResult(success=True, message="Admin password changed successfully.")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Async Savings Goal Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AsyncSavingsGoalService:

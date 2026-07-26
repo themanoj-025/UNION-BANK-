@@ -26,7 +26,6 @@ os.environ.setdefault("FLASK_SECRET_KEY", secrets.token_hex(24))
 from unionbank.utils.hashing import hash_password
 from unionbank.config import settings
 
-# ── Configuration ────────────────────────────────────────────────────────────
 NUM_ACCOUNTS = 5000
 MIN_TXNS_PER_ACCOUNT = 8
 MAX_TXNS_PER_ACCOUNT = 20
@@ -37,7 +36,6 @@ END_DATE = datetime(2026, 6, 2)
 TRANSACTION_CATEGORIES = settings.TRANSACTION_CATEGORIES
 
 
-# ── Indian names data ────────────────────────────────────────────────────────
 
 FIRST_NAMES_MALE = [
     "Aarav", "Arjun", "Vivaan", "Aditya", "Vihaan", "Arush", "Ayaan", "Ishaan",
@@ -124,7 +122,6 @@ TRANSFER_IN_DESCRIPTIONS = [
 ]
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
 
 
 def random_date(start: datetime, end: datetime) -> datetime:
@@ -155,7 +152,6 @@ def generate_txn_id() -> str:
     return "TXN-" + "".join(random.choices(_TXN_CHARS, k=8))
 
 
-# ── Main seeding function ────────────────────────────────────────────────────
 
 def seed_data(fast_mode: bool = True):
     """

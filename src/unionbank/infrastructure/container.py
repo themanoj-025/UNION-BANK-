@@ -155,7 +155,7 @@ class Container:
         )
 
 
-# ── Global singleton ─────────────────────────────────────────────────────────
+# ─
 
 _container: Optional[Container] = None
 

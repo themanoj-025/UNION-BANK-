@@ -18,7 +18,7 @@ from typing import Generator, Optional
 
 
 
-# ── Canonical constants (from centralized config) ────────────────────────────
+# ─
 from unionbank.config import settings
 from unionbank.domain.clock import utcnow as _utcnow
 from unionbank.domain.entities import (
@@ -60,7 +60,7 @@ from .interfaces import (
 
 import pybreaker
 
-# ── Circuit breaker for notification service calls ──────────────────────────
+# ─
 # Prevents a slow or unresponsive notification provider from blocking
 # money-movement responses. After 5 failures in 60 seconds the circuit opens
 # for 30 seconds, failing fast instead of waiting for a timeout on each call.
@@ -70,9 +70,7 @@ NOTIFICATION_BREAKER = pybreaker.CircuitBreaker(
 )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Per-account concurrency lock
-# ═══════════════════════════════════════════════════════════════════════════════
 #
 # SQLite's WAL mode provides snapshot isolation, enabling concurrent reads but
 # allowing the classic "lost update" race under concurrent writes: two threads
@@ -89,7 +87,6 @@ NOTIFICATION_BREAKER = pybreaker.CircuitBreaker(
 #
 # Locks are always acquired in **sorted account-number order** to guarantee
 # deadlock-free acquisition when multiple accounts are involved (transfer).
-# ═══════════════════════════════════════════════════════════════════════════════
 
 # Default dict with threading.Lock factory ensures thread-safe lock creation
 # (avoids TOCTOU race between the "not in" check and lock creation).
@@ -247,9 +244,7 @@ class AuthService:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Account Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AccountService:
@@ -317,9 +312,7 @@ class AccountService:
         return account.balance if account else None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Transaction Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TransactionService:
@@ -804,9 +797,7 @@ class TransactionService:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Admin Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AdminService:
@@ -983,9 +974,7 @@ class AdminService:
         return ServiceResult(success=True, message="Admin password changed successfully.")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Loan Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 # Loan product config per loan type (using LoanType enum values as keys)
 LOAN_PRODUCTS = {
@@ -1392,9 +1381,7 @@ class LoanService:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Savings Goal Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SavingsGoalService:

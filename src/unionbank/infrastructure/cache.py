@@ -25,9 +25,7 @@ from typing import Any, Callable, Optional
 logger = logging.getLogger("union_bank.cache")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Cache Protocol
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class Cache:
@@ -123,9 +121,7 @@ class Cache:
         self.clear_pattern(f"{key_prefix}:*")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Null Cache — no-op fallback
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class NullCache(Cache):
@@ -151,9 +147,7 @@ class NullCache(Cache):
         return False
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Redis Cache
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class RedisCache(Cache):
@@ -249,9 +243,7 @@ class RedisCache(Cache):
         return self._connect()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Global singleton (lazy initialised from settings)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 _cache_instance: Optional[Cache] = None
 

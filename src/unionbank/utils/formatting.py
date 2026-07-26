@@ -7,25 +7,19 @@ import re
 import string
 from datetime import datetime
 
-# ─────────────────────────────────────────────
 #  Currency formatting
-# ─────────────────────────────────────────────
 
 def fmt_currency(amount: float) -> str:
     return f"₹{amount:,.2f}"
 
 
-# ─────────────────────────────────────────────
 #  Timestamp
-# ─────────────────────────────────────────────
 
 def now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-# ─────────────────────────────────────────────
 #  ID / number generators
-# ─────────────────────────────────────────────
 
 def generate_account_number(max_attempts: int = 1000) -> str:
     """
@@ -67,9 +61,7 @@ def generate_notification_id() -> str:
     return "NTF-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  EMI Calculator
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def calculate_emi(principal: float, annual_rate: float, tenure_months: int) -> float:
@@ -104,9 +96,7 @@ def calculate_emi(principal: float, annual_rate: float, tenure_months: int) -> f
     return round(emi, 2)
 
 
-# ─────────────────────────────────────────────
 #  CLI input helpers
-# ─────────────────────────────────────────────
 
 def get_float(prompt: str):
     """Prompt for a positive float; return None on invalid input."""
@@ -128,9 +118,7 @@ def get_int(prompt: str):
         return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  PII-safe logging helpers
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def mask_account_number(acc_no: str) -> str:

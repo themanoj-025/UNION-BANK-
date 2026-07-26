@@ -30,9 +30,7 @@ from tests.fakes import (
     FakeTransactionRepository,
 )
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fixtures
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @pytest.fixture
@@ -141,9 +139,7 @@ def savings_goal_service(account_repo, txn_repo, savings_goal_repo):
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  AuthService Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAuthService:
@@ -227,9 +223,7 @@ class TestAuthService:
         assert "locked" in result.message.lower()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  AccountService Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAccountService:
@@ -300,9 +294,7 @@ class TestAccountService:
         assert account_service.get_balance("9999999999") is None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  TransactionService Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestTransactionService:
@@ -446,9 +438,7 @@ class TestTransactionService:
         assert totals.get("Food & Dining", Decimal("0")) >= Decimal("100")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  AdminService Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAdminService:
@@ -555,9 +545,7 @@ class TestAdminService:
         assert verify_password("NewAdmin1Pass", admin_repo.get_by_username("admin").password)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  SavingsGoalService Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestSavingsGoalService:

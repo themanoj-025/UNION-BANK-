@@ -7,7 +7,7 @@ import os
 import shutil
 import tempfile
 
-# ── Data directory: respect env override for test isolation ───────────────────
+# ─
 _data_dir = os.environ.get(
     "UNION_BANK_DATA_DIR",
     os.path.join(os.path.dirname(os.path.dirname(__file__)), "data"),
@@ -19,9 +19,7 @@ SAVINGS_GOALS_FILE = os.path.join(_data_dir, "savings_goals.json")
 ADMIN_FILE = os.path.join(_data_dir, "admin.json")
 
 
-# ─────────────────────────────────────────────
 #  JSON helpers (hardened with auto-backup)
-# ─────────────────────────────────────────────
 
 def _backup_path(filepath: str) -> str:
     """Return the backup file path (same directory, .bak extension)."""

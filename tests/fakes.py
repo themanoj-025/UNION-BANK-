@@ -36,7 +36,7 @@ from unionbank.domain.entities import (
     Transaction,
 )
 
-# ── Simulated database error classes ─────────────────────────────────────────
+# ─
 
 
 class SimulatedDuplicateKeyError(Exception):
@@ -52,7 +52,6 @@ class SimulatedDuplicateKeyError(Exception):
             repo.create(account)
     """
 
-    pass
 
 
 class SimulatedForeignKeyViolation(Exception):
@@ -66,7 +65,6 @@ class SimulatedForeignKeyViolation(Exception):
             repo.create(txn_with_bad_account)
     """
 
-    pass
 
 
 class SimulatedRaceConditionError(Exception):
@@ -83,7 +81,6 @@ class SimulatedRaceConditionError(Exception):
             repo.transfer_money(...)
     """
 
-    pass
 
 
 class SimulatedDatabaseTimeout(Exception):
@@ -96,16 +93,13 @@ class SimulatedDatabaseTimeout(Exception):
             repo.commit()
     """
 
-    pass
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Account Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class _FakeSession:
@@ -282,9 +276,7 @@ class FakeAccountRepository:
         pass  # No-op for in-memory
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Transaction Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeTransactionRepository:
@@ -397,9 +389,7 @@ class FakeTransactionRepository:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Admin Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeAdminRepository:
@@ -438,9 +428,7 @@ class FakeAdminRepository:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Savings Goal Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeSavingsGoalRepository:
@@ -482,9 +470,7 @@ class FakeSavingsGoalRepository:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Login Attempt Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeLoginAttemptRepository:
@@ -539,9 +525,7 @@ class FakeLoginAttemptRepository:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Token Version Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeTokenVersionRepository:
@@ -565,14 +549,10 @@ class FakeTokenVersionRepository:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Audit Log Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Notification Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeNotificationRepository:
@@ -636,9 +616,7 @@ class FakeNotificationRepository:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Notification Preference Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeNotificationPreferenceRepository:
@@ -661,9 +639,7 @@ class FakeNotificationPreferenceRepository:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Refresh Token Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeRefreshTokenRepository:
@@ -713,9 +689,7 @@ class FakeRefreshTokenRepository:
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fake Audit Log Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class FakeAuditLogRepository:

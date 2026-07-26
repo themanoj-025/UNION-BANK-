@@ -26,14 +26,12 @@ import os
 import threading
 from typing import Any, Optional
 
-# ── File path ─────────────────────────────────────────────────────────────────
+# ─
 LOG_FILE = os.path.join(os.path.dirname(__file__), "data", "bank.log")
 os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Thread-local context for request-scoped values
-# ═══════════════════════════════════════════════════════════════════════════════
 
 _request_context = threading.local()
 
@@ -67,9 +65,7 @@ def clear_context() -> None:
             pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Structured JSON Formatter
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class JsonFormatter(logging.Formatter):
@@ -120,36 +116,34 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_entry, default=str)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Handlers
-# ═══════════════════════════════════════════════════════════════════════════════
 
-# ── Text formatter (for file + console) ────────────────────────────────────
+# ─
 _text_fmt = logging.Formatter(
     fmt="[%(asctime)s]  %(levelname)-8s  %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-# ── JSON formatter (for JSON log file) ─────────────────────────────────────
+# ─
 _json_fmt = JsonFormatter(datefmt="%Y-%m-%dT%H:%M:%S.%fZ")
 
-# ── File handler — text format (DEBUG+) ─────────────────────────────────────
+# ─
 _fh = logging.FileHandler(LOG_FILE, encoding="utf-8")
 _fh.setLevel(logging.DEBUG)
 _fh.setFormatter(_text_fmt)
 
-# ── JSON file handler — structured JSON (INFO+) ────────────────────────────
+# ─
 _JSON_LOG_FILE = os.path.join(os.path.dirname(__file__), "data", "bank.jsonl")
 _jfh = logging.FileHandler(_JSON_LOG_FILE, encoding="utf-8")
 _jfh.setLevel(logging.INFO)
 _jfh.setFormatter(_json_fmt)
 
-# ── Console handler — text format (WARNING+) ────────────────────────────────
+# ─
 _ch = logging.StreamHandler()
 _ch.setLevel(logging.WARNING)
 _ch.setFormatter(_text_fmt)
 
-# ── Root logger ───────────────────────────────────────────────────────────────
+# ─
 logger = logging.getLogger("union_bank")
 logger.setLevel(logging.DEBUG)
 logger.addHandler(_fh)
@@ -158,9 +152,7 @@ logger.addHandler(_ch)
 logger.propagate = False
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Convenience helper — log with extra context dict
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def log_with_context(

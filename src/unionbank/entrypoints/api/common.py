@@ -20,9 +20,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from unionbank.utils.logger import set_account_context
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  JWT Configuration
-# ═══════════════════════════════════════════════════════════════════════════════
 
 JWT_SECRET = settings.JWT_SECRET
 JWT_PRIVATE_KEY = settings.JWT_PRIVATE_KEY
@@ -31,16 +29,12 @@ JWT_ALGORITHM = settings.JWT_ALGORITHM
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Security scheme (shared between v1 and v2)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 security = HTTPBearer()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  JWT Helper Functions
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _get_signing_key() -> str:
@@ -217,9 +211,7 @@ def verify_refresh_token(refresh_token: str) -> Optional[dict]:
         return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Token version validation helpers
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _check_token_version(payload: dict) -> None:
@@ -238,9 +230,7 @@ def _check_token_version(payload: dict) -> None:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Auth Dependencies (used by both v1 and v2 routers)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 async def get_current_customer(

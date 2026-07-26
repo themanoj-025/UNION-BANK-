@@ -18,9 +18,7 @@ from decimal import Decimal
 
 import pytest
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  categories.py  –  get_category_choice() edge cases
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestCategoriesEdgeCases:
@@ -69,9 +67,7 @@ class TestCategoriesEdgeCases:
         assert "Salary" in TRANSACTION_CATEGORIES
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  formatting.py  –  Edge cases
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestFormattingEdgeCases:
@@ -221,9 +217,7 @@ class TestFormattingEdgeCases:
         assert all(p.isdigit() for p in time_parts)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  file_io.py  –  Edge cases (corruption recovery, backup chains)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestFileIoEdgeCases:
@@ -310,9 +304,7 @@ class TestFileIoEdgeCases:
         assert result == {}
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  fakes.py  –  Error simulation methods
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestFakesErrorSimulation:
@@ -371,9 +363,7 @@ class TestFakesErrorSimulation:
         assert "30s" in str(exc.value)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  services.py  –  Edge case paths
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestServiceEdgeCases:

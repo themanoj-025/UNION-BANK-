@@ -12,9 +12,7 @@ from typing import Any, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Structured Error Codes
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class ErrorCode(str, Enum):
@@ -89,9 +87,7 @@ class ErrorCode(str, Enum):
     UNKNOWN = "ER999"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Generic API Response Envelope
-# ═══════════════════════════════════════════════════════════════════════════════
 
 T = TypeVar("T")
 
@@ -120,9 +116,7 @@ class ApiResponse(BaseModel, Generic[T]):
     meta: Optional[dict[str, Any]] = None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Pagination meta
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class PageMeta(BaseModel):
@@ -142,9 +136,7 @@ class KeysetMeta(BaseModel):
     cursor_key: str = "timestamp"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Auth Request Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class LoginRequest(BaseModel):
@@ -171,9 +163,7 @@ class RefreshRequest(BaseModel):
     refresh_token: str = Field(..., description="Refresh token from previous login")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Auth Response Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TokenData(BaseModel):
@@ -186,9 +176,7 @@ class TokenData(BaseModel):
     expires_in: Optional[int] = None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Transaction Request Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TransactionRequest(BaseModel):
@@ -204,9 +192,7 @@ class TransferRequest(BaseModel):
     idempotency_key: Optional[str] = Field(default=None, description="Idempotency key for retry-safe operations")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Account Request Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class ChangePasswordRequest(BaseModel):
@@ -228,9 +214,7 @@ class CloseAccountRequest(BaseModel):
     password: str
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Account Response Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class BalanceData(BaseModel):
@@ -272,9 +256,7 @@ class AccountListItem(BaseModel):
     created_at: str
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Transaction Response Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TransactionOut(BaseModel):
@@ -290,9 +272,7 @@ class TransactionOut(BaseModel):
     target_account: Optional[str] = None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Loan Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class LoanApplyRequest(BaseModel):
@@ -370,9 +350,7 @@ class LoanRejectRequest(BaseModel):
     reason: str = Field(default="", max_length=500, description="Rejection reason")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Savings Goal Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SavingsGoalCreate(BaseModel):
@@ -412,9 +390,7 @@ class SavingsGoalsSummary(BaseModel):
     goals: list[SavingsGoalOut]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Admin Response Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class StatisticsData(BaseModel):
@@ -440,9 +416,7 @@ class HealthData(BaseModel):
     timestamp: str = ""
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Generic "message" payload
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AnalyzrQueryRequest(BaseModel):

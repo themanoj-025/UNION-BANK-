@@ -12,9 +12,7 @@ import axios from 'axios';
  * Pagination and rate-limit headers are exposed on the response for admin UIs.
  */
 
-// ──────────────────────────────────────────────────────────────────────────────
 //  JSDoc Type Definitions (used for editor autocompletion)
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * @typedef {Object} TokenData
@@ -194,9 +192,7 @@ import axios from 'axios';
  * @property {ApiResponseMeta|null} meta
  */
 
-// ──────────────────────────────────────────────────────────────────────────────
 //  Cookie Reader
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * Read a cookie value by name.
@@ -210,9 +206,7 @@ function getCookie(name) {
   return match ? decodeURIComponent(match[2]) : null;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 //  Axios Instance
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * Pre-configured Axios instance pointing to the V2 API.
@@ -229,9 +223,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
 //  Request Interceptor — CSRF Token Injection
-// ──────────────────────────────────────────────────────────────────────────────
 
 api.interceptors.request.use((config) => {
   const method = config.method?.toUpperCase();
@@ -246,9 +238,7 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
 //  Response Interceptor — Envelope Unwrapping + Header Exposure
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * @param {import('axios').AxiosResponse} response

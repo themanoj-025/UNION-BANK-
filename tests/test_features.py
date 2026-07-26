@@ -29,9 +29,7 @@ from unionbank.utils.file_io import (
     save_json,
 )
 
-# ───────────────────────────────────────────────
 #  Rate Limiting Tests
-# ───────────────────────────────────────────────
 
 class TestRateLimiting:
 
@@ -90,9 +88,7 @@ class TestRateLimiting:
         assert is_locked_b is False
 
 
-# ───────────────────────────────────────────────
 #  Session Management Tests
-# ───────────────────────────────────────────────
 
 class TestSessionManagement:
 
@@ -109,9 +105,7 @@ class TestSessionManagement:
         assert SESSION_TIMEOUT_SECONDS > 0
 
 
-# ───────────────────────────────────────────────
 #  CSV Export Tests
-# ───────────────────────────────────────────────
 
 class TestCsvExport:
 
@@ -169,9 +163,7 @@ class TestCsvExport:
             os.unlink(path)
 
 
-# ───────────────────────────────────────────────
 #  Interest Calculation Tests
-# ───────────────────────────────────────────────
 
 class TestInterestCalculation:
 
@@ -195,9 +187,7 @@ class TestInterestCalculation:
         assert SAVINGS_INTEREST_RATE > 0
 
 
-# ───────────────────────────────────────────────
 #  Transaction Categories Tests
-# ───────────────────────────────────────────────
 
 class TestTransactionCategories:
 
@@ -244,9 +234,7 @@ class TestTransactionCategories:
         # No cleanup needed — tmp_data_dir will be deleted automatically
 
 
-# ───────────────────────────────────────────────
 #  Account Model Enhanced Tests
-# ───────────────────────────────────────────────
 
 class TestAccountEnhanced:
     """Test new methods on Account model with mocked data."""
@@ -280,12 +268,10 @@ class TestAccountEnhanced:
         assert d["balance"] == 5000.0
 
 
-# ───────────────────────────────────────────────
 #  ⭐ CRASH-MID-TRANSFER REGRESSION TEST
 #  This is THE most important test in the suite.
 #  It proves that if the process crashes mid-transfer,
 #  the total system balance is preserved.
-# ───────────────────────────────────────────────
 
 class TestAtomicTransfer:
     """Tests for the atomic fund transfer (fix for the money-losing race condition)."""

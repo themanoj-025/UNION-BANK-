@@ -9,15 +9,13 @@ import time
 
 from unionbank.config import settings
 
-# ── Constants (from centralized config) ───────────────────────────────────────
+# ─
 MAX_LOGIN_ATTEMPTS = settings.MAX_LOGIN_ATTEMPTS
 LOGIN_LOCKOUT_MINUTES = settings.LOGIN_LOCKOUT_MINUTES
 SESSION_TIMEOUT_SECONDS = settings.SESSION_TIMEOUT_SECONDS
 
 
-# ─────────────────────────────────────────────
 #  Rate limiting (via container's LoginAttemptRepository)
-# ─────────────────────────────────────────────
 
 def _get_login_attempt_repo():
     """Get the LoginAttemptRepository from the container."""
@@ -58,9 +56,7 @@ def reset_login_attempts(acc_no: str) -> None:
     repo.commit()
 
 
-# ─────────────────────────────────────────────
 #  Session management
-# ─────────────────────────────────────────────
 
 def check_session_timeout(last_activity: float) -> bool:
     """

@@ -26,15 +26,11 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Model Base (re-exported for Alembic)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 ModelBase = declarative_base()
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Database URL resolution
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _get_db_path() -> str:
@@ -59,9 +55,7 @@ def is_postgres(url: Optional[str] = None) -> bool:
     return (url or get_db_url()).startswith("postgresql")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Synchronous engine (SQLite dev / psycopg2 Postgres)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 _engine_instance = None
 _session_maker = None
@@ -129,9 +123,7 @@ def get_engine():
     return _engine_instance
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Asynchronous engine (asyncpg Postgres)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 _async_engine_instance = None
 _async_session_maker = None
@@ -180,9 +172,7 @@ def get_async_engine():
     return _async_engine_instance
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Synchronous session management
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def reset_engine():
@@ -208,9 +198,7 @@ def reset_engine():
         _async_session_maker = None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Session management
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def get_session() -> Session:
@@ -247,9 +235,7 @@ def atomic_session() -> Generator[Session, None, None]:
         session.close()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Asynchronous session management
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 async def get_async_session() -> AsyncSession:
@@ -288,9 +274,7 @@ async def async_atomic_session() -> AsyncGenerator[AsyncSession, None]:
         await session.close()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  DB Initialization
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def init_db():

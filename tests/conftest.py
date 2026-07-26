@@ -9,12 +9,10 @@ import os
 import tempfile
 from pathlib import Path
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  IMPORTANT: Set test-safe env vars BEFORE any project module is imported.
 #  config.py calls _require_env() at module level, so JWT_SECRET must exist.
 #  admin.py runs _init_admin() at import time, so UNION_BANK_DATA_DIR must also
 #  be set to a temp directory BEFORE any module imports happen.
-# ═══════════════════════════════════════════════════════════════════════════════
 _test_data_dir = tempfile.mkdtemp(prefix="union_bank_test_")
 os.environ.setdefault("UNION_BANK_DATA_DIR", _test_data_dir)
 os.environ.setdefault("JWT_SECRET", "test-secret-not-for-prod")

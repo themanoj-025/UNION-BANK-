@@ -43,7 +43,7 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# ── Migration helpers (for scripts/seed, not for live code) ─────────────────
+# ─
 
 
 def ensure_account_exists(acc_no: str, name: str = "", balance: float = 0.0):
@@ -98,10 +98,8 @@ def get_db_balance(acc_no: str) -> Optional[Decimal]:
     return account.balance
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Atomic operations (backward-compatible wrappers)
 #  New code should use application/services.py directly via the container.
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class AtomicTransferResult:

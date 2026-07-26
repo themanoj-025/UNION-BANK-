@@ -22,9 +22,7 @@ from unionbank.utils.analyzr_core import (
     extract_amount_range,
 )
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Intent Classification Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestIntentClassification:
@@ -172,9 +170,7 @@ class TestIntentClassification:
             assert desc[0].isupper(), f"Intent {intent['name']} description should start uppercase"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Amount Extraction Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAmountExtraction:
@@ -257,9 +253,7 @@ class TestAmountExtraction:
         assert min_amt == Decimal("750")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Time Window Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestTimeWindow:
@@ -325,9 +319,7 @@ class TestTimeWindow:
         assert to_date is None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Average Amount Computation Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestAverageAmount:
@@ -366,9 +358,7 @@ class TestAverageAmount:
         assert avg == Decimal("150.625")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Constants Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestConstants:

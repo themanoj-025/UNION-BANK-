@@ -22,9 +22,7 @@ from .interfaces import (
     NotificationSenderProtocol,
 )
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Log-based Notification Sender (no external provider required)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class LogNotificationSender:
@@ -53,9 +51,7 @@ class LogNotificationSender:
         return True
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Notification Service
-# ═══════════════════════════════════════════════════════════════════════════════
 
 NOTIFICATION_TYPES = [
     "deposit", "withdraw", "transfer_sent", "transfer_received",

@@ -53,9 +53,7 @@ from .persistence import (
     TransactionModel,
 )
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Account Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyAccountRepository:
@@ -283,9 +281,7 @@ class SqlAlchemyAccountRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Transaction Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyTransactionRepository:
@@ -432,9 +428,7 @@ class SqlAlchemyTransactionRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Admin Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyAdminRepository:
@@ -487,9 +481,7 @@ class SqlAlchemyAdminRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Savings Goal Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemySavingsGoalRepository:
@@ -557,9 +549,7 @@ class SqlAlchemySavingsGoalRepository:
 # _map_loan moved to infrastructure/mappers.py — imported at top of file
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Loan Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyLoanRepository:
@@ -660,9 +650,7 @@ class SqlAlchemyLoanRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Login Attempt Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyLoginAttemptRepository:
@@ -740,9 +728,7 @@ class SqlAlchemyLoginAttemptRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Token Version Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyTokenVersionRepository:
@@ -775,9 +761,7 @@ class SqlAlchemyTokenVersionRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Notification Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 # _map_notification moved to infrastructure/mappers.py — imported at top of file
@@ -852,9 +836,7 @@ class SqlAlchemyNotificationRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Notification Preference Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyNotificationPreferenceRepository:
@@ -920,9 +902,7 @@ class SqlAlchemyNotificationPreferenceRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Refresh Token Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyRefreshTokenRepository:
@@ -983,9 +963,7 @@ class SqlAlchemyRefreshTokenRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Idempotency Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyIdempotencyRepository:
@@ -1029,9 +1007,7 @@ class SqlAlchemyIdempotencyRepository:
         self.session.rollback()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Audit Log Repository
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class SqlAlchemyAuditLogRepository:

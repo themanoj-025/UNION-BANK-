@@ -22,9 +22,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Refresh Token ID Hashing (SHA-256)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def hash_token_id(token_id: str) -> str:
@@ -38,9 +36,7 @@ def hash_token_id(token_id: str) -> str:
     return hashlib.sha256(token_id.encode("utf-8")).hexdigest()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  TOTP Secret Encryption (Fernet / AES-128-CBC)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 _fernet_instance = None
 

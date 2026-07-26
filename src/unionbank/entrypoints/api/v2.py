@@ -65,9 +65,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 router = APIRouter(prefix="/api/v2")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Helpers
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _get_container():
@@ -81,9 +79,7 @@ def _fmt_currency(val: float) -> str:
     return _fc(val)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Response helpers
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _ok(data, meta: Optional[dict] = None) -> ApiResponse:
@@ -106,7 +102,7 @@ def _err(message: str, status_code: int = 400, error_code: str | None = None):
     raise HTTPException(status_code=status_code, detail=resp.model_dump())
 
 
-# ── Custom exception handler — returns flat envelope for errors ──────────
+# ─
 
 
 # Exception handlers must be added to the FastAPI app instance, not APIRouter
@@ -141,9 +137,7 @@ async def v2_generic_exception_handler(request, exc: Exception):
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Auth Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @router.post("/auth/login", response_model=ApiResponse[TokenData])
@@ -316,9 +310,7 @@ def v2_refresh_token(request: Request, response: Response, req: Optional[Refresh
     ))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Customer Account Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @router.get("/account/profile", response_model=ApiResponse[ProfileData])
@@ -428,9 +420,7 @@ def v2_close_account(req: CloseAccountRequest, customer: dict = Depends(get_curr
     return _ok(MessageData(message=result.message))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Customer Transaction Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @router.get("/account/balance", response_model=ApiResponse[BalanceData])
@@ -635,9 +625,7 @@ def v2_export_csv(customer: dict = Depends(get_current_customer)):
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Savings Goals Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @router.get("/savings", response_model=ApiResponse[SavingsGoalsSummary])
@@ -738,9 +726,7 @@ def v2_delete_savings_goal(goal_id: str, customer: dict = Depends(get_current_cu
     return _ok(MessageData(message=result.message))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Loan Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @router.get("/loans", response_model=ApiResponse[LoanSummaryData])
@@ -868,7 +854,7 @@ def v2_calculate_emi(req: EMICalculateRequest):
     return _ok(EMIPreviewData(**result))
 
 
-# ── Admin: Loan Management ─────────────────────────────────────────────────────
+# ─
 
 
 @router.get("/admin/loans", response_model=ApiResponse[LoanAdminStats])
@@ -965,9 +951,7 @@ def v2_admin_list_all_loans(admin: dict = Depends(get_current_admin)):
     ])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Admin Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @router.get("/admin/transactions", response_model=ApiResponse[list[TransactionOut]])
@@ -1120,9 +1104,7 @@ def v2_admin_statistics(admin: dict = Depends(get_current_admin)):
     ))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Utility Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @router.get("/categories", response_model=ApiResponse[list[str]])
@@ -1132,9 +1114,7 @@ def v2_list_categories():
     return _ok(TRANSACTION_CATEGORIES)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Analyzr — Natural-Language Search
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @router.post("/analyzr/query", response_model=ApiResponse[dict])

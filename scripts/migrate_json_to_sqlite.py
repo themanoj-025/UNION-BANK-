@@ -111,8 +111,8 @@ def migrate_transactions() -> int:
                     logger.warning(f"Account {acc_no} not found in DB - creating stub for transaction {txn_id}")
                     account = AccountModel(
                         account_number=acc_no,
-                        name=acc_no,  # placeholder name
-                        password="",  # placeholder - account is inactive
+                        name=acc_no,  # account number as name
+                        password="",  # empty since account is inactive
                         balance=Decimal("0.00"),
                         is_active=False,
                         is_frozen=False,

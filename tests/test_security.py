@@ -17,9 +17,7 @@ from unionbank.infrastructure.container import get_container, reset_container
 from unionbank.utils.hashing import hash_password
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Fixtures
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @pytest.fixture(autouse=True)
@@ -114,9 +112,7 @@ def admin_token(client: TestClient) -> dict:
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  SQL Injection Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestSQLInjection:
@@ -174,9 +170,7 @@ class TestSQLInjection:
         assert data["success"] is True
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  XSS Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestXSS:
@@ -227,9 +221,7 @@ class TestXSS:
         assert "Content-Security-Policy" in resp.headers
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  CSRF Protection Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestCSRF:
@@ -311,9 +303,7 @@ class TestCSRF:
         assert resp.status_code == 200
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Cookie Security Tests
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestCookieSecurity:

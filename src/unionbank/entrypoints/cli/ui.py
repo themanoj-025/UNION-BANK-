@@ -11,10 +11,10 @@ import os
 from colorama import Fore, Style
 from colorama import init as colorama_init
 
-# ── Initialise colorama (required on Windows) ───────────────────────────────
+# ─
 colorama_init(autoreset=True)
 
-# ── Color aliases ────────────────────────────────────────────────────────────
+# ─
 GREEN   = Fore.GREEN
 RED     = Fore.RED
 YELLOW  = Fore.YELLOW
@@ -28,7 +28,7 @@ RESET   = Style.RESET_ALL
 _DIM = Style.DIM
 
 
-# ── Styled print helpers ─────────────────────────────────────────────────────
+# ─
 
 def success(msg: str) -> None:
     """Print a success message with a green checkmark."""
@@ -60,7 +60,7 @@ def dim(msg: str) -> None:
     print(f"{_DIM}{msg}{RESET}")
 
 
-# ── Structural helpers ───────────────────────────────────────────────────────
+# ─
 
 def header(title: str, char: str = "═", width: int = 50) -> None:
     """Print a section header with a coloured horizontal rule."""
@@ -80,7 +80,7 @@ def sub_header(title: str) -> None:
     print(f"\n{CYAN}{BOLD}  ── {title} ──{RESET}")
 
 
-# ── Password input ───────────────────────────────────────────────────────────
+# ─
 
 def prompt_password(prompt: str = "  Password: ") -> str:
     """Prompt for a password with masking (characters not echoed)."""
@@ -92,21 +92,21 @@ def prompt_new_password(prompt: str = "  Enter new password: ") -> str:
     return getpass.getpass(prompt)
 
 
-# ── Clear screen ─────────────────────────────────────────────────────────────
+# ─
 
 def clear_screen() -> None:
     """Clear the terminal screen."""
     os.system("cls" if os.name == "nt" else "clear")
 
 
-# ── Input with colour ────────────────────────────────────────────────────────
+# ─
 
 def colored_input(prompt: str, color: str = CYAN) -> str:
     """Prompt for input with a coloured prompt string."""
     return input(f"{color}{prompt}{RESET}")
 
 
-# ── Table row ────────────────────────────────────────────────────────────────
+# ─
 
 def table_header(*columns: str) -> None:
     """Print a table header row with bold text."""

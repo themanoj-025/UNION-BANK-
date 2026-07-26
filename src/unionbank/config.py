@@ -10,12 +10,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-# ── Base directory ───────────────────────────────────────────────────────────
+# ─
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 
 
-# ── Helper: read env or raise ────────────────────────────────────────────────
+# ─
 def _require_env(name: str, default: Optional[str] = None) -> str:
     """Read an env var. If missing and no default, raise RuntimeError."""
     value = os.environ.get(name, default)
@@ -27,14 +27,12 @@ def _require_env(name: str, default: Optional[str] = None) -> str:
     return value
 
 
-# ── Helper: read env or return None ──────────────────────────────────────────
+# ─
 def _optional_env(name: str, default: Optional[str] = None) -> Optional[str]:
     return os.environ.get(name, default)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Config dataclass
-# ═══════════════════════════════════════════════════════════════════════════════
 
 # Allow turning off strict env-var checks during tests
 _TESTING = os.environ.get("UNION_BANK_TESTING", "0") == "1"
@@ -181,5 +179,5 @@ class Config:
     ])
 
 
-# ── Singleton instance ────────────────────────────────────────────────────────
+# ─
 settings = Config()

@@ -21,9 +21,7 @@ from typing import Optional
 from fastapi import Request, Response
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Cookie names
-# ═══════════════════════════════════════════════════════════════════════════════
 
 ACCESS_TOKEN_COOKIE = "ub_access_token"
 REFRESH_TOKEN_COOKIE = "ub_refresh_token"
@@ -32,9 +30,7 @@ CSRF_TOKEN_HEADER = "X-CSRF-Token"
 ROLE_COOKIE = "ub_user_role"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Cookie helpers
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _is_secure(request: Request) -> bool:

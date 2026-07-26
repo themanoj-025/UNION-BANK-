@@ -25,7 +25,7 @@ from prometheus_client import (
     generate_latest,
 )
 
-# ── Metric instruments ──────────────────────────────────────────────────────
+# ─
 
 # Request count by method, endpoint, and status code
 REQUESTS_TOTAL = Counter(
@@ -83,9 +83,7 @@ CACHE_MISSES = Counter(
 )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Convenience helpers
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _normalize_endpoint(path: str) -> str:
@@ -118,9 +116,7 @@ def _normalize_endpoint(path: str) -> str:
     return "/".join(cleaned) if cleaned else "/"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  ASGI middleware (for FastAPI / Starlette)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class MetricsMiddleware:
@@ -173,10 +169,8 @@ class MetricsMiddleware:
 
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Convenience: render the /metrics response content
 #  (call from your app's route handler)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def metrics_response() -> tuple[str, str]:

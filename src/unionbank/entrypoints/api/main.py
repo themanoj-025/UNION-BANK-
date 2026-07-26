@@ -39,7 +39,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from contextlib import asynccontextmanager
 
-# ── Shared JWT auth helpers (used by v1 and v2 routers) ───────────────────
+# ─
 from unionbank.entrypoints.api.common import (
     _get_verifying_key,
     create_token_pair,
@@ -52,16 +52,16 @@ from unionbank.entrypoints.api.common import (
     get_account_status as _get_account_status,
 )
 
-# ── V2 API router (envelope-wrapped endpoints) ───────────────────────────────
+# ─
 from unionbank.entrypoints.api.v2 import router as v2_router
 from unionbank.config import settings
 
-# ── Account-based rate limiter (defense in depth against IP rotation) ───────
+# ─
 from unionbank.utils.account_rate_limit import get_account_rate_limiter
 from unionbank.infrastructure.metrics import MetricsMiddleware, metrics_response
 from unionbank.utils.logger import clear_context, logger, set_request_id
 
-# ── Import existing business logic ───────────────────────────────────────────
+# ─
 from unionbank.utils import (
     TRANSACTION_CATEGORIES,
     fmt_currency,
@@ -133,7 +133,7 @@ app = FastAPI(lifespan=lifespan,
     ],
 )
 
-# ── Request ID + logging context middleware ────────────────────────────────
+# ─
 @app.middleware("http")
 async def add_request_id_middleware(request: Request, call_next):
     """Assign a unique request ID and set up logging context for each request."""
@@ -147,11 +147,11 @@ async def add_request_id_middleware(request: Request, call_next):
         clear_context()
 
 
-# ── Prometheus metrics middleware ───────────────────────────────────────────
+# ─
 app.add_middleware(MetricsMiddleware)
 
 
-# ── Rate Limiting ────────────────────────────────────────────────────────────
+# ─
 # Disabled in testing mode so integration tests don't get rate-limited
 limiter = Limiter(
     key_func=get_remote_address,
@@ -161,7 +161,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
-# ── Security Headers Middleware ───────────────────────────────────────────────
+# ─
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to every response."""
 
@@ -186,7 +186,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# ── CSRF Protection Middleware ───────────────────────────────────────────────
+# ─
 class CSRFProtectMiddleware(BaseHTTPMiddleware):
     """
     CSRF protection via double-submit cookie pattern.
@@ -247,7 +247,7 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CSRFProtectMiddleware)
 
 
-# ── CORS — restricted to configured origins + explicit methods/headers ──────
+# ─
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ALLOWED_ORIGINS,
@@ -256,7 +256,7 @@ app.add_middleware(
     allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
-# ── Uvicorn access log configuration (module-level, applies in ALL run modes) ─
+# ─
 # Route access logs through the structured JSON logger for observability.
 # Uses bank.jsonl (the JSON log file) so all structured logs live together.
 from unionbank.utils.logger import JsonFormatter
@@ -280,7 +280,7 @@ _uvicorn_logger.propagate = False
 _uvicorn_error_logger = logging.getLogger("uvicorn.error")
 _uvicorn_error_logger.propagate = False
 
-# ── V2-aware exception handlers ────────────────────────────────────────────
+# ─
 # V2 endpoints raise HTTPException with an ApiResponse dict as the detail.
 # FastAPI wraps this in {"detail": {...}}, but we need the ApiResponse dict
 # directly in the response body.  We only transform V2 routes so V1 endpoints
@@ -312,14 +312,12 @@ async def _v2_aware_http_exception_handler(request: Request, exc: HTTPException)
     return await _v1_http_handler(request, exc)
 
 
-# ── Mount the V2 router ──────────────────────────────────────────────────────
+# ─
 app.include_router(v2_router)
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Pydantic Models
-# ═══════════════════════════════════════════════════════════════════════════════
 
-# ── Auth Models ──────────────────────────────────────────────────────────────
+# ─
 
 class LoginRequest(BaseModel):
     account_number: str = Field(..., description="10-digit account number")
@@ -354,7 +352,7 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
-# ── Transaction Models ───────────────────────────────────────────────────────
+# ─
 
 class TransactionRequest(BaseModel):
     amount: float = Field(..., gt=0, description="Positive transaction amount")
@@ -367,7 +365,7 @@ class TransferRequest(BaseModel):
     category: str = Field(default="General", description="Transaction category")
 
 
-# ── Account Models ───────────────────────────────────────────────────────────
+# ─
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -394,7 +392,7 @@ class AdminChangePasswordRequest(BaseModel):
     confirm_password: str
 
 
-# ── Response Models ──────────────────────────────────────────────────────────
+# ─
 
 class MessageResponse(BaseModel):
     message: str
@@ -465,9 +463,7 @@ class HealthResponse(BaseModel):
     version: str = "2.0.0"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Auth Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.post("/api/auth/login", response_model=TokenResponse, deprecated=True)
 @limiter.limit("10/minute")
@@ -625,9 +621,7 @@ def admin_login(request: Request, req: AdminLoginRequest):
     return response
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Customer Account Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/account/profile", response_model=ProfileResponse)
 @limiter.limit("30/minute")
@@ -779,9 +773,7 @@ def close_account(
     return MessageResponse(message=result.message)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Customer Transaction Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/account/balance", response_model=BalanceResponse)
 @limiter.limit("30/minute")
@@ -1001,7 +993,7 @@ def export_csv(request: Request, customer: dict = Depends(get_current_customer))
     )
 
 
-# ── Savings Goals Models ────────────────────────────────────────────────
+# ─
 
 class SavingsGoalCreate(BaseModel):
     name: str = Field(..., min_length=2, description="Goal name")
@@ -1040,7 +1032,7 @@ class SavingsGoalsSummary(BaseModel):
     goals: list[SavingsGoalOut]
 
 
-# ── Savings Goals Endpoints ──────────────────────────────────────────────
+# ─
 
 @app.get("/api/savings", response_model=SavingsGoalsSummary)
 @limiter.limit("30/minute")
@@ -1241,9 +1233,7 @@ def apply_interest(request: Request, customer: dict = Depends(get_current_custom
     return MessageResponse(message=result.message)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Admin Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/admin/accounts", response_model=list[AccountListItem])
 @limiter.limit("30/minute")
@@ -1500,9 +1490,7 @@ def admin_change_password(
     return MessageResponse(message=result.message)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Token Refresh Endpoint
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.post("/api/auth/refresh", response_model=TokenResponse)
 @limiter.limit("10/minute")
@@ -1582,9 +1570,7 @@ def refresh_token(request: Request, req: Optional[RefreshRequest] = None):
     return response
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  TOTP 2FA Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TOTPSetupResponse(BaseModel):
@@ -1707,9 +1693,7 @@ def admin_totp_disable(
     return MessageResponse(message="Two-factor authentication disabled.")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Utility Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/categories", response_model=list[str])
 @limiter.limit("30/minute")
@@ -1756,9 +1740,7 @@ def metrics_endpoint():
     return Response(content=content, media_type=content_type)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Entry point
-# ═══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     import uvicorn

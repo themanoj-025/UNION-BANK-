@@ -210,4 +210,6 @@ INTENT_PATTERNS = [
             r"withdrawals?\s+only",
         ],
         "type_filter": ["WITHDRAW"],
-        "descrip
+        "description": "Show all withdrawals",
+    },
+]

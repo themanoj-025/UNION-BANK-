@@ -32,13 +32,13 @@ from unionbank.utils import (
 
 
 class Admin:
-
     def login(self):
         header("ADMIN LOGIN")
         username = input("  Username : ").strip()
         password = prompt_password("  Password : ")
 
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
 
         # Use container's auth service for DB-backed admin login
@@ -79,14 +79,22 @@ class Admin:
   ╚══════════════════════════════════════════╝""")
             choice = input("  Enter choice: ").strip()
 
-            if   choice == "1": self._view_all_accounts()
-            elif choice == "2": self._search_account()
-            elif choice == "3": self._freeze_account()
-            elif choice == "4": self._delete_account()
-            elif choice == "5": self._bank_statistics()
-            elif choice == "6": self._view_all_transactions()
-            elif choice == "7": self._loan_management()
-            elif choice == "8": self._change_admin_password()
+            if choice == "1":
+                self._view_all_accounts()
+            elif choice == "2":
+                self._search_account()
+            elif choice == "3":
+                self._freeze_account()
+            elif choice == "4":
+                self._delete_account()
+            elif choice == "5":
+                self._bank_statistics()
+            elif choice == "6":
+                self._view_all_transactions()
+            elif choice == "7":
+                self._loan_management()
+            elif choice == "8":
+                self._change_admin_password()
             elif choice == "9":
                 logger.info("Admin logged out.")
                 print("  Admin logged out.\n")
@@ -98,6 +106,7 @@ class Admin:
 
     def _get_account_dict(self, acc_no: str) -> dict | None:
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         domain = c.account_repo().get(acc_no)
         if domain is None:
@@ -120,6 +129,7 @@ class Admin:
     def _view_all_accounts(self):
         header("ALL ACCOUNTS")
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         domain_accounts = c.admin_service().list_accounts()
 
@@ -128,8 +138,10 @@ class Admin:
             divider()
             return
 
-        print(f"  {BOLD}{'ACC NUMBER':<14} {'NAME':<20} {'BALANCE':>12}  {'STATUS':<10}  CREATED{RESET}")
-        print(f"  {CYAN}{"-" * 72}{RESET}")
+        print(
+            f"  {BOLD}{'ACC NUMBER':<14} {'NAME':<20} {'BALANCE':>12}  {'STATUS':<10}  CREATED{RESET}"
+        )
+        print(f"  {CYAN}{'-' * 72}{RESET}")
         for a in domain_accounts:
             if a.is_frozen:
                 status_color = RED
@@ -140,8 +152,10 @@ class Admin:
             else:
                 status_color = GREEN
                 status = "ACTIVE"
-            print(f"  {a.account_number:<14} {a.name:<20} "
-                  f"{fmt_currency(float(a.balance)):>12}  {status_color}{status:<13}{RESET}  {str(a.created_at)[:19]}")
+            print(
+                f"  {a.account_number:<14} {a.name:<20} "
+                f"{fmt_currency(float(a.balance)):>12}  {status_color}{status:<13}{RESET}  {str(a.created_at)[:19]}"
+            )
         divider()
 
     # ── 2. search account ────────────────────────────────────────────────────
@@ -150,6 +164,7 @@ class Admin:
         header("SEARCH ACCOUNT")
         query = input("  Enter Account Number or Name : ").strip().lower()
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         results = c.admin_service().search_accounts(query)
 
@@ -167,7 +182,7 @@ class Admin:
                     status_color = YELLOW
                     status = "CLOSED"
                 print(f"""
-  {CYAN}{'─' * 40}{RESET}
+  {CYAN}{"─" * 40}{RESET}
   {CYAN}Account No :{WHITE} {a.account_number}{RESET}
   {CYAN}Name       :{WHITE} {a.name}{RESET}
   {CYAN}Age        :{WHITE} {a.age}{RESET}
@@ -176,7 +191,7 @@ class Admin:
   {CYAN}Balance    :{WHITE} {fmt_currency(float(a.balance))}{RESET}
   {CYAN}Status     :{WHITE} {status_color}{status}{RESET}
   {CYAN}Created    :{WHITE} {str(a.created_at)[:19]}{RESET}
-  {CYAN}{'─' * 40}{RESET}""")
+  {CYAN}{"─" * 40}{RESET}""")
         divider()
 
     # ── 3. freeze / unfreeze ─────────────────────────────────────────────────
@@ -199,13 +214,18 @@ class Admin:
         currently_frozen = acc["is_frozen"]
         action = "UNFREEZE" if currently_frozen else "FREEZE"
         action_color = GREEN if currently_frozen else RED
-        confirm = input(f"  {action_color}{action}{RESET} account of {CYAN}{acc['name']}{RESET}? (y/n): ").strip().lower()
+        confirm = (
+            input(f"  {action_color}{action}{RESET} account of {CYAN}{acc['name']}{RESET}? (y/n): ")
+            .strip()
+            .lower()
+        )
         if confirm != "y":
             warning("Cancelled.")
             divider()
             return
 
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         if currently_frozen:
             result = c.admin_service().unfreeze_account(acc_no, actor="admin")
@@ -233,7 +253,9 @@ class Admin:
         print(f"\n  {CYAN}Account   :{WHITE} {acc_no}{RESET}")
         print(f"  {CYAN}Name      :{WHITE} {acc['name']}{RESET}")
         print(f"  {CYAN}Balance   :{WHITE} {fmt_currency(acc['balance'])}{RESET}")
-        print(f"\n  {RED}{BOLD}⚠  WARNING: This will permanently delete ALL data for this account!{RESET}")
+        print(
+            f"\n  {RED}{BOLD}⚠  WARNING: This will permanently delete ALL data for this account!{RESET}"
+        )
         confirm = input(f"  {YELLOW}Type 'DELETE' to confirm :{RESET} ").strip()
         if confirm != "DELETE":
             warning("Cancelled.")
@@ -241,6 +263,7 @@ class Admin:
             return
 
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         result = c.admin_service().delete_account(acc_no, actor="admin")
         if result.success:
@@ -254,27 +277,28 @@ class Admin:
     def _bank_statistics(self):
         header("BANK STATISTICS")
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         s = c.admin_service().get_statistics()
 
         print(f"""
-  {GREEN}{'┌' + '─' * 41 + '┐'}{RESET}
-  {GREEN}│{RESET}  {BOLD}CUSTOMER STATISTICS{RESET}{' ' * 19}{GREEN}│{RESET}
-  {GREEN}{'├' + '─' * 41 + '┤'}{RESET}
-  {GREEN}│{RESET}  Total Customers   : {CYAN}{s['total_customers']:<5}{RESET}                {GREEN}│{RESET}
-  {GREEN}│{RESET}  Active Accounts   : {GREEN}{s['active']:<5}{RESET}                {GREEN}│{RESET}
-  {GREEN}│{RESET}  Frozen Accounts   : {RED}{s['frozen']:<5}{RESET}                {GREEN}│{RESET}
-  {GREEN}│{RESET}  Closed Accounts   : {YELLOW}{s['closed']:<5}{RESET}                {GREEN}│{RESET}
-  {GREEN}{'├' + '─' * 41 + '┤'}{RESET}
-  {GREEN}│{RESET}  {BOLD}FINANCIAL SUMMARY{RESET}{' ' * 21}{GREEN}│{RESET}
-  {GREEN}{'├' + '─' * 41 + '┤'}{RESET}
-  {GREEN}│{RESET}  Total Bank Balance: {WHITE}{fmt_currency(s['total_balance']):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}│{RESET}  Total Deposits    : {WHITE}{fmt_currency(s['total_dep']):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}│{RESET}  Total Withdrawals : {WHITE}{fmt_currency(s['total_with']):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}│{RESET}  Total Transfers   : {WHITE}{fmt_currency(s['total_trans']):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}{'├' + '─' * 41 + '┤'}{RESET}
-  {GREEN}│{RESET}  Total Transactions: {CYAN}{s['total_txns']:<5}{RESET}                {GREEN}│{RESET}
-  {GREEN}{'└' + '─' * 41 + '┘'}{RESET}""")
+  {GREEN}{"┌" + "─" * 41 + "┐"}{RESET}
+  {GREEN}│{RESET}  {BOLD}CUSTOMER STATISTICS{RESET}{" " * 19}{GREEN}│{RESET}
+  {GREEN}{"├" + "─" * 41 + "┤"}{RESET}
+  {GREEN}│{RESET}  Total Customers   : {CYAN}{s["total_customers"]:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}│{RESET}  Active Accounts   : {GREEN}{s["active"]:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}│{RESET}  Frozen Accounts   : {RED}{s["frozen"]:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}│{RESET}  Closed Accounts   : {YELLOW}{s["closed"]:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}{"├" + "─" * 41 + "┤"}{RESET}
+  {GREEN}│{RESET}  {BOLD}FINANCIAL SUMMARY{RESET}{" " * 21}{GREEN}│{RESET}
+  {GREEN}{"├" + "─" * 41 + "┤"}{RESET}
+  {GREEN}│{RESET}  Total Bank Balance: {WHITE}{fmt_currency(s["total_balance"]):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Deposits    : {WHITE}{fmt_currency(s["total_dep"]):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Withdrawals : {WHITE}{fmt_currency(s["total_with"]):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Transfers   : {WHITE}{fmt_currency(s["total_trans"]):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}{"├" + "─" * 41 + "┤"}{RESET}
+  {GREEN}│{RESET}  Total Transactions: {CYAN}{s["total_txns"]:<5}{RESET}                {GREEN}│{RESET}
+  {GREEN}{"└" + "─" * 41 + "┘"}{RESET}""")
         divider()
 
     # ── 7. Loan Management ──────────────────────────────────────────────────────
@@ -282,22 +306,23 @@ class Admin:
     def _loan_management(self):
         header("LOAN MANAGEMENT")
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
 
         stats = c.loan_service().get_loan_statistics()
 
         print(f"""
-  {GREEN}{'┌' + '─' * 50 + '┐'}{RESET}
-  {GREEN}│{RESET}  {BOLD}LOAN MANAGEMENT{RESET}{' ' * 33}{GREEN}│{RESET}
-  {GREEN}{'├' + '─' * 50 + '┤'}{RESET}
-  {GREEN}│{RESET}  Pending      : {YELLOW}{stats['total_pending']:<5}{RESET}                         {GREEN}│{RESET}
-  {GREEN}│{RESET}  Approved     : {GREEN}{stats['total_approved']:<5}{RESET}                         {GREEN}│{RESET}
-  {GREEN}│{RESET}  Active       : {CYAN}{stats['total_active']:<5}{RESET}                         {GREEN}│{RESET}
-  {GREEN}│{RESET}  Closed       : {WHITE}{stats['total_closed']:<5}{RESET}                         {GREEN}│{RESET}
-  {GREEN}│{RESET}  Rejected     : {RED}{stats['total_rejected']:<5}{RESET}                         {GREEN}│{RESET}
-  {GREEN}│{RESET}  Total Disbursed : {WHITE}{fmt_currency(stats['total_disbursed']):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}│{RESET}  Outstanding  : {YELLOW}{fmt_currency(stats['total_outstanding']):<20}{RESET} {GREEN}│{RESET}
-  {GREEN}{'└' + '─' * 50 + '┘'}{RESET}""")
+  {GREEN}{"┌" + "─" * 50 + "┐"}{RESET}
+  {GREEN}│{RESET}  {BOLD}LOAN MANAGEMENT{RESET}{" " * 33}{GREEN}│{RESET}
+  {GREEN}{"├" + "─" * 50 + "┤"}{RESET}
+  {GREEN}│{RESET}  Pending      : {YELLOW}{stats["total_pending"]:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Approved     : {GREEN}{stats["total_approved"]:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Active       : {CYAN}{stats["total_active"]:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Closed       : {WHITE}{stats["total_closed"]:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Rejected     : {RED}{stats["total_rejected"]:<5}{RESET}                         {GREEN}│{RESET}
+  {GREEN}│{RESET}  Total Disbursed : {WHITE}{fmt_currency(stats["total_disbursed"]):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}│{RESET}  Outstanding  : {YELLOW}{fmt_currency(stats["total_outstanding"]):<20}{RESET} {GREEN}│{RESET}
+  {GREEN}{"└" + "─" * 50 + "┘"}{RESET}""")
 
         print("""
   1) View Pending Loans
@@ -313,21 +338,21 @@ class Admin:
             if not pending:
                 info("No pending loan applications.")
             else:
-                for l in pending:
-                    account = c.account_repo().get(l.account_number)
+                for loan in pending:
+                    account = c.account_repo().get(loan.account_number)
                     name = account.name if account else "Unknown"
                     print(f"""
-  {CYAN}{'─' * 55}{RESET}
-  {CYAN}Loan ID      :{WHITE} {l.loan_id}{RESET}
-  {CYAN}Account      :{WHITE} {l.account_number} ({name}){RESET}
-  {CYAN}Type         :{WHITE} {l.loan_type}{RESET}
-  {CYAN}Principal    :{WHITE} {fmt_currency(float(l.principal_amount))}{RESET}
-  {CYAN}Interest     :{WHITE} {l.interest_rate}% p.a.{RESET}
-  {CYAN}Tenure       :{WHITE} {l.tenure_months} months{RESET}
-  {CYAN}EMI          :{WHITE} {fmt_currency(float(l.emi_amount))}/month{RESET}
-  {CYAN}Purpose      :{WHITE} {l.purpose or "N/A"}{RESET}
-  {CYAN}Applied      :{WHITE} {str(l.application_date)[:19]}{RESET}
-  {CYAN}{'─' * 55}{RESET}""")
+  {CYAN}{"─" * 55}{RESET}
+  {CYAN}Loan ID      :{WHITE} {loan.loan_id}{RESET}
+  {CYAN}Account      :{WHITE} {loan.account_number} ({name}){RESET}
+  {CYAN}Type         :{WHITE} {loan.loan_type}{RESET}
+  {CYAN}Principal    :{WHITE} {fmt_currency(float(loan.principal_amount))}{RESET}
+  {CYAN}Interest     :{WHITE} {loan.interest_rate}% p.a.{RESET}
+  {CYAN}Tenure       :{WHITE} {loan.tenure_months} months{RESET}
+  {CYAN}EMI          :{WHITE} {fmt_currency(float(loan.emi_amount))}/month{RESET}
+  {CYAN}Purpose      :{WHITE} {loan.purpose or "N/A"}{RESET}
+  {CYAN}Applied      :{WHITE} {str(loan.application_date)[:19]}{RESET}
+  {CYAN}{"─" * 55}{RESET}""")
             divider()
 
         elif sub == "2":
@@ -338,7 +363,13 @@ class Admin:
             elif loan.status != "PENDING":
                 error(f"Loan is already {loan.status.lower()}.")
             else:
-                confirm = input(f"  Approve {fmt_currency(float(loan.principal_amount))} {loan.loan_type} loan? (y/n): ").strip().lower()
+                confirm = (
+                    input(
+                        f"  Approve {fmt_currency(float(loan.principal_amount))} {loan.loan_type} loan? (y/n): "
+                    )
+                    .strip()
+                    .lower()
+                )
                 if confirm == "y":
                     result = c.loan_service().approve_loan(loan_id=loan_id, admin_user="admin")
                     if result.success:
@@ -358,9 +389,15 @@ class Admin:
             elif loan.status != "PENDING":
                 error(f"Loan is already {loan.status.lower()}.")
             else:
-                confirm = input(f"  Reject {loan.loan_type} loan for {loan.account_number}? (y/n): ").strip().lower()
+                confirm = (
+                    input(f"  Reject {loan.loan_type} loan for {loan.account_number}? (y/n): ")
+                    .strip()
+                    .lower()
+                )
                 if confirm == "y":
-                    result = c.loan_service().reject_loan(loan_id=loan_id, reason=reason, admin_user="admin")
+                    result = c.loan_service().reject_loan(
+                        loan_id=loan_id, reason=reason, admin_user="admin"
+                    )
                     if result.success:
                         info(result.message)
                     else:
@@ -374,16 +411,23 @@ class Admin:
             if not all_loans:
                 info("No loans found.")
             else:
-                print(f"  {BOLD}{'LOAN ID':<18} {'ACCOUNT':<12} {'TYPE':<14} {'PRINCIPAL':>12} {'STATUS':<12} APPLIED{RESET}")
-                print(f"  {CYAN}{"-" * 72}{RESET}")
-                for l in all_loans:
+                print(
+                    f"  {BOLD}{'LOAN ID':<18} {'ACCOUNT':<12} {'TYPE':<14} {'PRINCIPAL':>12} {'STATUS':<12} APPLIED{RESET}"
+                )
+                print(f"  {CYAN}{'-' * 72}{RESET}")
+                for loan in all_loans:
                     status_color = {
-                        "PENDING": YELLOW, "APPROVED": GREEN,
-                        "ACTIVE": CYAN, "CLOSED": WHITE, "REJECTED": RED,
-                    }.get(l.status, WHITE)
-                    print(f"  {l.loan_id:<18} {l.account_number:<12} {l.loan_type:<14} "
-                          f"{fmt_currency(float(l.principal_amount)):>12}  "
-                          f"{status_color}{l.status:<12}{RESET} {str(l.application_date)[:10]}")
+                        "PENDING": YELLOW,
+                        "APPROVED": GREEN,
+                        "ACTIVE": CYAN,
+                        "CLOSED": WHITE,
+                        "REJECTED": RED,
+                    }.get(loan.status, WHITE)
+                    print(
+                        f"  {loan.loan_id:<18} {loan.account_number:<12} {loan.loan_type:<14} "
+                        f"{fmt_currency(float(loan.principal_amount)):>12}  "
+                        f"{status_color}{loan.status:<12}{RESET} {str(loan.application_date)[:10]}"
+                    )
             divider()
 
         elif sub == "5":
@@ -396,9 +440,12 @@ class Admin:
     def _view_all_transactions(self):
         header("ALL TRANSACTIONS")
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
 
-        acc_filter = input(f"  {CYAN}Filter by Account Number (or press Enter to show all):{RESET} ").strip()
+        acc_filter = input(
+            f"  {CYAN}Filter by Account Number (or press Enter to show all):{RESET} "
+        ).strip()
 
         if acc_filter:
             domain_txns = c.transaction_repo().get_by_account(acc_filter)
@@ -425,13 +472,19 @@ class Admin:
             if acc_filter and acc_no != acc_filter:
                 continue
             print(f"\n  {GREEN}Account: {BOLD}{acc_no}{RESET}")
-            print(f"  {CYAN}{"-" * 70}{RESET}")
+            print(f"  {CYAN}{'-' * 70}{RESET}")
             for txn in records:
-                sign = "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
+                sign = (
+                    "+"
+                    if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN)
+                    else "-"
+                )
                 amt_color = GREEN if sign == "+" else RED
-                print(f"  [{txn.txn_id}]  {str(txn.timestamp)[:19]}  "
-                      f"{txn.type.value:<14}  {amt_color}{sign}{fmt_currency(float(txn.amount))}{RESET}  "
-                      f"Bal: {fmt_currency(float(txn.balance))}")
+                print(
+                    f"  [{txn.txn_id}]  {str(txn.timestamp)[:19]}  "
+                    f"{txn.type.value:<14}  {amt_color}{sign}{fmt_currency(float(txn.amount))}{RESET}  "
+                    f"Bal: {fmt_currency(float(txn.balance))}"
+                )
                 count += 1
 
         print(f"\n  {WHITE}Total records shown: {BOLD}{count}{RESET}")
@@ -444,6 +497,7 @@ class Admin:
         old = prompt_password("  Current Password : ")
 
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         # Use a flexible lookup — try the known admin or use the first available
         admin = c.admin_repo().get_by_username("simon") or c.admin_repo().get_by_username("admin")

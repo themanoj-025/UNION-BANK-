@@ -87,10 +87,12 @@ class AsyncSqlAlchemyAccountRepository:
 
     async def exists(self, acc_no: str) -> bool:
         result = await self.session.execute(
-            select(AccountModel.account_number).where(
+            select(AccountModel.account_number)
+            .where(
                 AccountModel.account_number == acc_no,
                 AccountModel.deleted_at.is_(None),
-            ).limit(1)
+            )
+            .limit(1)
         )
         return result.first() is not None
 
@@ -208,9 +210,7 @@ class AsyncSqlAlchemyAccountRepository:
 
     async def count(self) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(AccountModel).where(
-                AccountModel.deleted_at.is_(None)
-            )
+            select(func.count()).select_from(AccountModel).where(AccountModel.deleted_at.is_(None))
         )
         return result.scalar() or 0
 
@@ -226,7 +226,9 @@ class AsyncSqlAlchemyAccountRepository:
 
     async def active_count(self) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(AccountModel).where(
+            select(func.count())
+            .select_from(AccountModel)
+            .where(
                 AccountModel.deleted_at.is_(None),
                 AccountModel.is_active.is_(True),
                 AccountModel.is_frozen.is_(False),
@@ -236,7 +238,9 @@ class AsyncSqlAlchemyAccountRepository:
 
     async def frozen_count(self) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(AccountModel).where(
+            select(func.count())
+            .select_from(AccountModel)
+            .where(
                 AccountModel.deleted_at.is_(None),
                 AccountModel.is_frozen.is_(True),
             )
@@ -245,7 +249,9 @@ class AsyncSqlAlchemyAccountRepository:
 
     async def closed_count(self) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(AccountModel).where(
+            select(func.count())
+            .select_from(AccountModel)
+            .where(
                 AccountModel.deleted_at.is_(None),
                 AccountModel.is_active.is_(False),
                 AccountModel.is_frozen.is_(False),
@@ -270,19 +276,16 @@ class AsyncSqlAlchemyAccountRepository:
                 func.sum(
                     case(
                         (AccountModel.is_active.is_(True) & AccountModel.is_frozen.is_(False), 1),
-                        else_=0
+                        else_=0,
                     )
                 ).label("active_count"),
-                func.sum(
-                    case((AccountModel.is_frozen.is_(True), 1), else_=0)
-                ).label("frozen_count"),
+                func.sum(case((AccountModel.is_frozen.is_(True), 1), else_=0)).label(
+                    "frozen_count"
+                ),
                 func.sum(
                     case(
-                        (
-                            AccountModel.is_active.is_(False) & AccountModel.is_frozen.is_(False),
-                            1
-                        ),
-                        else_=0
+                        (AccountModel.is_active.is_(False) & AccountModel.is_frozen.is_(False), 1),
+                        else_=0,
                     )
                 ).label("closed_count"),
                 func.sum(AccountModel.balance).label("total_balance"),
@@ -298,11 +301,11 @@ class AsyncSqlAlchemyAccountRepository:
             "total_balance": float(row.total_balance or Decimal("0.00")),
         }
 
-    async def get_all_paginated(self, page: int = 1, per_page: int = 20) -> tuple[list[Account], int]:
+    async def get_all_paginated(
+        self, page: int = 1, per_page: int = 20
+    ) -> tuple[list[Account], int]:
         total_result = await self.session.execute(
-            select(func.count()).select_from(AccountModel).where(
-                AccountModel.deleted_at.is_(None)
-            )
+            select(func.count()).select_from(AccountModel).where(AccountModel.deleted_at.is_(None))
         )
         total = total_result.scalar() or 0
 
@@ -376,32 +379,27 @@ class AsyncSqlAlchemyTransactionRepository:
 
     async def total_by_type(self, txn_type: str) -> Decimal:
         result = await self.session.execute(
-            select(func.sum(TransactionModel.amount)).where(
-                TransactionModel.type == txn_type
-            )
+            select(func.sum(TransactionModel.amount)).where(TransactionModel.type == txn_type)
         )
         return result.scalar() or Decimal("0.00")
 
     async def count(self) -> int:
-        result = await self.session.execute(
-            select(func.count()).select_from(TransactionModel)
-        )
+        result = await self.session.execute(select(func.count()).select_from(TransactionModel))
         return result.scalar() or 0
 
     async def count_by_account(self, acc_no: str) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(TransactionModel).where(
-                TransactionModel.account_number == acc_no
-            )
+            select(func.count())
+            .select_from(TransactionModel)
+            .where(TransactionModel.account_number == acc_no)
         )
         return result.scalar() or 0
 
     async def get_category_totals(self) -> dict[str, Decimal]:
         result = await self.session.execute(
-            select(
-                TransactionModel.category,
-                func.sum(TransactionModel.amount)
-            ).group_by(TransactionModel.category)
+            select(TransactionModel.category, func.sum(TransactionModel.amount)).group_by(
+                TransactionModel.category
+            )
         )
         rows = result.all()
         return {cat: total or Decimal("0.00") for cat, total in rows}
@@ -442,9 +440,7 @@ class AsyncSqlAlchemyTransactionRepository:
 
         offset = (page - 1) * per_page
         result = await self.session.execute(
-            query.order_by(TransactionModel.timestamp.desc())
-            .offset(offset)
-            .limit(per_page)
+            query.order_by(TransactionModel.timestamp.desc()).offset(offset).limit(per_page)
         )
         models = result.scalars().all()
 
@@ -515,6 +511,7 @@ class AsyncSqlAlchemyAdminRepository:
 
     async def create(self, admin: AdminUser) -> AdminUser:
         from unionbank.utils.token_security import encrypt_totp_secret
+
         model = AdminModel(
             username=admin.username,
             password=admin.password,
@@ -535,8 +532,11 @@ class AsyncSqlAlchemyAdminRepository:
         model.password = new_hashed
         return True
 
-    async def update_totp(self, username: str, totp_secret: Optional[str], totp_enabled: bool) -> bool:
+    async def update_totp(
+        self, username: str, totp_secret: Optional[str], totp_enabled: bool
+    ) -> bool:
         from unionbank.utils.token_security import encrypt_totp_secret
+
         result = await self.session.execute(
             select(AdminModel).where(AdminModel.username == username)
         )
@@ -548,9 +548,7 @@ class AsyncSqlAlchemyAdminRepository:
         return True
 
     async def admin_count(self) -> int:
-        result = await self.session.execute(
-            select(func.count()).select_from(AdminModel)
-        )
+        result = await self.session.execute(select(func.count()).select_from(AdminModel))
         return result.scalar() or 0
 
     async def commit(self) -> None:
@@ -571,9 +569,7 @@ class AsyncSqlAlchemySavingsGoalRepository:
 
     async def get_by_account(self, acc_no: str) -> list[SavingsGoal]:
         result = await self.session.execute(
-            select(SavingsGoalModel).where(
-                SavingsGoalModel.account_number == acc_no
-            )
+            select(SavingsGoalModel).where(SavingsGoalModel.account_number == acc_no)
         )
         models = result.scalars().all()
         return [map_savings_goal(m) for m in models]
@@ -650,9 +646,7 @@ class AsyncSqlAlchemyLoanRepository:
         self.session = session
 
     async def get(self, loan_id: str) -> Optional[Loan]:
-        result = await self.session.execute(
-            select(LoanModel).where(LoanModel.loan_id == loan_id)
-        )
+        result = await self.session.execute(select(LoanModel).where(LoanModel.loan_id == loan_id))
         model = result.scalar_one_or_none()
         return map_loan(model) if model else None
 
@@ -733,9 +727,7 @@ class AsyncSqlAlchemyLoanRepository:
 
     async def count_by_status(self, status: str) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(LoanModel).where(
-                LoanModel.status == status
-            )
+            select(func.count()).select_from(LoanModel).where(LoanModel.status == status)
         )
         return result.scalar() or 0
 
@@ -786,15 +778,14 @@ class AsyncSqlAlchemyLoginAttemptRepository:
             updated_at=model.updated_at,
         )
 
-    async def record_failure(self, key: str, max_attempts: int = 5,
-                              lockout_minutes: int = 15) -> int:
+    async def record_failure(
+        self, key: str, max_attempts: int = 5, lockout_minutes: int = 15
+    ) -> int:
         record = await self.get(key)
         now = _utcnow()
 
         if record is None:
-            model = LoginAttemptModel(
-                key=key, count=1, first_failed=now
-            )
+            model = LoginAttemptModel(key=key, count=1, first_failed=now)
             self.session.add(model)
         else:
             result = await self.session.execute(
@@ -813,7 +804,7 @@ class AsyncSqlAlchemyLoginAttemptRepository:
             if model and model.count >= max_attempts:
                 model.lockout_until = now + timedelta(minutes=lockout_minutes)
 
-        current_count = getattr(model, 'count', 0) if model else 1
+        current_count = getattr(model, "count", 0) if model else 1
         return max(0, max_attempts - (current_count or 0))
 
     async def is_locked(self, key: str, max_attempts: int = 5) -> tuple[bool, int]:
@@ -863,18 +854,14 @@ class AsyncSqlAlchemyTokenVersionRepository:
 
     async def get_version(self, account_number: str) -> int:
         result = await self.session.execute(
-            select(TokenVersionModel).where(
-                TokenVersionModel.account_number == account_number
-            )
+            select(TokenVersionModel).where(TokenVersionModel.account_number == account_number)
         )
         model = result.scalar_one_or_none()
         return model.version if model else 0
 
     async def increment(self, account_number: str) -> int:
         result = await self.session.execute(
-            select(TokenVersionModel).where(
-                TokenVersionModel.account_number == account_number
-            )
+            select(TokenVersionModel).where(TokenVersionModel.account_number == account_number)
         )
         model = result.scalar_one_or_none()
         if model is None:
@@ -919,7 +906,9 @@ class AsyncSqlAlchemyNotificationRepository:
 
     async def get_unread_count(self, acc_no: str) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(NotificationModel).where(
+            select(func.count())
+            .select_from(NotificationModel)
+            .where(
                 NotificationModel.account_number == acc_no,
                 NotificationModel.is_read.is_(False),
             )
@@ -978,11 +967,10 @@ class AsyncSqlAlchemyNotificationRepository:
 
     async def delete_old(self, days: int = 30) -> int:
         from datetime import timedelta
+
         cutoff = _utcnow() - timedelta(days=days)
         result = await self.session.execute(
-            select(NotificationModel).where(
-                NotificationModel.created_at < cutoff
-            )
+            select(NotificationModel).where(NotificationModel.created_at < cutoff)
         )
         models = result.scalars().all()
         count = len(models)
@@ -1131,9 +1119,7 @@ class AsyncSqlAlchemyRefreshTokenRepository:
     async def clean_expired(self) -> int:
         now = datetime.now(timezone.utc)
         result = await self.session.execute(
-            select(RefreshTokenModel).where(
-                RefreshTokenModel.expires_at < now
-            )
+            select(RefreshTokenModel).where(RefreshTokenModel.expires_at < now)
         )
         models = result.scalars().all()
         count = len(models)
@@ -1159,9 +1145,7 @@ class AsyncSqlAlchemyIdempotencyRepository:
 
     async def get(self, idempotency_key: str) -> Optional[IdempotencyRecord]:
         result = await self.session.execute(
-            select(IdempotencyModel).where(
-                IdempotencyModel.idempotency_key == idempotency_key
-            )
+            select(IdempotencyModel).where(IdempotencyModel.idempotency_key == idempotency_key)
         )
         model = result.scalar_one_or_none()
         if model is None:
@@ -1202,9 +1186,15 @@ class AsyncSqlAlchemyAuditLogRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def log(self, actor: str, action: str, target: Optional[str] = None,
-                   details: Optional[str] = None, ip_address: Optional[str] = None,
-                   reason: Optional[str] = None) -> None:
+    async def log(
+        self,
+        actor: str,
+        action: str,
+        target: Optional[str] = None,
+        details: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
         model = AuditLogModel(
             actor=actor,
             action=action,
@@ -1218,21 +1208,22 @@ class AsyncSqlAlchemyAuditLogRepository:
 
     async def get_recent(self, limit: int = 50) -> list:
         result = await self.session.execute(
-            select(AuditLogModel)
-            .order_by(AuditLogModel.timestamp.desc())
-            .limit(limit)
+            select(AuditLogModel).order_by(AuditLogModel.timestamp.desc()).limit(limit)
         )
         models = result.scalars().all()
-        return [{
-            "id": m.id,
-            "actor": m.actor,
-            "action": m.action,
-            "target": m.target,
-            "details": m.details,
-            "ip_address": m.ip_address,
-            "reason": m.reason,
-            "timestamp": str(m.timestamp)[:19],
-        } for m in models]
+        return [
+            {
+                "id": m.id,
+                "actor": m.actor,
+                "action": m.action,
+                "target": m.target,
+                "details": m.details,
+                "ip_address": m.ip_address,
+                "reason": m.reason,
+                "timestamp": str(m.timestamp)[:19],
+            }
+            for m in models
+        ]
 
     async def get_by_actor(self, actor: str, limit: int = 50) -> list:
         result = await self.session.execute(
@@ -1242,16 +1233,19 @@ class AsyncSqlAlchemyAuditLogRepository:
             .limit(limit)
         )
         models = result.scalars().all()
-        return [{
-            "id": m.id,
-            "actor": m.actor,
-            "action": m.action,
-            "target": m.target,
-            "details": m.details,
-            "ip_address": m.ip_address,
-            "reason": m.reason,
-            "timestamp": str(m.timestamp)[:19],
-        } for m in models]
+        return [
+            {
+                "id": m.id,
+                "actor": m.actor,
+                "action": m.action,
+                "target": m.target,
+                "details": m.details,
+                "ip_address": m.ip_address,
+                "reason": m.reason,
+                "timestamp": str(m.timestamp)[:19],
+            }
+            for m in models
+        ]
 
     async def get_by_action(self, action: str, limit: int = 50) -> list:
         result = await self.session.execute(
@@ -1261,16 +1255,19 @@ class AsyncSqlAlchemyAuditLogRepository:
             .limit(limit)
         )
         models = result.scalars().all()
-        return [{
-            "id": m.id,
-            "actor": m.actor,
-            "action": m.action,
-            "target": m.target,
-            "details": m.details,
-            "ip_address": m.ip_address,
-            "reason": m.reason,
-            "timestamp": str(m.timestamp)[:19],
-        } for m in models]
+        return [
+            {
+                "id": m.id,
+                "actor": m.actor,
+                "action": m.action,
+                "target": m.target,
+                "details": m.details,
+                "ip_address": m.ip_address,
+                "reason": m.reason,
+                "timestamp": str(m.timestamp)[:19],
+            }
+            for m in models
+        ]
 
     async def commit(self) -> None:
         await self.session.commit()

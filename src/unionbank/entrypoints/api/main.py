@@ -41,6 +41,7 @@ from contextlib import asynccontextmanager
 
 # ─
 from unionbank.entrypoints.api.common import (
+    JWT_ALGORITHM,
     _get_verifying_key,
     create_token_pair,
     get_current_admin,
@@ -84,12 +85,14 @@ async def lifespan(app: FastAPI):
     set correctly before any database operations run.
     """
     from unionbank.infrastructure.database import init_db
+
     init_db()
     yield
     # No shutdown cleanup needed for SQLite
 
 
-app = FastAPI(lifespan=lifespan,
+app = FastAPI(
+    lifespan=lifespan,
     title="Union Bank API",
     description=(
         "REST API for the Union Bank Management System.\n\n"
@@ -132,6 +135,7 @@ app = FastAPI(lifespan=lifespan,
         },
     ],
 )
+
 
 # ─
 @app.middleware("http")
@@ -184,7 +188,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         return response
 
+
 app.add_middleware(SecurityHeadersMiddleware)
+
 
 # ─
 class CSRFProtectMiddleware(BaseHTTPMiddleware):
@@ -237,12 +243,14 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
                 },
             )
             from fastapi.responses import JSONResponse
+
             return JSONResponse(
                 status_code=403,
                 content={"detail": "CSRF token missing or invalid."},
             )
 
         return await call_next(request)
+
 
 app.add_middleware(CSRFProtectMiddleware)
 
@@ -262,8 +270,10 @@ app.add_middleware(
 from unionbank.utils.logger import JsonFormatter
 
 # Compute project root from this file's location for log file path
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-_JSON_LOG_DIR = os.path.join(_PROJECT_ROOT, 'data')
+_PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+_JSON_LOG_DIR = os.path.join(_PROJECT_ROOT, "data")
 os.makedirs(_JSON_LOG_DIR, exist_ok=True)
 _JSON_LOG_FILE = os.path.join(_JSON_LOG_DIR, "bank.jsonl")
 _access_json_handler = logging.FileHandler(_JSON_LOG_FILE, encoding="utf-8")
@@ -305,9 +315,7 @@ async def _v2_aware_http_exception_handler(request: Request, exc: HTTPException)
         # String detail — wrap in ApiResponse envelope
         return JSONResponse(
             status_code=exc.status_code,
-            content=_V2ApiResponse(
-                success=False, error=str(detail)
-            ).model_dump(),
+            content=_V2ApiResponse(success=False, error=str(detail)).model_dump(),
         )
     return await _v1_http_handler(request, exc)
 
@@ -318,6 +326,7 @@ app.include_router(v2_router)
 #  Pydantic Models
 
 # ─
+
 
 class LoginRequest(BaseModel):
     account_number: str = Field(..., description="10-digit account number")
@@ -337,7 +346,9 @@ class RegisterRequest(BaseModel):
 class AdminLoginRequest(BaseModel):
     username: str = Field(..., description="Admin username")
     password: str = Field(..., min_length=1, description="Admin password")
-    totp_code: Optional[str] = Field(None, min_length=6, max_length=6, description="TOTP code (required if 2FA is enabled)")
+    totp_code: Optional[str] = Field(
+        None, min_length=6, max_length=6, description="TOTP code (required if 2FA is enabled)"
+    )
 
 
 class TokenResponse(BaseModel):
@@ -354,6 +365,7 @@ class RefreshRequest(BaseModel):
 
 # ─
 
+
 class TransactionRequest(BaseModel):
     amount: float = Field(..., gt=0, description="Positive transaction amount")
     category: str = Field(default="General", description="Transaction category")
@@ -366,6 +378,7 @@ class TransferRequest(BaseModel):
 
 
 # ─
+
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -393,6 +406,7 @@ class AdminChangePasswordRequest(BaseModel):
 
 
 # ─
+
 
 class MessageResponse(BaseModel):
     message: str
@@ -465,6 +479,7 @@ class HealthResponse(BaseModel):
 
 #  Auth Endpoints
 
+
 @app.post("/api/auth/login", response_model=TokenResponse, deprecated=True)
 @limiter.limit("10/minute")
 def customer_login(request: Request, req: LoginRequest):
@@ -477,13 +492,16 @@ def customer_login(request: Request, req: LoginRequest):
     """
     from unionbank.infrastructure.container import get_container
     from unionbank.utils.cookie_auth import set_auth_cookies
+
     c = get_container()
 
     # Use container's auth service for DB-backed authentication
     auth_result = c.auth_service().customer_login(req.account_number, req.password)
     if not auth_result.success:
         if "locked" in auth_result.message.lower():
-            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=auth_result.message)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=auth_result.message
+            )
         if "not found" in auth_result.message.lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=auth_result.message)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=auth_result.message)
@@ -547,10 +565,15 @@ def customer_register(request: Request, req: RegisterRequest):
         )
 
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     result = c.auth_service().customer_register(
-        name=req.name, age=req.age, gender=req.gender,
-        mobile=req.mobile, email=req.email, password=req.password,
+        name=req.name,
+        age=req.age,
+        gender=req.gender,
+        mobile=req.mobile,
+        email=req.email,
+        password=req.password,
     )
     if not result.success:
         raise HTTPException(
@@ -574,12 +597,15 @@ def admin_login(request: Request, req: AdminLoginRequest):
     """
     from unionbank.infrastructure.container import get_container
     from unionbank.utils.cookie_auth import set_auth_cookies
+
     c = get_container()
 
     auth_result = c.auth_service().admin_login(req.username, req.password)
     if not auth_result.success:
         if "locked" in auth_result.message.lower():
-            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=auth_result.message)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=auth_result.message
+            )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=auth_result.message)
 
     # Check TOTP 2FA if enabled
@@ -591,6 +617,7 @@ def admin_login(request: Request, req: AdminLoginRequest):
                 detail="Two-factor authentication is enabled. Please provide your TOTP code.",
             )
         import pyotp
+
         totp = pyotp.TOTP(admin_user.totp_secret)
         if not totp.verify(req.totp_code, valid_window=1):
             raise HTTPException(
@@ -623,6 +650,7 @@ def admin_login(request: Request, req: AdminLoginRequest):
 
 #  Customer Account Endpoints
 
+
 @app.get("/api/account/profile", response_model=ProfileResponse)
 @limiter.limit("30/minute")
 def get_profile(request: Request, customer: dict = Depends(get_current_customer)):
@@ -652,6 +680,7 @@ def update_profile(
     acc_no = customer["account_number"]
 
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     domain_account = c.account_repo().get(acc_no)
     if not domain_account:
@@ -699,10 +728,12 @@ def update_profile(
         email=domain_account.email,
         balance=float(domain_account.balance),
         balance_formatted=fmt_currency(float(domain_account.balance)),
-        status=_get_account_status({
-            "is_frozen": domain_account.is_frozen,
-            "is_active": domain_account.is_active,
-        }),
+        status=_get_account_status(
+            {
+                "is_frozen": domain_account.is_frozen,
+                "is_active": domain_account.is_active,
+            }
+        ),
         created_at=str(domain_account.created_at)[:19],
     )
 
@@ -718,6 +749,7 @@ def change_password(
     acc_no = customer["account_number"]
 
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     domain_account = c.account_repo().get(acc_no)
     if not domain_account:
@@ -766,6 +798,7 @@ def close_account(
         )
 
     from unionbank.infrastructure.container import get_container
+
     result = get_container().account_service().close_account(acc_no, req.password)
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -775,11 +808,13 @@ def close_account(
 
 #  Customer Transaction Endpoints
 
+
 @app.get("/api/account/balance", response_model=BalanceResponse)
 @limiter.limit("30/minute")
 def get_balance(request: Request, customer: dict = Depends(get_current_customer)):
     """Get the current account balance."""
     from unionbank.infrastructure.container import get_container
+
     domain_account = get_container().account_repo().get(customer["account_number"])
     if not domain_account:
         raise HTTPException(status_code=404, detail="Account not found.")
@@ -808,8 +843,11 @@ def deposit_money(
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=retry_msg)
 
     from unionbank.infrastructure.container import get_container
-    result = get_container().transaction_service().deposit(
-        acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
+
+    result = (
+        get_container()
+        .transaction_service()
+        .deposit(acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category)
     )
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -835,8 +873,11 @@ def withdraw_money(
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=retry_msg)
 
     from unionbank.infrastructure.container import get_container
-    result = get_container().transaction_service().withdraw(
-        acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category
+
+    result = (
+        get_container()
+        .transaction_service()
+        .withdraw(acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category)
     )
     if not result.success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
@@ -857,6 +898,7 @@ def transfer_funds(
     target_acc_no = req.target_account
 
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
 
     sender = c.account_repo().get(acc_no)
@@ -909,7 +951,7 @@ def transfer_funds(
     _invalidate_admin_account_cache()  # Both balances changed
     return MessageResponse(
         message=f"{fmt_currency(req.amount)} transferred to {receiver.name} "
-                f"({target_acc_no}). New balance: {fmt_currency(float(result.sender_balance))}",
+        f"({target_acc_no}). New balance: {fmt_currency(float(result.sender_balance))}",
     )
 
 
@@ -919,6 +961,7 @@ def get_full_statement(request: Request, customer: dict = Depends(get_current_cu
     """Get the full transaction statement (newest first)."""
     acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
+
     domain_txns = get_container().transaction_repo().get_by_account(acc_no)
 
     return [
@@ -943,6 +986,7 @@ def get_mini_statement(request: Request, customer: dict = Depends(get_current_cu
     """Get the last 5 transactions (mini statement)."""
     acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
+
     domain_txns = get_container().transaction_repo().get_mini(acc_no, 5)
 
     return [
@@ -967,23 +1011,27 @@ def export_csv(request: Request, customer: dict = Depends(get_current_customer))
     """Download transaction history as a CSV file."""
     acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
+
     domain_txns = get_container().transaction_repo().get_by_account(acc_no)
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Transaction ID", "Date/Time", "Type", "Amount",
-                      "Balance", "Description", "Category"])
+    writer.writerow(
+        ["Transaction ID", "Date/Time", "Type", "Amount", "Balance", "Description", "Category"]
+    )
     for t in domain_txns:
         sign = "+" if t.type.value in ("DEPOSIT", "TRANSFER_IN") else "-"
-        writer.writerow([
-            t.txn_id,
-            str(t.timestamp)[:19],
-            t.type.value,
-            f"{sign}{float(t.amount)}",
-            float(t.balance),
-            t.description,
-            t.category or "General",
-        ])
+        writer.writerow(
+            [
+                t.txn_id,
+                str(t.timestamp)[:19],
+                t.type.value,
+                f"{sign}{float(t.amount)}",
+                float(t.balance),
+                t.description,
+                t.category or "General",
+            ]
+        )
 
     output.seek(0)
     return Response(
@@ -994,6 +1042,7 @@ def export_csv(request: Request, customer: dict = Depends(get_current_customer))
 
 
 # ─
+
 
 class SavingsGoalCreate(BaseModel):
     name: str = Field(..., min_length=2, description="Goal name")
@@ -1034,27 +1083,35 @@ class SavingsGoalsSummary(BaseModel):
 
 # ─
 
+
 @app.get("/api/savings", response_model=SavingsGoalsSummary)
 @limiter.limit("30/minute")
 def list_savings_goals(request: Request, customer: dict = Depends(get_current_customer)):
     """List all savings goals for the authenticated customer."""
     acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
+
     goals = get_container().savings_goal_repo().get_by_account(acc_no)
 
     goal_list = []
     for g in goals:
-        pct = round((float(g.current_amount) / float(g.target_amount) * 100), 1) if float(g.target_amount) > 0 else 0
-        goal_list.append(SavingsGoalOut(
-            goal_id=g.goal_id,
-            name=g.name,
-            target_amount=float(g.target_amount),
-            current_amount=float(g.current_amount),
-            target_date=g.target_date,
-            created_at=str(g.created_at)[:19],
-            is_completed=g.is_completed,
-            progress_pct=pct,
-        ))
+        pct = (
+            round((float(g.current_amount) / float(g.target_amount) * 100), 1)
+            if float(g.target_amount) > 0
+            else 0
+        )
+        goal_list.append(
+            SavingsGoalOut(
+                goal_id=g.goal_id,
+                name=g.name,
+                target_amount=float(g.target_amount),
+                current_amount=float(g.current_amount),
+                target_date=g.target_date,
+                created_at=str(g.created_at)[:19],
+                is_completed=g.is_completed,
+                progress_pct=pct,
+            )
+        )
 
     total_saved = sum(float(g.current_amount) for g in goals)
     total_target = sum(float(g.target_amount) for g in goals)
@@ -1081,11 +1138,16 @@ def create_savings_goal(
     """Create a new savings goal."""
     acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
-    result = get_container().savings_goal_service().create_goal(
-        acc_no=acc_no,
-        name=req.name,
-        target_amount=Decimal(str(req.target_amount)),
-        target_date=req.target_date,
+
+    result = (
+        get_container()
+        .savings_goal_service()
+        .create_goal(
+            acc_no=acc_no,
+            name=req.name,
+            target_amount=Decimal(str(req.target_amount)),
+            target_date=req.target_date,
+        )
     )
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)
@@ -1116,8 +1178,8 @@ def update_savings_goal(
     customer: dict = Depends(get_current_customer),
 ):
     """Update a savings goal."""
-    acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
+
     goal_repo = get_container().savings_goal_repo()
 
     goal = goal_repo.get(goal_id)
@@ -1135,7 +1197,11 @@ def update_savings_goal(
     goal_repo.update(goal)
     goal_repo.commit()
 
-    pct = round((float(goal.current_amount) / float(goal.target_amount) * 100), 1) if float(goal.target_amount) > 0 else 0
+    pct = (
+        round((float(goal.current_amount) / float(goal.target_amount) * 100), 1)
+        if float(goal.target_amount) > 0
+        else 0
+    )
     return SavingsGoalOut(
         goal_id=goal.goal_id,
         name=goal.name,
@@ -1159,6 +1225,7 @@ def contribute_to_goal(
     """Contribute money from your balance to a savings goal."""
     acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
 
     # Check current balance from DB
@@ -1182,7 +1249,11 @@ def contribute_to_goal(
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found.")
 
-    pct = round((float(goal.current_amount) / float(goal.target_amount) * 100), 1) if float(goal.target_amount) > 0 else 0
+    pct = (
+        round((float(goal.current_amount) / float(goal.target_amount) * 100), 1)
+        if float(goal.target_amount) > 0
+        else 0
+    )
     return SavingsGoalOut(
         goal_id=goal.goal_id,
         name=goal.name,
@@ -1205,9 +1276,8 @@ def delete_savings_goal(
     """Delete a savings goal and refund the amount to your balance."""
     acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
-    result = get_container().savings_goal_service().delete_goal(
-        acc_no=acc_no, goal_id=goal_id
-    )
+
+    result = get_container().savings_goal_service().delete_goal(acc_no=acc_no, goal_id=goal_id)
     if not result.success:
         raise HTTPException(status_code=404, detail=result.message)
 
@@ -1220,6 +1290,7 @@ def apply_interest(request: Request, customer: dict = Depends(get_current_custom
     """Apply monthly interest (3.5% p.a.) using an atomic SQLite transaction."""
     acc_no = customer["account_number"]
     from unionbank.infrastructure.container import get_container
+
     domain_account = get_container().account_repo().get(acc_no)
     if not domain_account:
         raise HTTPException(status_code=404, detail="Account not found.")
@@ -1228,12 +1299,15 @@ def apply_interest(request: Request, customer: dict = Depends(get_current_custom
     if not result.success:
         if "No interest" in result.message:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.message)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.message
+        )
 
     return MessageResponse(message=result.message)
 
 
 #  Admin Endpoints
+
 
 @app.get("/api/admin/accounts", response_model=list[AccountListItem])
 @limiter.limit("30/minute")
@@ -1256,8 +1330,8 @@ def admin_view_accounts(
         return [AccountListItem(**item) for item in cached]
 
     # Use SQL-level pagination instead of loading all accounts into memory
-    domain_accounts, total = get_container().admin_service().list_accounts_paginated(
-        page=page, per_page=per_page
+    domain_accounts, total = (
+        get_container().admin_service().list_accounts_paginated(page=page, per_page=per_page)
     )
     page_accounts = domain_accounts
 
@@ -1287,9 +1361,11 @@ def _invalidate_admin_account_cache():
     """Invalidate all cached admin account list pages after a write."""
     try:
         from unionbank.infrastructure.cache import get_cache
+
         get_cache().clear_pattern("admin:accounts:*")
     except Exception:
         from unionbank.utils.logger import logger
+
         logger.warning("Failed to invalidate admin account cache", exc_info=True)
 
 
@@ -1315,7 +1391,6 @@ def admin_search_accounts(
 
     # Search accounts then paginate in-memory (search is inherently bounded)
     domain_accounts = get_container().admin_service().search_accounts(q)
-    total = len(domain_accounts)
     start = (page - 1) * per_page
     end = start + per_page
     page_accounts = domain_accounts[start:end]
@@ -1350,9 +1425,8 @@ def admin_freeze_account(
 ):
     """Freeze a customer account (admin only)."""
     from unionbank.infrastructure.container import get_container
-    result = get_container().admin_service().freeze_account(
-        acc_no=acc_no, actor="admin"
-    )
+
+    result = get_container().admin_service().freeze_account(acc_no=acc_no, actor="admin")
     if not result.success:
         if "not found" in result.message.lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
@@ -1371,9 +1445,8 @@ def admin_unfreeze_account(
 ):
     """Unfreeze a customer account (admin only)."""
     from unionbank.infrastructure.container import get_container
-    result = get_container().admin_service().unfreeze_account(
-        acc_no=acc_no, actor="admin"
-    )
+
+    result = get_container().admin_service().unfreeze_account(acc_no=acc_no, actor="admin")
     if not result.success:
         if "not found" in result.message.lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
@@ -1392,9 +1465,8 @@ def admin_delete_account(
 ):
     """Permanently delete a customer account and all its transactions (admin only)."""
     from unionbank.infrastructure.container import get_container
-    result = get_container().admin_service().delete_account(
-        acc_no=acc_no, actor="admin"
-    )
+
+    result = get_container().admin_service().delete_account(acc_no=acc_no, actor="admin")
     if not result.success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.message)
 
@@ -1407,6 +1479,7 @@ def admin_delete_account(
 def admin_statistics(request: Request, admin: dict = Depends(get_current_admin)):
     """View bank-wide statistics (admin only)."""
     from unionbank.infrastructure.container import get_container
+
     s = get_container().admin_service().get_statistics()
 
     return StatisticsResponse(
@@ -1440,6 +1513,7 @@ def admin_view_transactions(
     Paginated via offset-based pagination.
     """
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
 
     if account:
@@ -1477,10 +1551,15 @@ def admin_change_password(
     """Change the admin password (admin only)."""
     username = admin.get("username")
     from unionbank.infrastructure.container import get_container
-    result = get_container().admin_service().change_admin_password(
-        username=username or "admin",
-        current_pwd=req.current_password,
-        new_pwd=req.new_password,
+
+    result = (
+        get_container()
+        .admin_service()
+        .change_admin_password(
+            username=username or "admin",
+            current_pwd=req.current_password,
+            new_pwd=req.new_password,
+        )
     )
     if not result.success:
         if "not found" in result.message.lower():
@@ -1491,6 +1570,7 @@ def admin_change_password(
 
 
 #  Token Refresh Endpoint
+
 
 @app.post("/api/auth/refresh", response_model=TokenResponse)
 @limiter.limit("10/minute")
@@ -1505,7 +1585,9 @@ def refresh_token(request: Request, req: Optional[RefreshRequest] = None):
     The previous refresh token is revoked (rotation) so it cannot be reused.
     """
     from unionbank.utils.cookie_auth import (
-        get_token_from_cookies, set_auth_cookies, clear_auth_cookies,
+        get_token_from_cookies,
+        set_auth_cookies,
+        clear_auth_cookies,
     )
     from unionbank.utils.logger import logger
 
@@ -1593,6 +1675,7 @@ def admin_totp_status(request: Request, admin: dict = Depends(get_current_admin)
     """Check if 2FA is enabled for the current admin."""
     username = admin.get("username")
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     return TOTPStatusResponse(enabled=bool(admin_user and admin_user.totp_enabled))
@@ -1603,6 +1686,7 @@ def admin_totp_status(request: Request, admin: dict = Depends(get_current_admin)
 def admin_totp_setup(request: Request, admin: dict = Depends(get_current_admin)):
     """Generate a new TOTP secret and provisioning URI for the admin user."""
     import pyotp
+
     username = admin.get("username")
 
     secret = pyotp.random_base32()
@@ -1614,6 +1698,7 @@ def admin_totp_setup(request: Request, admin: dict = Depends(get_current_admin))
 
     # Store the secret temporarily (not enabled until verified)
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if admin_user:
@@ -1636,9 +1721,11 @@ def admin_totp_verify(
 ):
     """Verify a TOTP code to enable 2FA for the admin account."""
     import pyotp
+
     username = admin.get("username")
 
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if not admin_user or not admin_user.totp_secret:
@@ -1669,9 +1756,11 @@ def admin_totp_disable(
 ):
     """Disable 2FA for the admin account (requires current TOTP code)."""
     import pyotp
+
     username = admin.get("username")
 
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     admin_user = c.admin_repo().get_by_username(username)
     if not admin_user or not admin_user.totp_secret:
@@ -1694,6 +1783,7 @@ def admin_totp_disable(
 
 
 #  Utility Endpoints
+
 
 @app.get("/api/categories", response_model=list[str])
 @limiter.limit("30/minute")
@@ -1720,12 +1810,14 @@ def readiness_probe():
     """Kubernetes readiness probe — checks database connectivity."""
     from unionbank.infrastructure.database import get_session
     from sqlalchemy import text
+
     try:
         session = get_session()
         session.execute(text("SELECT 1"))
         return {"status": "ready", "database": "connected"}
     except Exception as e:
         from fastapi.responses import JSONResponse
+
         return JSONResponse(
             status_code=503,
             content={"status": "not ready", "database": str(e)},
@@ -1736,6 +1828,7 @@ def readiness_probe():
 def metrics_endpoint():
     """Prometheus metrics endpoint. Scraped by Prometheus or any metrics collector."""
     from fastapi.responses import Response
+
     content, content_type = metrics_response()
     return Response(content=content, media_type=content_type)
 
@@ -1744,6 +1837,7 @@ def metrics_endpoint():
 
 if __name__ == "__main__":
     import uvicorn
+
     print("=" * 50)
     print("  Union Bank API - FastAPI")
     print("=" * 50)

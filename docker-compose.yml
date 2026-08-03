@@ -35,6 +35,9 @@ services:
       - DATABASE_URL=postgresql://unionbank:unionbank@postgres:5432/unionbank
       - UVICORN_WORKERS=4
       - REDIS_URL=redis://redis:6379/0
+      # Dev default: HS256 avoids the RS256/RSA-key fail-fast (config.py:141).
+      # For production set JWT_ALGORITHM=RS256 + JWT_PRIVATE_KEY via secrets.
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
     volumes:
       - union_bank_data:/app/data
     depends_on:

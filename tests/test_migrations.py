@@ -40,7 +40,6 @@ def alembic_config() -> Config:
 
 
 class TestAlembicMigrations:
-
     def test_upgrade_to_head(self, alembic_config):
         """
         Upgrade from empty DB to latest migration should succeed.
@@ -100,13 +99,22 @@ class TestAlembicMigrations:
 
         # Expected tables from our Alembic migration models (actual names from DB)
         expected = [
-            "accounts", "admins", "audit_log", "loans",
-            "login_attempts", "notification_preferences", "notifications",
-            "savings_goals", "token_versions", "transactions",
+            "accounts",
+            "admins",
+            "audit_log",
+            "loans",
+            "login_attempts",
+            "notification_preferences",
+            "notifications",
+            "savings_goals",
+            "token_versions",
+            "transactions",
         ]
 
         for table in expected:
-            assert table in tables, f"Expected table '{table}' not found after migration (got {tables})"
+            assert table in tables, (
+                f"Expected table '{table}' not found after migration (got {tables})"
+            )
 
         # Alembic's own table
         assert "alembic_version" in tables

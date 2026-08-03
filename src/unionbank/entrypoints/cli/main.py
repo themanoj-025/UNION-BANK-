@@ -28,14 +28,14 @@ def main_menu():
 
     while True:
         print(f"""
-  {GREEN}{'╔' + '═' * 46 + '╗'}{RESET}
+  {GREEN}{"╔" + "═" * 46 + "╗"}{RESET}
   {GREEN}║{RESET}  {YELLOW}{BOLD}       UNION BANK MANAGEMENT SYSTEM       {RESET}{GREEN}║{RESET}
-  {GREEN}{'╠' + '═' * 46 + '╣'}{RESET}
+  {GREEN}{"╠" + "═" * 46 + "╣"}{RESET}
   {GREEN}║{RESET}  {CYAN}   1)  Register New Account{RESET}                {GREEN}║{RESET}
   {GREEN}║{RESET}  {CYAN}   2)  Customer Login{RESET}                     {GREEN}║{RESET}
   {GREEN}║{RESET}  {CYAN}   3)  Admin Login{RESET}                         {GREEN}║{RESET}
   {GREEN}║{RESET}  {CYAN}   4)  Exit{RESET}                                {GREEN}║{RESET}
-  {GREEN}{'╚' + '═' * 46 + '╝'}{RESET}
+  {GREEN}{"╚" + "═" * 46 + "╝"}{RESET}
 """)
 
         choice = input(f"  {YELLOW}Enter choice:{RESET} ").strip()
@@ -124,6 +124,7 @@ def create_admin_bootstrap():
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) > 1 and sys.argv[1] == "create-admin":
         create_admin_bootstrap()
     else:

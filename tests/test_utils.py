@@ -1,6 +1,7 @@
 """
 Tests for utils.py – validation helpers, password hashing, generators, etc.
 """
+
 import os
 import tempfile
 
@@ -23,6 +24,7 @@ from unionbank.utils.file_io import (
 )
 
 #  Password hashing tests
+
 
 class TestPasswordHashing:
     def test_hash_and_verify(self):
@@ -55,6 +57,7 @@ class TestPasswordHashing:
 
 #  Email validation tests
 
+
 class TestEmailValidation:
     def test_valid_emails(self):
         assert validate_email("user@example.com") is True
@@ -75,6 +78,7 @@ class TestEmailValidation:
 
 #  Phone validation tests
 
+
 class TestPhoneValidation:
     def test_valid_phones(self):
         assert validate_phone("9876543210") is True
@@ -84,13 +88,14 @@ class TestPhoneValidation:
     def test_invalid_phones(self):
         assert validate_phone("") is False
         assert validate_phone("1234567890") is False  # starts with 1
-        assert validate_phone("987654321") is False   # 9 digits
+        assert validate_phone("987654321") is False  # 9 digits
         assert validate_phone("98765432100") is False  # 11 digits
-        assert validate_phone("abcdefghij") is False   # letters
-        assert validate_phone("0876543210") is False   # starts with 0
+        assert validate_phone("abcdefghij") is False  # letters
+        assert validate_phone("0876543210") is False  # starts with 0
 
 
 #  Password strength validation tests
+
 
 class TestPasswordValidation:
     def test_valid_passwords(self):
@@ -131,6 +136,7 @@ class TestPasswordValidation:
 
 #  Name validation tests
 
+
 class TestNameValidation:
     def test_valid_names(self):
         assert validate_name("John") is True
@@ -147,6 +153,7 @@ class TestNameValidation:
 
 
 #  Generator tests
+
 
 class TestGenerators:
     def test_generate_account_number_structure(self):
@@ -168,6 +175,7 @@ class TestGenerators:
 
 #  Currency formatting tests
 
+
 class TestCurrencyFormatting:
     def test_basic_format(self):
         assert fmt_currency(0) == "₹0.00"
@@ -180,6 +188,7 @@ class TestCurrencyFormatting:
 
 
 #  JSON file helpers tests
+
 
 class TestJsonHelpers:
     def test_save_and_load_json(self):
@@ -211,6 +220,7 @@ class TestJsonHelpers:
 
 
 #  get_float tests (simulated input)
+
 
 class TestGetFloat:
     def test_valid_amount(self, monkeypatch):

@@ -39,6 +39,7 @@ def _fresh_db():
 @pytest.fixture
 def client():
     from unionbank.entrypoints.api.main import app
+
     with TestClient(app) as tc:
         yield tc
 
@@ -51,23 +52,29 @@ def registered_customer(client: TestClient) -> dict:
     After login, clears cookies so subsequent requests use Bearer-only auth
     (no CSRF cookie), preventing 403s from the CSRF middleware.
     """
-    resp = client.post("/api/auth/register", json={
-        "name": "Security Test User",
-        "age": 30,
-        "gender": "Male",
-        "mobile": "9876543210",
-        "email": "security@test.com",
-        "password": "SecureP@ss1",
-        "confirm_password": "SecureP@ss1",
-    })
+    resp = client.post(
+        "/api/auth/register",
+        json={
+            "name": "Security Test User",
+            "age": 30,
+            "gender": "Male",
+            "mobile": "9876543210",
+            "email": "security@test.com",
+            "password": "SecureP@ss1",
+            "confirm_password": "SecureP@ss1",
+        },
+    )
     assert resp.status_code == 200
     msg = resp.json().get("message", "")
     acc_no = msg.split(": ")[-1].strip()
 
-    login_resp = client.post("/api/auth/login", json={
-        "account_number": acc_no,
-        "password": "SecureP@ss1",
-    })
+    login_resp = client.post(
+        "/api/auth/login",
+        json={
+            "account_number": acc_no,
+            "password": "SecureP@ss1",
+        },
+    )
     assert login_resp.status_code == 200
     login_data = login_resp.json()
 
@@ -95,10 +102,13 @@ def admin_token(client: TestClient) -> dict:
     c.admin_repo().create(admin)
     c.admin_repo().commit()
 
-    login_resp = client.post("/api/auth/admin-login", json={
-        "username": "testadmin",
-        "password": "Admin123!",
-    })
+    login_resp = client.post(
+        "/api/auth/admin-login",
+        json={
+            "username": "testadmin",
+            "password": "Admin123!",
+        },
+    )
     assert login_resp.status_code == 200
     login_data = login_resp.json()
 
@@ -133,15 +143,18 @@ class TestSQLInjection:
     @pytest.mark.parametrize("payload", SQLI_PAYLOADS)
     def test_sqli_in_register_name(self, client, payload):
         """SQLi in registration name field should be rejected by validation."""
-        resp = client.post("/api/auth/register", json={
-            "name": payload,
-            "age": 25,
-            "gender": "Male",
-            "mobile": "9876543211",
-            "email": "sqli@test.com",
-            "password": "SecureP@ss1",
-            "confirm_password": "SecureP@ss1",
-        })
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                "name": payload,
+                "age": 25,
+                "gender": "Male",
+                "mobile": "9876543211",
+                "email": "sqli@test.com",
+                "password": "SecureP@ss1",
+                "confirm_password": "SecureP@ss1",
+            },
+        )
         # Should fail validation (name must be letters/spaces only)
         assert resp.status_code in (400, 422)
 
@@ -189,15 +202,18 @@ class TestXSS:
     @pytest.mark.parametrize("payload", XSS_PAYLOADS)
     def test_xss_in_register_name(self, client, payload):
         """XSS in registration name should be rejected by validation."""
-        resp = client.post("/api/auth/register", json={
-            "name": payload,
-            "age": 25,
-            "gender": "Male",
-            "mobile": "9876543212",
-            "email": "xss@test.com",
-            "password": "SecureP@ss1",
-            "confirm_password": "SecureP@ss1",
-        })
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                "name": payload,
+                "age": 25,
+                "gender": "Male",
+                "mobile": "9876543212",
+                "email": "xss@test.com",
+                "password": "SecureP@ss1",
+                "confirm_password": "SecureP@ss1",
+            },
+        )
         # Should fail validation (name must be letters/spaces only)
         assert resp.status_code in (400, 422)
 
@@ -229,22 +245,28 @@ class TestCSRF:
 
     def test_csrf_token_set_on_login(self, client):
         """Login should set ub_csrf_token cookie."""
-        reg_resp = client.post("/api/auth/register", json={
-            "name": "CSRF Test User",
-            "age": 28,
-            "gender": "Female",
-            "mobile": "9876543213",
-            "email": "csrf@test.com",
-            "password": "SecureP@ss1",
-            "confirm_password": "SecureP@ss1",
-        })
+        reg_resp = client.post(
+            "/api/auth/register",
+            json={
+                "name": "CSRF Test User",
+                "age": 28,
+                "gender": "Female",
+                "mobile": "9876543213",
+                "email": "csrf@test.com",
+                "password": "SecureP@ss1",
+                "confirm_password": "SecureP@ss1",
+            },
+        )
         msg = reg_resp.json().get("message", "")
         acc_no = msg.split(": ")[-1].strip()
 
-        resp = client.post("/api/auth/login", json={
-            "account_number": acc_no,
-            "password": "SecureP@ss1",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": acc_no,
+                "password": "SecureP@ss1",
+            },
+        )
         # Check cookies were set — get_list returns raw header strings
         set_cookie_headers = resp.headers.get_list("set-cookie")
         cookie_names = [h.split("=")[0] for h in set_cookie_headers]
@@ -290,10 +312,13 @@ class TestCSRF:
     def test_auth_endpoints_exempt_from_csrf(self, client):
         """Login/register/refresh should not require CSRF token."""
         # These endpoints set cookies, so they must be exempt
-        resp = client.post("/api/auth/login", json={
-            "account_number": "1000000001",
-            "password": "wrong",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": "1000000001",
+                "password": "wrong",
+            },
+        )
         # Should fail auth (401/404), not CSRF (403)
         assert resp.status_code in (401, 404)
 
@@ -311,22 +336,28 @@ class TestCookieSecurity:
 
     def test_access_token_cookie_is_http_only(self, client):
         """Access token cookie should be httpOnly (not accessible to JS)."""
-        reg_resp = client.post("/api/auth/register", json={
-            "name": "Cookie Test User",
-            "age": 25,
-            "gender": "Male",
-            "mobile": "9876543214",
-            "email": "cookie@test.com",
-            "password": "SecureP@ss1",
-            "confirm_password": "SecureP@ss1",
-        })
+        reg_resp = client.post(
+            "/api/auth/register",
+            json={
+                "name": "Cookie Test User",
+                "age": 25,
+                "gender": "Male",
+                "mobile": "9876543214",
+                "email": "cookie@test.com",
+                "password": "SecureP@ss1",
+                "confirm_password": "SecureP@ss1",
+            },
+        )
         msg = reg_resp.json().get("message", "")
         acc_no = msg.split(": ")[-1].strip()
 
-        resp = client.post("/api/auth/login", json={
-            "account_number": acc_no,
-            "password": "SecureP@ss1",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": acc_no,
+                "password": "SecureP@ss1",
+            },
+        )
         set_cookie_headers = resp.headers.get_list("set-cookie")
         for cookie_header in set_cookie_headers:
             if "ub_access_token" in cookie_header:
@@ -337,22 +368,28 @@ class TestCookieSecurity:
 
     def test_csrf_token_cookie_is_not_http_only(self, client):
         """CSRF token cookie should NOT be httpOnly (JS needs to read it)."""
-        reg_resp = client.post("/api/auth/register", json={
-            "name": "CSRF Cookie Test",
-            "age": 25,
-            "gender": "Male",
-            "mobile": "9876543215",
-            "email": "csrfcookie@test.com",
-            "password": "SecureP@ss1",
-            "confirm_password": "SecureP@ss1",
-        })
+        reg_resp = client.post(
+            "/api/auth/register",
+            json={
+                "name": "CSRF Cookie Test",
+                "age": 25,
+                "gender": "Male",
+                "mobile": "9876543215",
+                "email": "csrfcookie@test.com",
+                "password": "SecureP@ss1",
+                "confirm_password": "SecureP@ss1",
+            },
+        )
         msg = reg_resp.json().get("message", "")
         acc_no = msg.split(": ")[-1].strip()
 
-        resp = client.post("/api/auth/login", json={
-            "account_number": acc_no,
-            "password": "SecureP@ss1",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": acc_no,
+                "password": "SecureP@ss1",
+            },
+        )
         set_cookie_headers = resp.headers.get_list("set-cookie")
         for cookie_header in set_cookie_headers:
             if "ub_csrf_token" in cookie_header:

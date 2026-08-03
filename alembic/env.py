@@ -24,6 +24,7 @@ if config.config_file_name is not None:
 
 # Import models AFTER logging is configured
 from unionbank.infrastructure.database import ModelBase as Base, get_db_url, is_sqlite  # noqa: E402
+
 target_metadata = Base.metadata
 
 # Determine the database URL from settings (respects DATABASE_URL env var)

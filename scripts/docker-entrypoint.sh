@@ -13,6 +13,10 @@
 
 set -euo pipefail
 
+# The app is a src-layout package (src/unionbank/...) — add src/ to
+# PYTHONPATH up front so the DB-init import below resolves.
+export PYTHONPATH="${PYTHONPATH:-}:/app/src"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
@@ -49,7 +53,7 @@ fi
 # ── 2. Initialize database ──────────────────────────────────────────────────
 info "Initializing database…"
 python -c "
-from database import init_db
+from unionbank.infrastructure.database import init_db
 init_db()
 print('  ✓ Database initialized')
 " 2>&1 | while read -r line; do echo "  ${line}"; done
@@ -75,8 +79,7 @@ case "${ENTRYPOINT_TARGET:-api}" in
     api|*)
         info "Starting FastAPI server (uvicorn) on port 8000…"
         # The API module lives at src/unionbank/entrypoints/api/main.py
-        # Add src/ to PYTHONPATH so 'unionbank.entrypoints.api.main' resolves
-        export PYTHONPATH="${PYTHONPATH:-}:/app/src"
+        # PYTHONPATH already includes /app/src (set at the top of this script)
         exec uvicorn \
             unionbank.entrypoints.api.main:app \
             --host 0.0.0.0 \

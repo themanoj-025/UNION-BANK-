@@ -55,10 +55,12 @@ def _get_token_version(account_number: str) -> int:
     """Fetch the current token version for an account from the DB."""
     try:
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         return c.token_version_repo().get_version(account_number)
     except Exception:
         from unionbank.utils.logger import logger
+
         logger.warning("Failed to fetch token version", exc_info=True)
         return 0
 
@@ -66,6 +68,7 @@ def _get_token_version(account_number: str) -> int:
 def _generate_refresh_token_id() -> str:
     """Generate a unique refresh token ID."""
     import uuid
+
     return f"ref_{uuid.uuid4().hex[:24]}"
 
 
@@ -109,13 +112,13 @@ def decode_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
     except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
 
 def create_token_pair(subject: str, role: str) -> dict:
@@ -143,6 +146,7 @@ def create_token_pair(subject: str, role: str) -> dict:
     try:
         from unionbank.infrastructure.container import get_container
         from unionbank.domain.entities import RefreshToken
+
         c = get_container()
         token_entity = RefreshToken(
             token_id=hashed_id,
@@ -154,6 +158,7 @@ def create_token_pair(subject: str, role: str) -> dict:
         c.refresh_token_repo().commit()
     except Exception:
         from unionbank.utils.logger import logger
+
         logger.warning(
             "Failed to persist refresh token — falling back to memory-only",
             exc_info=True,
@@ -174,12 +179,14 @@ def revoke_refresh_token(refresh_token_id: str) -> bool:
 
     try:
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         # Hash before lookup — DB stores hashed token IDs
         hashed_id = hash_token_id(refresh_token_id)
         return c.refresh_token_repo().revoke(hashed_id)
     except Exception:
         from unionbank.utils.logger import logger
+
         logger.warning("Failed to revoke refresh token", exc_info=True)
         return False
 
@@ -201,6 +208,7 @@ def verify_refresh_token(refresh_token: str) -> Optional[dict]:
         # Check DB for the refresh token — look up by HASHED token_id
         hashed_id = hash_token_id(raw_token_id)
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         token_data = c.refresh_token_repo().get(hashed_id)
         if token_data is None or token_data.revoked_at is not None:
@@ -249,6 +257,7 @@ async def get_current_customer(
 
     acc_no = payload.get("sub")
     from unionbank.infrastructure.container import get_container
+
     domain_account = get_container().account_repo().get(acc_no)
     if not domain_account:
         raise HTTPException(

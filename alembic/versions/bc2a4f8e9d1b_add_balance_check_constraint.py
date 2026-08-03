@@ -6,14 +6,15 @@ Revises: 808505b8d0f3
 Create Date: 2026-07-16 23:45:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'bc2a4f8e9d1b'
-down_revision: Union[str, Sequence[str], None] = '808505b8d0f3'
+revision: str = "bc2a4f8e9d1b"
+down_revision: Union[str, Sequence[str], None] = "808505b8d0f3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -98,6 +98,7 @@ class AsyncContainer:
     def transaction_service(self):
         """Create an async TransactionService wired to async repositories."""
         from unionbank.application.async_services import AsyncTransactionService
+
         return AsyncTransactionService(
             account_repo=self.account_repo(),
             txn_repo=self.transaction_repo(),
@@ -107,6 +108,7 @@ class AsyncContainer:
     def account_service(self):
         """Create an async AccountService wired to async repositories."""
         from unionbank.application.async_services import AsyncAccountService
+
         return AsyncAccountService(
             account_repo=self.account_repo(),
             txn_repo=self.transaction_repo(),
@@ -116,6 +118,7 @@ class AsyncContainer:
     def auth_service(self):
         """Create an async AuthService wired to async repositories."""
         from unionbank.application.async_services import AsyncAuthService
+
         return AsyncAuthService(
             account_repo=self.account_repo(),
             admin_repo=self.admin_repo(),
@@ -126,6 +129,7 @@ class AsyncContainer:
     def admin_service(self):
         """Create an async AdminService wired to async repositories."""
         from unionbank.application.async_services import AsyncAdminService
+
         return AsyncAdminService(
             account_repo=self.account_repo(),
             txn_repo=self.transaction_repo(),
@@ -136,6 +140,7 @@ class AsyncContainer:
     def savings_goal_service(self):
         """Create an async SavingsGoalService wired to async repositories."""
         from unionbank.application.async_services import AsyncSavingsGoalService
+
         return AsyncSavingsGoalService(
             goal_repo=self.savings_goal_repo(),
             account_repo=self.account_repo(),
@@ -155,6 +160,7 @@ async def get_async_container() -> AsyncContainer:
     global _async_container
     if _async_container is None:
         from unionbank.infrastructure.database import init_db
+
         init_db()
         session = await get_async_session()
         _async_container = AsyncContainer(session)

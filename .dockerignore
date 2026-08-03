@@ -41,7 +41,8 @@ memory.md
 .gitattributes
 
 # ── Scripts (not needed in production) ──────────────────────────────────────
-scripts/
+# NOTE: scripts/ is intentionally NOT ignored — the Dockerfile runs
+# `chmod +x scripts/docker-entrypoint.sh` and the api CMD executes it.
 Makefile
 start.bat
 

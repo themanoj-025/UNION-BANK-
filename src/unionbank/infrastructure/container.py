@@ -174,6 +174,7 @@ def reset_container():
     global _container
     # Close any existing session before resetting
     from unionbank.infrastructure.database import close_session, reset_engine
+
     close_session()
     reset_engine()
     _container = None

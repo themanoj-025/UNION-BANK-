@@ -168,7 +168,6 @@ class MetricsMiddleware:
             INFLIGHT_REQUESTS.labels(method=method).dec()
 
 
-
 #  Convenience: render the /metrics response content
 #  (call from your app's route handler)
 

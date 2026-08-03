@@ -16,8 +16,6 @@ from decimal import Decimal
 from typing import Generator, Optional
 
 
-
-
 # ─
 from unionbank.config import settings
 from unionbank.domain.clock import utcnow as _utcnow
@@ -112,6 +110,7 @@ def _account_lock(*acc_nos: str) -> Generator[None, None, None]:
         for acc_no in sorted_nos:
             _account_locks[acc_no].release()
 
+
 TRANSACTION_CATEGORIES = settings.TRANSACTION_CATEGORIES
 MAX_LOGIN_ATTEMPTS = settings.MAX_LOGIN_ATTEMPTS
 LOGIN_LOCKOUT_MINUTES = settings.LOGIN_LOCKOUT_MINUTES
@@ -149,7 +148,9 @@ class AuthService:
             return ServiceResult(success=False, message="Account not found.")
 
         if account.is_frozen:
-            return ServiceResult(success=False, message="Account is frozen. Please contact the bank.")
+            return ServiceResult(
+                success=False, message="Account is frozen. Please contact the bank."
+            )
 
         if not account.is_active:
             return ServiceResult(success=False, message="Account has been closed.")
@@ -176,7 +177,11 @@ class AuthService:
 
     def customer_register(
         self,
-        name: str, age: int, gender: str, mobile: str, email: str,
+        name: str,
+        age: int,
+        gender: str,
+        mobile: str,
+        email: str,
         password: str,
     ) -> ServiceResult:
         """Register a new customer account."""
@@ -202,9 +207,11 @@ class AuthService:
                 NOTIFICATION_BREAKER.call(self.notif_service.notify_welcome)(acc_no)
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Notification circuit breaker open, skipping welcome notification")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send welcome notification", exc_info=True)
 
         return ServiceResult(
@@ -336,7 +343,9 @@ class TransactionService:
         self.notif_service = notif_service
         self.idempotency_repo = idempotency_repo
 
-    def _ensure_non_negative_balance(self, balance: Decimal, operation: str = "transaction") -> None:
+    def _ensure_non_negative_balance(
+        self, balance: Decimal, operation: str = "transaction"
+    ) -> None:
         """
         App-level guard: raise ValueError if balance would go negative.
 
@@ -369,6 +378,7 @@ class TransactionService:
                 )
             except (json.JSONDecodeError, KeyError):
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to parse cached idempotency result", exc_info=True)
                 return ServiceResult(
                     success=True,
@@ -377,8 +387,12 @@ class TransactionService:
         return None
 
     def _store_idempotency(
-        self, idempotency_key: Optional[str], acc_no: str, operation: str,
-        amount: Decimal, result: ServiceResult,
+        self,
+        idempotency_key: Optional[str],
+        acc_no: str,
+        operation: str,
+        amount: Decimal,
+        result: ServiceResult,
     ) -> None:
         """Store the result of an idempotent operation for future dedup."""
         if not idempotency_key or not self.idempotency_repo:
@@ -387,11 +401,13 @@ class TransactionService:
             idempotency_key=idempotency_key,
             account_number=acc_no,
             operation=operation,
-            result_json=json.dumps({
-                "success": result.success,
-                "message": result.message,
-                "data": result.data,
-            }),
+            result_json=json.dumps(
+                {
+                    "success": result.success,
+                    "message": result.message,
+                    "data": result.data,
+                }
+            ),
             amount=amount,
         )
         try:
@@ -399,11 +415,17 @@ class TransactionService:
             self.idempotency_repo.commit()
         except Exception:
             from unionbank.utils.logger import logger
+
             logger.warning("Failed to persist idempotency record", exc_info=True)
             self.idempotency_repo.rollback()
 
-    def deposit(self, acc_no: str, amount: Decimal, category: str = "General",
-                idempotency_key: Optional[str] = None) -> ServiceResult:
+    def deposit(
+        self,
+        acc_no: str,
+        amount: Decimal,
+        category: str = "General",
+        idempotency_key: Optional[str] = None,
+    ) -> ServiceResult:
         if amount <= 0:
             return ServiceResult(success=False, message="Amount must be positive.")
 
@@ -439,7 +461,7 @@ class TransactionService:
         result = ServiceResult(
             success=True,
             message=f"{fmt_currency(float(amount))} deposited successfully. "
-                    f"New balance: {fmt_currency(float(account.balance))}",
+            f"New balance: {fmt_currency(float(account.balance))}",
             data={"balance": float(account.balance)},
         )
 
@@ -454,15 +476,22 @@ class TransactionService:
                 )
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Notification circuit breaker open, skipping deposit notification")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send deposit notification", exc_info=True)
 
         return result
 
-    def withdraw(self, acc_no: str, amount: Decimal, category: str = "General",
-                  idempotency_key: Optional[str] = None) -> ServiceResult:
+    def withdraw(
+        self,
+        acc_no: str,
+        amount: Decimal,
+        category: str = "General",
+        idempotency_key: Optional[str] = None,
+    ) -> ServiceResult:
         if amount <= 0:
             return ServiceResult(success=False, message="Amount must be positive.")
 
@@ -505,7 +534,7 @@ class TransactionService:
         result = ServiceResult(
             success=True,
             message=f"{fmt_currency(float(amount))} withdrawn successfully. "
-                    f"New balance: {fmt_currency(float(account.balance))}",
+            f"New balance: {fmt_currency(float(account.balance))}",
             data={"balance": float(account.balance)},
         )
 
@@ -520,22 +549,29 @@ class TransactionService:
                 )
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Notification circuit breaker open, skipping withdraw notification")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send withdraw notification", exc_info=True)
 
         return result
 
     def transfer(
-        self, sender_acc_no: str, receiver_acc_no: str,
-        amount: Decimal, category: str = "General",
+        self,
+        sender_acc_no: str,
+        receiver_acc_no: str,
+        amount: Decimal,
+        category: str = "General",
         idempotency_key: Optional[str] = None,
     ) -> TransferResult:
         if amount <= 0:
             return TransferResult(success=False, error_message="Amount must be positive.")
         if sender_acc_no == receiver_acc_no:
-            return TransferResult(success=False, error_message="Cannot transfer to your own account.")
+            return TransferResult(
+                success=False, error_message="Cannot transfer to your own account."
+            )
 
         # Check idempotency first (outside lock — read-only)
         if idempotency_key and self.idempotency_repo:
@@ -567,9 +603,7 @@ class TransactionService:
                 receiver = self.account_repo.get(receiver_acc_no)
 
                 if sender is None:
-                    return TransferResult(
-                        success=False, error_message="Sender account not found."
-                    )
+                    return TransferResult(success=False, error_message="Sender account not found.")
                 if receiver is None:
                     return TransferResult(
                         success=False, error_message="Recipient account not found."
@@ -595,9 +629,7 @@ class TransactionService:
 
                 with self.account_repo.session.begin_nested():
                     sender.balance -= amount
-                    self._ensure_non_negative_balance(
-                        sender.balance, "transfer"
-                    )  # App-level guard
+                    self._ensure_non_negative_balance(sender.balance, "transfer")  # App-level guard
                     receiver.balance += amount
 
                     self.account_repo.update(sender)
@@ -641,6 +673,7 @@ class TransactionService:
 
         except Exception:
             from unionbank.utils.logger import logger
+
             logger.error("Transfer failed, rolling back", exc_info=True)
             self.account_repo.rollback()
             return TransferResult(
@@ -652,18 +685,26 @@ class TransactionService:
         if self.notif_service:
             try:
                 NOTIFICATION_BREAKER.call(self.notif_service.notify_transfer_sent)(
-                    sender_acc_no, amount, receiver_acc_no,
-                    sender_balance, sender_txn_id,
+                    sender_acc_no,
+                    amount,
+                    receiver_acc_no,
+                    sender_balance,
+                    sender_txn_id,
                 )
                 NOTIFICATION_BREAKER.call(self.notif_service.notify_transfer_received)(
-                    receiver_acc_no, amount, sender_acc_no,
-                    receiver_balance, receiver_txn_id,
+                    receiver_acc_no,
+                    amount,
+                    sender_acc_no,
+                    receiver_balance,
+                    receiver_txn_id,
                 )
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Notification circuit breaker open, skipping transfer notification")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send transfer notification", exc_info=True)
 
         result = TransferResult(
@@ -679,18 +720,21 @@ class TransactionService:
                     idempotency_key=idempotency_key,
                     account_number=sender_acc_no,
                     operation="transfer",
-                    result_json=json.dumps({
-                        "success": result.success,
-                        "sender_balance": float(result.sender_balance),
-                        "receiver_balance": float(result.receiver_balance),
-                        "error_message": result.error_message,
-                    }),
+                    result_json=json.dumps(
+                        {
+                            "success": result.success,
+                            "sender_balance": float(result.sender_balance),
+                            "receiver_balance": float(result.receiver_balance),
+                            "error_message": result.error_message,
+                        }
+                    ),
                     amount=amount,
                 )
                 self.idempotency_repo.create(record)
                 self.idempotency_repo.commit()
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to persist idempotency record for transfer", exc_info=True)
                 self.idempotency_repo.rollback()
 
@@ -709,9 +753,9 @@ class TransactionService:
         if not account.can_transact:
             return ServiceResult(success=False, message="Account is frozen or closed.")
 
-        interest = Decimal(str(calculate_monthly_interest(
-            float(account.balance), settings.SAVINGS_INTEREST_RATE
-        )))
+        interest = Decimal(
+            str(calculate_monthly_interest(float(account.balance), settings.SAVINGS_INTEREST_RATE))
+        )
         if interest <= 0:
             return ServiceResult(success=False, message="No interest to apply.")
 
@@ -738,15 +782,17 @@ class TransactionService:
                 )
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Notification circuit breaker open, skipping interest notification")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send interest notification", exc_info=True)
 
         return ServiceResult(
             success=True,
             message=f"Interest of {fmt_currency(float(interest))} credited! "
-                    f"New balance: {fmt_currency(float(account.balance))}",
+            f"New balance: {fmt_currency(float(account.balance))}",
             data={"interest": float(interest), "balance": float(account.balance)},
         )
 
@@ -763,8 +809,12 @@ class TransactionService:
         txn_type: Optional[str] = None,
     ) -> tuple[list[Transaction], int]:
         return self.txn_repo.get_paginated(
-            acc_no=acc_no, page=page, per_page=per_page,
-            from_date=from_date, to_date=to_date, txn_type=txn_type,
+            acc_no=acc_no,
+            page=page,
+            per_page=per_page,
+            from_date=from_date,
+            to_date=to_date,
+            txn_type=txn_type,
         )
 
     def get_paginated_keyset(
@@ -792,8 +842,12 @@ class TransactionService:
 
         """
         return self.txn_repo.get_paginated_keyset(
-            acc_no=acc_no, limit=limit, cursor=cursor,
-            from_date=from_date, to_date=to_date, txn_type=txn_type,
+            acc_no=acc_no,
+            limit=limit,
+            cursor=cursor,
+            from_date=from_date,
+            to_date=to_date,
+            txn_type=txn_type,
         )
 
 
@@ -817,14 +871,24 @@ class AdminService:
         self.audit_log_repo = audit_log_repo
         self.notif_service = notif_service
 
-    def _audit_log(self, actor: str, action: str, target: Optional[str] = None,
-                   details: Optional[str] = None, ip_address: Optional[str] = None,
-                   reason: Optional[str] = None) -> None:
+    def _audit_log(
+        self,
+        actor: str,
+        action: str,
+        target: Optional[str] = None,
+        details: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
         """Write an immutable audit log entry (silently skip if no repo configured)."""
         if self.audit_log_repo:
             self.audit_log_repo.log(
-                actor=actor, action=action, target=target,
-                details=details, ip_address=ip_address, reason=reason,
+                actor=actor,
+                action=action,
+                target=target,
+                details=details,
+                ip_address=ip_address,
+                reason=reason,
             )
             self.audit_log_repo.commit()
 
@@ -834,8 +898,9 @@ class AdminService:
     def search_accounts(self, query: str) -> list[Account]:
         return self.account_repo.search(query)
 
-    def freeze_account(self, acc_no: str, actor: str = "admin",
-                       reason: Optional[str] = None) -> ServiceResult:
+    def freeze_account(
+        self, acc_no: str, actor: str = "admin", reason: Optional[str] = None
+    ) -> ServiceResult:
         account = self.account_repo.get(acc_no)
         if account is None:
             return ServiceResult(success=False, message="Account not found.")
@@ -851,7 +916,9 @@ class AdminService:
 
         # Audit log
         self._audit_log(
-            actor=actor, action="freeze", target=acc_no,
+            actor=actor,
+            action="freeze",
+            target=acc_no,
             details=f"Frozen account for {account.name}",
             reason=reason,
         )
@@ -864,15 +931,20 @@ class AdminService:
                 )
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Notification circuit breaker open, skipping freeze notification")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send freeze notification", exc_info=True)
 
-        return ServiceResult(success=True, message=f"Account {acc_no} ({account.name}) has been frozen.")
+        return ServiceResult(
+            success=True, message=f"Account {acc_no} ({account.name}) has been frozen."
+        )
 
-    def unfreeze_account(self, acc_no: str, actor: str = "admin",
-                         reason: Optional[str] = None) -> ServiceResult:
+    def unfreeze_account(
+        self, acc_no: str, actor: str = "admin", reason: Optional[str] = None
+    ) -> ServiceResult:
         account = self.account_repo.get(acc_no)
         if account is None:
             return ServiceResult(success=False, message="Account not found.")
@@ -887,7 +959,9 @@ class AdminService:
 
         # Audit log
         self._audit_log(
-            actor=actor, action="unfreeze", target=acc_no,
+            actor=actor,
+            action="unfreeze",
+            target=acc_no,
             details=f"Unfrozen account for {account.name}",
             reason=reason,
         )
@@ -898,15 +972,20 @@ class AdminService:
                 NOTIFICATION_BREAKER.call(self.notif_service.notify_account_unfrozen)(acc_no)
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Notification circuit breaker open, skipping unfreeze notification")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send unfreeze notification", exc_info=True)
 
-        return ServiceResult(success=True, message=f"Account {acc_no} ({account.name}) has been unfrozen.")
+        return ServiceResult(
+            success=True, message=f"Account {acc_no} ({account.name}) has been unfrozen."
+        )
 
-    def delete_account(self, acc_no: str, actor: str = "admin",
-                       reason: Optional[str] = None) -> ServiceResult:
+    def delete_account(
+        self, acc_no: str, actor: str = "admin", reason: Optional[str] = None
+    ) -> ServiceResult:
         account = self.account_repo.get(acc_no)
         if account is None:
             return ServiceResult(success=False, message="Account not found.")
@@ -917,13 +996,19 @@ class AdminService:
 
         # Audit log
         self._audit_log(
-            actor=actor, action="delete", target=acc_no,
+            actor=actor,
+            action="delete",
+            target=acc_no,
             details=f"Deleted account for {acc_name}",
             reason=reason,
         )
-        return ServiceResult(success=True, message=f"Account {acc_no} ({acc_name}) has been deleted.")
+        return ServiceResult(
+            success=True, message=f"Account {acc_no} ({acc_name}) has been deleted."
+        )
 
-    def list_accounts_paginated(self, page: int = 1, per_page: int = 20) -> tuple[list[Account], int]:
+    def list_accounts_paginated(
+        self, page: int = 1, per_page: int = 20
+    ) -> tuple[list[Account], int]:
         """Get accounts with pagination (delegates to the repository)."""
         return self.account_repo.get_all_paginated(page=page, per_page=per_page)
 
@@ -955,8 +1040,9 @@ class AdminService:
             "sorted_categories": [{"name": c[0], "total": float(c[1])} for c in sorted_cats[:8]],
         }
 
-    def change_admin_password(self, username: str, current_pwd: str, new_pwd: str,
-                              actor: str = "admin") -> ServiceResult:
+    def change_admin_password(
+        self, username: str, current_pwd: str, new_pwd: str, actor: str = "admin"
+    ) -> ServiceResult:
         admin = self.admin_repo.get_by_username(username)
         if admin is None:
             return ServiceResult(success=False, message="Admin not found.")
@@ -968,7 +1054,9 @@ class AdminService:
 
         # Audit log
         self._audit_log(
-            actor=actor, action="password_reset", target=username,
+            actor=actor,
+            action="password_reset",
+            target=username,
             details="Admin password changed",
         )
         return ServiceResult(success=True, message="Admin password changed successfully.")
@@ -978,11 +1066,11 @@ class AdminService:
 
 # Loan product config per loan type (using LoanType enum values as keys)
 LOAN_PRODUCTS = {
-    LoanType.PERSONAL.value:  {"max_rate": 15.0, "min_rate": 10.0, "max_tenure": 60},
-    LoanType.HOME.value:      {"max_rate": 10.0, "min_rate": 7.0,  "max_tenure": 360},
-    LoanType.VEHICLE.value:   {"max_rate": 12.0, "min_rate": 8.0,  "max_tenure": 84},
-    LoanType.EDUCATION.value: {"max_rate": 11.0, "min_rate": 7.5,  "max_tenure": 120},
-    LoanType.BUSINESS.value:  {"max_rate": 18.0, "min_rate": 12.0,  "max_tenure": 120},
+    LoanType.PERSONAL.value: {"max_rate": 15.0, "min_rate": 10.0, "max_tenure": 60},
+    LoanType.HOME.value: {"max_rate": 10.0, "min_rate": 7.0, "max_tenure": 360},
+    LoanType.VEHICLE.value: {"max_rate": 12.0, "min_rate": 8.0, "max_tenure": 84},
+    LoanType.EDUCATION.value: {"max_rate": 11.0, "min_rate": 7.5, "max_tenure": 120},
+    LoanType.BUSINESS.value: {"max_rate": 18.0, "min_rate": 12.0, "max_tenure": 120},
 }
 
 # Derive LOAN_TYPES from the enum (single source of truth)
@@ -1006,11 +1094,15 @@ class LoanService:
         self.audit_log_repo = audit_log_repo
         self.notif_service = notif_service
 
-    def _audit_log(self, actor: str, action: str, target: Optional[str] = None,
-                   details: Optional[str] = None) -> None:
+    def _audit_log(
+        self, actor: str, action: str, target: Optional[str] = None, details: Optional[str] = None
+    ) -> None:
         if self.audit_log_repo:
             self.audit_log_repo.log(
-                actor=actor, action=action, target=target, details=details,
+                actor=actor,
+                action=action,
+                target=target,
+                details=details,
             )
             self.audit_log_repo.commit()
 
@@ -1101,9 +1193,9 @@ class LoanService:
             )
 
         # Calculate EMI
-        emi = Decimal(str(calculate_emi(
-            float(principal_amount), float(interest_rate), tenure_months
-        )))
+        emi = Decimal(
+            str(calculate_emi(float(principal_amount), float(interest_rate), tenure_months))
+        )
 
         now = _utcnow()
         loan = Loan(
@@ -1125,7 +1217,9 @@ class LoanService:
 
         # Audit log
         self._audit_log(
-            actor=acc_no, action="loan_apply", target=loan.loan_id,
+            actor=acc_no,
+            action="loan_apply",
+            target=loan.loan_id,
             details=f"Applied for {loan_type} loan of {fmt_currency(float(principal_amount))}",
         )
 
@@ -1186,7 +1280,9 @@ class LoanService:
 
         # Audit log
         self._audit_log(
-            actor=admin_user, action="loan_approve", target=loan_id,
+            actor=admin_user,
+            action="loan_approve",
+            target=loan_id,
             details=f"Approved {loan.loan_type} loan of {fmt_currency(float(loan.principal_amount))} for {loan.account_number}",
         )
 
@@ -1194,14 +1290,20 @@ class LoanService:
         if self.notif_service:
             try:
                 NOTIFICATION_BREAKER.call(self.notif_service.notify_loan_approved)(
-                    loan.account_number, loan.principal_amount,
-                    loan.loan_type, loan.loan_id,
+                    loan.account_number,
+                    loan.principal_amount,
+                    loan.loan_type,
+                    loan.loan_id,
                 )
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
-                logger.warning("Notification circuit breaker open, skipping loan approval notification")
+
+                logger.warning(
+                    "Notification circuit breaker open, skipping loan approval notification"
+                )
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send loan approval notification", exc_info=True)
 
         return ServiceResult(
@@ -1212,8 +1314,9 @@ class LoanService:
 
     # ── Admin: Reject loan ──────────────────────────────────────────────────────
 
-    def reject_loan(self, loan_id: str, reason: str = "",
-                    admin_user: str = "admin") -> ServiceResult:
+    def reject_loan(
+        self, loan_id: str, reason: str = "", admin_user: str = "admin"
+    ) -> ServiceResult:
         """Reject a pending loan application."""
         loan = self.loan_repo.get(loan_id)
         if loan is None:
@@ -1232,7 +1335,9 @@ class LoanService:
 
         # Audit log
         self._audit_log(
-            actor=admin_user, action="loan_reject", target=loan_id,
+            actor=admin_user,
+            action="loan_reject",
+            target=loan_id,
             details=f"Rejected {loan.loan_type} loan: {reason or 'No reason provided'}",
         )
 
@@ -1244,9 +1349,13 @@ class LoanService:
                 )
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
-                logger.warning("Notification circuit breaker open, skipping loan rejection notification")
+
+                logger.warning(
+                    "Notification circuit breaker open, skipping loan rejection notification"
+                )
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send loan rejection notification", exc_info=True)
 
         return ServiceResult(
@@ -1336,7 +1445,10 @@ class LoanService:
         if self.notif_service:
             try:
                 NOTIFICATION_BREAKER.call(self.notif_service.notify_emi_paid)(
-                    acc_no, actual_payment, loan.loan_type, loan.loan_id,
+                    acc_no,
+                    actual_payment,
+                    loan.loan_type,
+                    loan.loan_id,
                     loan.remaining_amount,
                 )
                 if is_closed:
@@ -1345,9 +1457,11 @@ class LoanService:
                     )
             except pybreaker.CircuitBreakerError:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Notification circuit breaker open, skipping EMI notification")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send EMI notification", exc_info=True)
 
         return ServiceResult(
@@ -1400,8 +1514,9 @@ class SavingsGoalService:
     def list_goals(self, acc_no: str) -> list[SavingsGoal]:
         return self.goal_repo.get_by_account(acc_no)
 
-    def create_goal(self, acc_no: str, name: str, target_amount: Decimal,
-                    target_date: Optional[str] = None) -> ServiceResult:
+    def create_goal(
+        self, acc_no: str, name: str, target_amount: Decimal, target_date: Optional[str] = None
+    ) -> ServiceResult:
         if not name or len(name) < 2:
             return ServiceResult(success=False, message="Goal name must be at least 2 characters.")
         if target_amount <= 0:

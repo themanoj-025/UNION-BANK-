@@ -102,6 +102,7 @@ class Account:
         return self.is_active and not self.is_frozen
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the account."""
         return f"<Account {self.account_number} ({self.name})>"
 
 
@@ -120,6 +121,7 @@ class Transaction:
     timestamp: datetime = field(default_factory=_utcnow)
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the transaction."""
         return f"<Transaction {self.txn_id} ({self.type.value} {self.amount})>"
 
 
@@ -160,6 +162,7 @@ class AdminUser:
     created_at: datetime = field(default_factory=_utcnow)
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the admin."""
         return f"<Admin {self.username}>"
 
 
@@ -237,7 +240,8 @@ class Loan:
     @property
     def is_overdue(self) -> bool:
         if not self.next_emi_date or self.status not in (
-            LoanStatus.APPROVED.value, LoanStatus.ACTIVE.value
+            LoanStatus.APPROVED.value,
+            LoanStatus.ACTIVE.value,
         ):
             return False
         return _utcnow() > self.next_emi_date
@@ -260,6 +264,7 @@ class Notification:
     related_txn_id: Optional[str] = None
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the notification."""
         return f"<Notification {self.notif_id} ({self.type})>"
 
 

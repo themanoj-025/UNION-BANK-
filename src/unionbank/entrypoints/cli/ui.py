@@ -15,20 +15,21 @@ from colorama import init as colorama_init
 colorama_init(autoreset=True)
 
 # ─
-GREEN   = Fore.GREEN
-RED     = Fore.RED
-YELLOW  = Fore.YELLOW
-CYAN    = Fore.CYAN
+GREEN = Fore.GREEN
+RED = Fore.RED
+YELLOW = Fore.YELLOW
+CYAN = Fore.CYAN
 MAGENTA = Fore.MAGENTA
-BLUE    = Fore.BLUE
-WHITE   = Fore.WHITE
-BOLD    = Style.BRIGHT
-RESET   = Style.RESET_ALL
+BLUE = Fore.BLUE
+WHITE = Fore.WHITE
+BOLD = Style.BRIGHT
+RESET = Style.RESET_ALL
 
 _DIM = Style.DIM
 
 
 # ─
+
 
 def success(msg: str) -> None:
     """Print a success message with a green checkmark."""
@@ -62,6 +63,7 @@ def dim(msg: str) -> None:
 
 # ─
 
+
 def header(title: str, char: str = "═", width: int = 50) -> None:
     """Print a section header with a coloured horizontal rule."""
     rule = char * width
@@ -82,6 +84,7 @@ def sub_header(title: str) -> None:
 
 # ─
 
+
 def prompt_password(prompt: str = "  Password: ") -> str:
     """Prompt for a password with masking (characters not echoed)."""
     return getpass.getpass(prompt)
@@ -94,6 +97,7 @@ def prompt_new_password(prompt: str = "  Enter new password: ") -> str:
 
 # ─
 
+
 def clear_screen() -> None:
     """Clear the terminal screen."""
     os.system("cls" if os.name == "nt" else "clear")
@@ -101,12 +105,14 @@ def clear_screen() -> None:
 
 # ─
 
+
 def colored_input(prompt: str, color: str = CYAN) -> str:
     """Prompt for input with a coloured prompt string."""
     return input(f"{color}{prompt}{RESET}")
 
 
 # ─
+
 
 def table_header(*columns: str) -> None:
     """Print a table header row with bold text."""

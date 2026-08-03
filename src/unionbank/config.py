@@ -46,16 +46,8 @@ class Config:
             _require_env("JWT_SECRET") if not _TESTING else "test-secret-not-for-prod"
         )
     )
-    JWT_PRIVATE_KEY: str = field(
-        default_factory=lambda: (
-            _optional_env("JWT_PRIVATE_KEY", "") or ""
-        )
-    )
-    JWT_PUBLIC_KEY: str = field(
-        default_factory=lambda: (
-            _optional_env("JWT_PUBLIC_KEY", "") or ""
-        )
-    )
+    JWT_PRIVATE_KEY: str = field(default_factory=lambda: _optional_env("JWT_PRIVATE_KEY", "") or "")
+    JWT_PUBLIC_KEY: str = field(default_factory=lambda: _optional_env("JWT_PUBLIC_KEY", "") or "")
     FLASK_SECRET_KEY: str = field(
         default_factory=lambda: (
             _require_env("FLASK_SECRET_KEY") if not _TESTING else os.urandom(24).hex()
@@ -63,10 +55,15 @@ class Config:
     )
 
     # ── JWT ───────────────────────────────────────────────────────────────────
-    # Default to RS256 (asymmetric) for production-grade security.
-    # Falls back to HS256 only in testing mode when RSA keys are not configured.
-    JWT_ALGORITHM: str = (
-        "HS256" if _TESTING and not _optional_env("JWT_PRIVATE_KEY") else "RS256"
+    # Read JWT_ALGORITHM from the environment (the error message tells users
+    # to set it, so the field must actually honor it). Default to RS256
+    # (asymmetric) for production; falls back to HS256 in testing mode when
+    # RSA keys are not configured.
+    JWT_ALGORITHM: str = field(
+        default_factory=lambda: _optional_env(
+            "JWT_ALGORITHM",
+            "HS256" if _TESTING and not _optional_env("JWT_PRIVATE_KEY") else "RS256",
+        )
     )
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Short-lived: 15 minutes
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh: 7 days
@@ -82,22 +79,29 @@ class Config:
     SAVINGS_INTEREST_RATE: float = 3.5  # % per annum
 
     # ── Cache (Redis) ─────────────────────────────────────────────────────────
-    REDIS_URL: Optional[str] = field(
-        default_factory=lambda: _optional_env("REDIS_URL")
-    )
+    REDIS_URL: Optional[str] = field(default_factory=lambda: _optional_env("REDIS_URL"))
     CACHE_DEFAULT_TTL: int = int(os.environ.get("CACHE_DEFAULT_TTL", "120"))
 
     # ── CORS ──────────────────────────────────────────────────────────────────
     CORS_ALLOWED_ORIGINS: list[str] = field(
-        default_factory=lambda: (
-            _optional_env("CORS_ALLOWED_ORIGINS", "http://localhost:5000,http://localhost:8000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177").split(",")
-        )
+        default_factory=lambda: _optional_env(
+            "CORS_ALLOWED_ORIGINS",
+            "http://localhost:5000,http://localhost:8000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177",
+        ).split(",")
     )
-    CORS_ALLOW_METHODS: list[str] = field(default_factory=lambda: ["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-    CORS_ALLOW_HEADERS: list[str] = field(default_factory=lambda: [
-        "Authorization", "Content-Type", "Accept", "Origin",
-        "X-Requested-With", "X-Request-ID",
-    ])
+    CORS_ALLOW_METHODS: list[str] = field(
+        default_factory=lambda: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    )
+    CORS_ALLOW_HEADERS: list[str] = field(
+        default_factory=lambda: [
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "Origin",
+            "X-Requested-With",
+            "X-Request-ID",
+        ]
+    )
 
     # ── Security ──────────────────────────────────────────────────────────────
     # Token encryption key for TOTP secrets (Fernet). Generate with:
@@ -109,14 +113,10 @@ class Config:
     MONEY_MOVEMENT_RATE_LIMIT: str = "5/hour"  # max 5 money-movement ops per account per hour
 
     # ── Environment ──────────────────────────────────────────────────────────
-    ENV: str = field(
-        default_factory=lambda: os.environ.get("ENV", "development")
-    )
+    ENV: str = field(default_factory=lambda: os.environ.get("ENV", "development"))
 
     # ── Database ─────────────────────────────────────────────────────────────
-    DATABASE_URL: Optional[str] = field(
-        default_factory=lambda: _optional_env("DATABASE_URL")
-    )
+    DATABASE_URL: Optional[str] = field(default_factory=lambda: _optional_env("DATABASE_URL"))
 
     # ── PostgreSQL connection pool ────────────────────────────────────────────
     DB_POOL_SIZE: int = int(os.environ.get("DB_POOL_SIZE", "10"))
@@ -154,29 +154,32 @@ class Config:
         if self.TOKEN_ENCRYPTION_KEY:
             try:
                 from cryptography.fernet import Fernet
+
                 Fernet(self.TOKEN_ENCRYPTION_KEY.encode())
             except Exception:
                 raise RuntimeError(
                     "TOKEN_ENCRYPTION_KEY is not a valid Fernet key. "
-                    "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
-                )
+                    'Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
+                ) from None
 
     # ── Transaction categories ────────────────────────────────────────────────
-    TRANSACTION_CATEGORIES: list[str] = field(default_factory=lambda: [
-        "General",
-        "Food & Dining",
-        "Transport",
-        "Shopping",
-        "Bills & Utilities",
-        "Entertainment",
-        "Health",
-        "Education",
-        "Salary",
-        "Savings",
-        "Investment",
-        "Rent",
-        "Other",
-    ])
+    TRANSACTION_CATEGORIES: list[str] = field(
+        default_factory=lambda: [
+            "General",
+            "Food & Dining",
+            "Transport",
+            "Shopping",
+            "Bills & Utilities",
+            "Entertainment",
+            "Health",
+            "Education",
+            "Salary",
+            "Savings",
+            "Investment",
+            "Rent",
+            "Other",
+        ]
+    )
 
 
 # ─

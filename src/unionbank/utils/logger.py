@@ -83,6 +83,7 @@ class JsonFormatter(logging.Formatter):
     def formatTime(self, record: logging.LogRecord, datefmt: Optional[str] = None) -> str:
         """Format time using datetime.strftime (supports %f for microseconds)."""
         from datetime import datetime as dt
+
         dt_obj = dt.fromtimestamp(record.created)
         if datefmt:
             return dt_obj.strftime(datefmt)
@@ -174,7 +175,13 @@ def log_with_context(
                          account="1234567890", amount=500.00, category="Salary")
     """
     record = logger.makeRecord(
-        logger.name, level, "", 0, message, (), None,
+        logger.name,
+        level,
+        "",
+        0,
+        message,
+        (),
+        None,
     )
     record.extra = extra
     if request_id:

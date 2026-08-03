@@ -1,6 +1,7 @@
 """
 Tests for new features: rate limiting, CSV export, interest, categories, session mgmt.
 """
+
 import os
 import tempfile
 import time
@@ -31,8 +32,8 @@ from unionbank.utils.file_io import (
 
 #  Rate Limiting Tests
 
-class TestRateLimiting:
 
+class TestRateLimiting:
     def setup_method(self):
         """Reset login attempts before each test."""
         # Clear the file
@@ -90,8 +91,8 @@ class TestRateLimiting:
 
 #  Session Management Tests
 
-class TestSessionManagement:
 
+class TestSessionManagement:
     def test_session_active_recently(self):
         assert check_session_timeout(time.time()) is True
 
@@ -107,8 +108,8 @@ class TestSessionManagement:
 
 #  CSV Export Tests
 
-class TestCsvExport:
 
+class TestCsvExport:
     def test_generate_csv_filename(self):
         filename = generate_csv_filename("1234567890")
         assert filename.endswith(".csv")
@@ -165,8 +166,8 @@ class TestCsvExport:
 
 #  Interest Calculation Tests
 
-class TestInterestCalculation:
 
+class TestInterestCalculation:
     def test_interest_on_positive_balance(self):
         interest = calculate_monthly_interest(100000)
         expected = round(100000 * SAVINGS_INTEREST_RATE / 12 / 100, 2)
@@ -189,8 +190,8 @@ class TestInterestCalculation:
 
 #  Transaction Categories Tests
 
-class TestTransactionCategories:
 
+class TestTransactionCategories:
     def test_categories_defined(self):
         assert len(TRANSACTION_CATEGORIES) >= 5
         assert "General" in TRANSACTION_CATEGORIES
@@ -205,6 +206,7 @@ class TestTransactionCategories:
         # Create a temp account and call log_transaction directly
         # Note: log_transaction now writes to SQLite only (no JSON)
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
 
         data = {
@@ -235,6 +237,7 @@ class TestTransactionCategories:
 
 
 #  Account Model Enhanced Tests
+
 
 class TestAccountEnhanced:
     """Test new methods on Account model with mocked data."""
@@ -272,6 +275,7 @@ class TestAccountEnhanced:
 #  This is THE most important test in the suite.
 #  It proves that if the process crashes mid-transfer,
 #  the total system balance is preserved.
+
 
 class TestAtomicTransfer:
     """Tests for the atomic fund transfer (fix for the money-losing race condition)."""
@@ -314,6 +318,7 @@ class TestAtomicTransfer:
 
         # Also sync to SQLite (since atomic_transfer reads from SQLite)
         from unionbank.infrastructure.backward_compat import sync_account_from_json
+
         sync_account_from_json(self.SENDER, sender_data)
         sync_account_from_json(self.RECEIVER, receiver_data)
 
@@ -325,6 +330,7 @@ class TestAtomicTransfer:
         json_total = sum(a["balance"] for a in accounts.values())
 
         from unionbank.infrastructure.backward_compat import get_db_balance
+
         sender_sqlite = get_db_balance(self.SENDER) or 0
         receiver_sqlite = get_db_balance(self.RECEIVER) or 0
         sqlite_total = sender_sqlite + receiver_sqlite
@@ -336,6 +342,7 @@ class TestAtomicTransfer:
         self._setup_accounts(tmp_data_dir)
 
         from unionbank.infrastructure.backward_compat import atomic_transfer
+
         result = atomic_transfer(
             sender_acc_no=self.SENDER,
             receiver_acc_no=self.RECEIVER,
@@ -352,6 +359,7 @@ class TestAtomicTransfer:
         self._setup_accounts(tmp_data_dir)
 
         from unionbank.infrastructure.backward_compat import atomic_transfer
+
         result = atomic_transfer(
             sender_acc_no=self.SENDER,
             receiver_acc_no=self.RECEIVER,
@@ -418,9 +426,7 @@ class TestAtomicTransfer:
         # Start an atomic transaction, make a change, then simulate a crash
         try:
             with atomic_session() as session:
-                sender = session.query(DbAccount).filter_by(
-                    account_number=self.SENDER
-                ).first()
+                sender = session.query(DbAccount).filter_by(account_number=self.SENDER).first()
                 # Make a change (debit sender)
                 sender.balance -= 300.0
                 # ⚡ CRASH: Exception before commit → rollback
@@ -462,7 +468,5 @@ class TestAtomicTransfer:
         assert result is True
 
         session = get_session()
-        account = session.query(DbAccount).filter_by(
-            account_number=self.SENDER
-        ).first()
+        account = session.query(DbAccount).filter_by(account_number=self.SENDER).first()
         assert account.is_active is False

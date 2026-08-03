@@ -63,21 +63,24 @@ class SqlAlchemyAccountRepository:
         self.session = session
 
     def get(self, acc_no: str) -> Optional[Account]:
-        model = self.session.query(AccountModel).filter_by(
-            account_number=acc_no, deleted_at=None
-        ).first()
+        model = (
+            self.session.query(AccountModel)
+            .filter_by(account_number=acc_no, deleted_at=None)
+            .first()
+        )
         return map_account(model) if model else None
 
     def get_all(self) -> list[Account]:
-        models = self.session.query(AccountModel).filter_by(
-            deleted_at=None
-        ).all()
+        models = self.session.query(AccountModel).filter_by(deleted_at=None).all()
         return [map_account(m) for m in models]
 
     def exists(self, acc_no: str) -> bool:
-        return self.session.query(AccountModel).filter_by(
-            account_number=acc_no, deleted_at=None
-        ).first() is not None
+        return (
+            self.session.query(AccountModel)
+            .filter_by(account_number=acc_no, deleted_at=None)
+            .first()
+            is not None
+        )
 
     def create(self, account: Account) -> Account:
         data = map_account_to_model(account)
@@ -86,9 +89,11 @@ class SqlAlchemyAccountRepository:
         return account
 
     def update(self, account: Account) -> Account:
-        model = self.session.query(AccountModel).filter_by(
-            account_number=account.account_number, deleted_at=None
-        ).first()
+        model = (
+            self.session.query(AccountModel)
+            .filter_by(account_number=account.account_number, deleted_at=None)
+            .first()
+        )
         if model is None:
             return self.create(account)
         for key, value in map_account_to_model(account).items():
@@ -97,18 +102,22 @@ class SqlAlchemyAccountRepository:
         return account
 
     def update_balance(self, acc_no: str, new_balance: Decimal) -> bool:
-        model = self.session.query(AccountModel).filter_by(
-            account_number=acc_no, deleted_at=None
-        ).first()
+        model = (
+            self.session.query(AccountModel)
+            .filter_by(account_number=acc_no, deleted_at=None)
+            .first()
+        )
         if model is None:
             return False
         model.balance = new_balance
         return True
 
     def set_active(self, acc_no: str, active: bool) -> bool:
-        model = self.session.query(AccountModel).filter_by(
-            account_number=acc_no, deleted_at=None
-        ).first()
+        model = (
+            self.session.query(AccountModel)
+            .filter_by(account_number=acc_no, deleted_at=None)
+            .first()
+        )
         if model is None:
             return False
         model.is_active = active
@@ -122,9 +131,11 @@ class SqlAlchemyAccountRepository:
         closing, and unfreezing does not imply reactivating.
         Callers that need to change both must call set_active() separately.
         """
-        model = self.session.query(AccountModel).filter_by(
-            account_number=acc_no, deleted_at=None
-        ).first()
+        model = (
+            self.session.query(AccountModel)
+            .filter_by(account_number=acc_no, deleted_at=None)
+            .first()
+        )
         if model is None:
             return False
         model.is_frozen = frozen
@@ -138,22 +149,29 @@ class SqlAlchemyAccountRepository:
         Soft-deleted accounts are excluded from all default queries via the
         `_active_query()` helper but remain recoverable via `get_deleted()`.
         """
-        model = self.session.query(AccountModel).filter_by(
-            account_number=acc_no, deleted_at=None
-        ).first()
+        model = (
+            self.session.query(AccountModel)
+            .filter_by(account_number=acc_no, deleted_at=None)
+            .first()
+        )
         if model is None:
             return False
         from unionbank.domain.clock import utcnow as _now
+
         model.deleted_at = _now()
         model.is_active = False
         return True
 
     def undelete(self, acc_no: str) -> bool:
         """Restore a soft-deleted account by clearing deleted_at."""
-        model = self.session.query(AccountModel).filter(
-            AccountModel.account_number == acc_no,
-            AccountModel.deleted_at.isnot(None),
-        ).first()
+        model = (
+            self.session.query(AccountModel)
+            .filter(
+                AccountModel.account_number == acc_no,
+                AccountModel.deleted_at.isnot(None),
+            )
+            .first()
+        )
         if model is None:
             return False
         model.deleted_at = None
@@ -162,61 +180,78 @@ class SqlAlchemyAccountRepository:
 
     def get_deleted(self, acc_no: str) -> Optional[Account]:
         """Get a soft-deleted account (bypasses the active-only filter)."""
-        model = self.session.query(AccountModel).filter_by(
-            account_number=acc_no
-        ).filter(AccountModel.deleted_at.isnot(None)).first()
+        model = (
+            self.session.query(AccountModel)
+            .filter_by(account_number=acc_no)
+            .filter(AccountModel.deleted_at.isnot(None))
+            .first()
+        )
         return map_account(model) if model else None
 
     def search(self, query: str) -> list[Account]:
         q = f"%{query}%"
-        models = self.session.query(AccountModel).filter(
-            AccountModel.deleted_at.is_(None),
-            or_(
-                AccountModel.account_number.ilike(q),
-                AccountModel.name.ilike(q),
+        models = (
+            self.session.query(AccountModel)
+            .filter(
+                AccountModel.deleted_at.is_(None),
+                or_(
+                    AccountModel.account_number.ilike(q),
+                    AccountModel.name.ilike(q),
+                ),
             )
-        ).all()
+            .all()
+        )
         return [map_account(m) for m in models]
 
     def count(self) -> int:
-        return self.session.query(AccountModel).filter_by(
-            deleted_at=None
-        ).count()
+        return self.session.query(AccountModel).filter_by(deleted_at=None).count()
 
     def total_balance(self) -> Decimal:
-        result = self.session.query(
-            func.sum(AccountModel.balance)
-        ).filter(
-            AccountModel.deleted_at.is_(None),
-            AccountModel.is_active.is_(True),
-            AccountModel.is_frozen.is_(False),
-        ).scalar()
+        result = (
+            self.session.query(func.sum(AccountModel.balance))
+            .filter(
+                AccountModel.deleted_at.is_(None),
+                AccountModel.is_active.is_(True),
+                AccountModel.is_frozen.is_(False),
+            )
+            .scalar()
+        )
         return result or Decimal("0.00")
 
     def active_count(self) -> int:
-        return self.session.query(AccountModel).filter(
-            AccountModel.deleted_at.is_(None),
-            AccountModel.is_active.is_(True),
-            AccountModel.is_frozen.is_(False),
-        ).count()
+        return (
+            self.session.query(AccountModel)
+            .filter(
+                AccountModel.deleted_at.is_(None),
+                AccountModel.is_active.is_(True),
+                AccountModel.is_frozen.is_(False),
+            )
+            .count()
+        )
 
     def frozen_count(self) -> int:
-        return self.session.query(AccountModel).filter(
-            AccountModel.deleted_at.is_(None),
-            AccountModel.is_frozen.is_(True),
-        ).count()
+        return (
+            self.session.query(AccountModel)
+            .filter(
+                AccountModel.deleted_at.is_(None),
+                AccountModel.is_frozen.is_(True),
+            )
+            .count()
+        )
 
     def closed_count(self) -> int:
-        return self.session.query(AccountModel).filter(
-            AccountModel.deleted_at.is_(None),
-            AccountModel.is_active.is_(False),
-            AccountModel.is_frozen.is_(False),
-        ).count()
+        return (
+            self.session.query(AccountModel)
+            .filter(
+                AccountModel.deleted_at.is_(None),
+                AccountModel.is_active.is_(False),
+                AccountModel.is_frozen.is_(False),
+            )
+            .count()
+        )
 
     def get_by_email(self, email: str) -> Optional[Account]:
-        model = self.session.query(AccountModel).filter_by(
-            email=email, deleted_at=None
-        ).first()
+        model = self.session.query(AccountModel).filter_by(email=email, deleted_at=None).first()
         return map_account(model) if model else None
 
     def get_statistics(self) -> dict:
@@ -227,28 +262,29 @@ class SqlAlchemyAccountRepository:
             dict with keys: total_customers, active, frozen, closed, total_balance
 
         """
-        row = self.session.query(
-            func.count(AccountModel.account_number).label("total"),
-            func.sum(
-                case(
-                    (AccountModel.is_active.is_(True) & AccountModel.is_frozen.is_(False), 1),
-                    else_=0
-                )
-            ).label("active_count"),
-            func.sum(
-                case((AccountModel.is_frozen.is_(True), 1), else_=0)
-            ).label("frozen_count"),
-            func.sum(
-                case(
-                    (
-                        AccountModel.is_active.is_(False) & AccountModel.is_frozen.is_(False),
-                        1
-                    ),
-                    else_=0
-                )
-            ).label("closed_count"),
-            func.sum(AccountModel.balance).label("total_balance"),
-        ).filter(AccountModel.deleted_at.is_(None)).first()
+        row = (
+            self.session.query(
+                func.count(AccountModel.account_number).label("total"),
+                func.sum(
+                    case(
+                        (AccountModel.is_active.is_(True) & AccountModel.is_frozen.is_(False), 1),
+                        else_=0,
+                    )
+                ).label("active_count"),
+                func.sum(case((AccountModel.is_frozen.is_(True), 1), else_=0)).label(
+                    "frozen_count"
+                ),
+                func.sum(
+                    case(
+                        (AccountModel.is_active.is_(False) & AccountModel.is_frozen.is_(False), 1),
+                        else_=0,
+                    )
+                ).label("closed_count"),
+                func.sum(AccountModel.balance).label("total_balance"),
+            )
+            .filter(AccountModel.deleted_at.is_(None))
+            .first()
+        )
 
         return {
             "total_customers": row.total or 0,
@@ -269,9 +305,9 @@ class SqlAlchemyAccountRepository:
         base_q = self.session.query(AccountModel).filter_by(deleted_at=None)
         total = base_q.count()
         offset = (page - 1) * per_page
-        models = base_q.order_by(
-            AccountModel.created_at.desc()
-        ).offset(offset).limit(per_page).all()
+        models = (
+            base_q.order_by(AccountModel.created_at.desc()).offset(offset).limit(per_page).all()
+        )
         return [map_account(m) for m in models], total
 
     def commit(self) -> None:
@@ -291,15 +327,22 @@ class SqlAlchemyTransactionRepository:
         self.session = session
 
     def get_by_account(self, acc_no: str) -> list[Transaction]:
-        models = self.session.query(TransactionModel).filter_by(
-            account_number=acc_no
-        ).order_by(TransactionModel.timestamp.desc()).all()
+        models = (
+            self.session.query(TransactionModel)
+            .filter_by(account_number=acc_no)
+            .order_by(TransactionModel.timestamp.desc())
+            .all()
+        )
         return [map_transaction(m) for m in models]
 
     def get_mini(self, acc_no: str, limit: int = 5) -> list[Transaction]:
-        models = self.session.query(TransactionModel).filter_by(
-            account_number=acc_no
-        ).order_by(TransactionModel.timestamp.desc()).limit(limit).all()
+        models = (
+            self.session.query(TransactionModel)
+            .filter_by(account_number=acc_no)
+            .order_by(TransactionModel.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
         return [map_transaction(m) for m in models]
 
     def create(self, transaction: Transaction) -> Transaction:
@@ -318,30 +361,29 @@ class SqlAlchemyTransactionRepository:
         return transaction
 
     def get_all(self) -> list[Transaction]:
-        models = self.session.query(TransactionModel).order_by(
-            TransactionModel.timestamp.desc()
-        ).all()
+        models = (
+            self.session.query(TransactionModel).order_by(TransactionModel.timestamp.desc()).all()
+        )
         return [map_transaction(m) for m in models]
 
     def total_by_type(self, txn_type: str) -> Decimal:
-        result = self.session.query(
-            func.sum(TransactionModel.amount)
-        ).filter_by(type=txn_type).scalar()
+        result = (
+            self.session.query(func.sum(TransactionModel.amount)).filter_by(type=txn_type).scalar()
+        )
         return result or Decimal("0.00")
 
     def count(self) -> int:
         return self.session.query(TransactionModel).count()
 
     def count_by_account(self, acc_no: str) -> int:
-        return self.session.query(TransactionModel).filter_by(
-            account_number=acc_no
-        ).count()
+        return self.session.query(TransactionModel).filter_by(account_number=acc_no).count()
 
     def get_category_totals(self) -> dict[str, Decimal]:
-        results = self.session.query(
-            TransactionModel.category,
-            func.sum(TransactionModel.amount)
-        ).group_by(TransactionModel.category).all()
+        results = (
+            self.session.query(TransactionModel.category, func.sum(TransactionModel.amount))
+            .group_by(TransactionModel.category)
+            .all()
+        )
         return {cat: total or Decimal("0.00") for cat, total in results}
 
     def get_paginated(
@@ -366,9 +408,9 @@ class SqlAlchemyTransactionRepository:
 
         total = query.count()
         offset = (page - 1) * per_page
-        models = query.order_by(
-            TransactionModel.timestamp.desc()
-        ).offset(offset).limit(per_page).all()
+        models = (
+            query.order_by(TransactionModel.timestamp.desc()).offset(offset).limit(per_page).all()
+        )
 
         return [map_transaction(m) for m in models], total
 
@@ -406,9 +448,7 @@ class SqlAlchemyTransactionRepository:
         if cursor is not None:
             query = query.filter(TransactionModel.timestamp < cursor)
 
-        models = query.order_by(
-            TransactionModel.timestamp.desc()
-        ).limit(fetch_limit).all()
+        models = query.order_by(TransactionModel.timestamp.desc()).limit(fetch_limit).all()
 
         has_more = len(models) > limit
         items = [map_transaction(m) for m in models[:limit]]
@@ -444,6 +484,7 @@ class SqlAlchemyAdminRepository:
     def create(self, admin: AdminUser) -> AdminUser:
         # Encrypt TOTP secret before storing if present
         from unionbank.utils.token_security import encrypt_totp_secret
+
         model = AdminModel(
             username=admin.username,
             password=admin.password,
@@ -467,6 +508,7 @@ class SqlAlchemyAdminRepository:
             return False
         # Encrypt TOTP secret before storing (defense-in-depth: plaintext in DB is a liability)
         from unionbank.utils.token_security import encrypt_totp_secret
+
         model.totp_secret = encrypt_totp_secret(totp_secret)
         model.totp_enabled = totp_enabled
         return True
@@ -491,9 +533,7 @@ class SqlAlchemySavingsGoalRepository:
         self.session = session
 
     def get_by_account(self, acc_no: str) -> list[SavingsGoal]:
-        models = self.session.query(SavingsGoalModel).filter_by(
-            account_number=acc_no
-        ).all()
+        models = self.session.query(SavingsGoalModel).filter_by(account_number=acc_no).all()
         return [map_savings_goal(m) for m in models]
 
     def get(self, goal_id: str) -> Optional[SavingsGoal]:
@@ -563,27 +603,34 @@ class SqlAlchemyLoanRepository:
         return map_loan(model) if model else None
 
     def get_by_account(self, acc_no: str) -> list[Loan]:
-        models = self.session.query(LoanModel).filter_by(
-            account_number=acc_no
-        ).order_by(LoanModel.application_date.desc()).all()
+        models = (
+            self.session.query(LoanModel)
+            .filter_by(account_number=acc_no)
+            .order_by(LoanModel.application_date.desc())
+            .all()
+        )
         return [map_loan(m) for m in models]
 
     def get_all_pending(self) -> list[Loan]:
-        models = self.session.query(LoanModel).filter_by(
-            status="PENDING"
-        ).order_by(LoanModel.application_date.asc()).all()
+        models = (
+            self.session.query(LoanModel)
+            .filter_by(status="PENDING")
+            .order_by(LoanModel.application_date.asc())
+            .all()
+        )
         return [map_loan(m) for m in models]
 
     def get_all_active(self) -> list[Loan]:
-        models = self.session.query(LoanModel).filter(
-            LoanModel.status.in_(["APPROVED", "ACTIVE"])
-        ).order_by(LoanModel.application_date.desc()).all()
+        models = (
+            self.session.query(LoanModel)
+            .filter(LoanModel.status.in_(["APPROVED", "ACTIVE"]))
+            .order_by(LoanModel.application_date.desc())
+            .all()
+        )
         return [map_loan(m) for m in models]
 
     def get_all(self) -> list[Loan]:
-        models = self.session.query(LoanModel).order_by(
-            LoanModel.application_date.desc()
-        ).all()
+        models = self.session.query(LoanModel).order_by(LoanModel.application_date.desc()).all()
         return [map_loan(m) for m in models]
 
     def create(self, loan: Loan) -> Loan:
@@ -628,19 +675,19 @@ class SqlAlchemyLoanRepository:
         return self.session.query(LoanModel).filter_by(status=status).count()
 
     def total_disbursed(self) -> Decimal:
-        result = self.session.query(
-            func.sum(LoanModel.principal_amount)
-        ).filter(
-            LoanModel.status.in_(["APPROVED", "ACTIVE", "CLOSED"])
-        ).scalar()
+        result = (
+            self.session.query(func.sum(LoanModel.principal_amount))
+            .filter(LoanModel.status.in_(["APPROVED", "ACTIVE", "CLOSED"]))
+            .scalar()
+        )
         return result or Decimal("0.00")
 
     def total_outstanding(self) -> Decimal:
-        result = self.session.query(
-            func.sum(LoanModel.remaining_amount)
-        ).filter(
-            LoanModel.status.in_(["APPROVED", "ACTIVE"])
-        ).scalar()
+        result = (
+            self.session.query(func.sum(LoanModel.remaining_amount))
+            .filter(LoanModel.status.in_(["APPROVED", "ACTIVE"]))
+            .scalar()
+        )
         return result or Decimal("0.00")
 
     def commit(self) -> None:
@@ -671,16 +718,13 @@ class SqlAlchemyLoginAttemptRepository:
             updated_at=model.updated_at,
         )
 
-    def record_failure(self, key: str, max_attempts: int = 5,
-                       lockout_minutes: int = 15) -> int:
+    def record_failure(self, key: str, max_attempts: int = 5, lockout_minutes: int = 15) -> int:
         record = self.get(key)
         now = _utcnow()
 
         if record is None:
             record = LoginAttempt(key=key, count=1, first_failed=now)
-            model = LoginAttemptModel(
-                key=key, count=1, first_failed=now
-            )
+            model = LoginAttemptModel(key=key, count=1, first_failed=now)
             self.session.add(model)
         else:
             model = self.session.query(LoginAttemptModel).filter_by(key=key).first()
@@ -695,7 +739,7 @@ class SqlAlchemyLoginAttemptRepository:
             if model.count >= max_attempts:
                 model.lockout_until = now + timedelta(minutes=lockout_minutes)
 
-        return max(0, max_attempts - (getattr(model, 'count', record.count) or 0))
+        return max(0, max_attempts - (getattr(model, "count", record.count) or 0))
 
     def is_locked(self, key: str, max_attempts: int = 5) -> tuple[bool, int]:
         model = self.session.query(LoginAttemptModel).filter_by(key=key).first()
@@ -738,15 +782,15 @@ class SqlAlchemyTokenVersionRepository:
         self.session = session
 
     def get_version(self, account_number: str) -> int:
-        model = self.session.query(TokenVersionModel).filter_by(
-            account_number=account_number
-        ).first()
+        model = (
+            self.session.query(TokenVersionModel).filter_by(account_number=account_number).first()
+        )
         return model.version if model else 0
 
     def increment(self, account_number: str) -> int:
-        model = self.session.query(TokenVersionModel).filter_by(
-            account_number=account_number
-        ).first()
+        model = (
+            self.session.query(TokenVersionModel).filter_by(account_number=account_number).first()
+        )
         if model is None:
             model = TokenVersionModel(account_number=account_number, version=1)
             self.session.add(model)
@@ -778,20 +822,30 @@ class SqlAlchemyNotificationRepository:
         return map_notification(model) if model else None
 
     def get_by_account(self, acc_no: str, limit: int = 50) -> list[Notification]:
-        models = self.session.query(NotificationModel).filter_by(
-            account_number=acc_no
-        ).order_by(NotificationModel.created_at.desc()).limit(limit).all()
+        models = (
+            self.session.query(NotificationModel)
+            .filter_by(account_number=acc_no)
+            .order_by(NotificationModel.created_at.desc())
+            .limit(limit)
+            .all()
+        )
         return [map_notification(m) for m in models]
 
     def get_unread_count(self, acc_no: str) -> int:
-        return self.session.query(NotificationModel).filter_by(
-            account_number=acc_no, is_read=False
-        ).count()
+        return (
+            self.session.query(NotificationModel)
+            .filter_by(account_number=acc_no, is_read=False)
+            .count()
+        )
 
     def get_unread(self, acc_no: str, limit: int = 20) -> list[Notification]:
-        models = self.session.query(NotificationModel).filter_by(
-            account_number=acc_no, is_read=False
-        ).order_by(NotificationModel.created_at.desc()).limit(limit).all()
+        models = (
+            self.session.query(NotificationModel)
+            .filter_by(account_number=acc_no, is_read=False)
+            .order_by(NotificationModel.created_at.desc())
+            .limit(limit)
+            .all()
+        )
         return [map_notification(m) for m in models]
 
     def create(self, notification: Notification) -> Notification:
@@ -816,17 +870,22 @@ class SqlAlchemyNotificationRepository:
         return True
 
     def mark_all_as_read(self, acc_no: str) -> int:
-        count = self.session.query(NotificationModel).filter_by(
-            account_number=acc_no, is_read=False
-        ).update({"is_read": True})
+        count = (
+            self.session.query(NotificationModel)
+            .filter_by(account_number=acc_no, is_read=False)
+            .update({"is_read": True})
+        )
         return count
 
     def delete_old(self, days: int = 30) -> int:
         from datetime import timedelta
+
         cutoff = _utcnow() - timedelta(days=days)
-        deleted = self.session.query(NotificationModel).filter(
-            NotificationModel.created_at < cutoff
-        ).delete()
+        deleted = (
+            self.session.query(NotificationModel)
+            .filter(NotificationModel.created_at < cutoff)
+            .delete()
+        )
         return deleted
 
     def commit(self) -> None:
@@ -846,9 +905,9 @@ class SqlAlchemyNotificationPreferenceRepository:
         self.session = session
 
     def get(self, acc_no: str) -> Optional[NotificationPreference]:
-        model = self.session.query(NotificationPreferenceModel).filter_by(
-            account_number=acc_no
-        ).first()
+        model = (
+            self.session.query(NotificationPreferenceModel).filter_by(account_number=acc_no).first()
+        )
         if model is None:
             return None
         return NotificationPreference(
@@ -866,9 +925,11 @@ class SqlAlchemyNotificationPreferenceRepository:
         )
 
     def create_or_update(self, pref: NotificationPreference) -> NotificationPreference:
-        model = self.session.query(NotificationPreferenceModel).filter_by(
-            account_number=pref.account_number
-        ).first()
+        model = (
+            self.session.query(NotificationPreferenceModel)
+            .filter_by(account_number=pref.account_number)
+            .first()
+        )
         if model is None:
             model = NotificationPreferenceModel(
                 account_number=pref.account_number,
@@ -916,9 +977,12 @@ class SqlAlchemyRefreshTokenRepository:
         return map_refresh_token(model) if model else None
 
     def get_by_account(self, account_number: str) -> list[RefreshToken]:
-        models = self.session.query(RefreshTokenModel).filter_by(
-            account_number=account_number
-        ).order_by(RefreshTokenModel.created_at.desc()).all()
+        models = (
+            self.session.query(RefreshTokenModel)
+            .filter_by(account_number=account_number)
+            .order_by(RefreshTokenModel.created_at.desc())
+            .all()
+        )
         return [map_refresh_token(m) for m in models]
 
     def create(self, token: RefreshToken) -> RefreshToken:
@@ -937,23 +1001,32 @@ class SqlAlchemyRefreshTokenRepository:
         if model is None:
             return False
         from datetime import datetime, timezone
+
         model.revoked_at = datetime.now(timezone.utc)
         return True
 
     def revoke_all_for_account(self, account_number: str) -> int:
         from datetime import datetime, timezone
-        count = self.session.query(RefreshTokenModel).filter_by(
-            account_number=account_number,
-            revoked_at=None,
-        ).update({"revoked_at": datetime.now(timezone.utc)})
+
+        count = (
+            self.session.query(RefreshTokenModel)
+            .filter_by(
+                account_number=account_number,
+                revoked_at=None,
+            )
+            .update({"revoked_at": datetime.now(timezone.utc)})
+        )
         return count
 
     def clean_expired(self) -> int:
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc)
-        deleted = self.session.query(RefreshTokenModel).filter(
-            RefreshTokenModel.expires_at < now
-        ).delete()
+        deleted = (
+            self.session.query(RefreshTokenModel)
+            .filter(RefreshTokenModel.expires_at < now)
+            .delete()
+        )
         return deleted
 
     def commit(self) -> None:
@@ -974,9 +1047,9 @@ class SqlAlchemyIdempotencyRepository:
 
     def get(self, idempotency_key: str) -> Optional[IdempotencyRecord]:
         """Retrieve an existing idempotency record by key."""
-        model = self.session.query(IdempotencyModel).filter_by(
-            idempotency_key=idempotency_key
-        ).first()
+        model = (
+            self.session.query(IdempotencyModel).filter_by(idempotency_key=idempotency_key).first()
+        )
         if model is None:
             return None
         return IdempotencyRecord(
@@ -1016,11 +1089,18 @@ class SqlAlchemyAuditLogRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def log(self, actor: str, action: str, target: Optional[str] = None,
-            details: Optional[str] = None, ip_address: Optional[str] = None,
-            reason: Optional[str] = None) -> None:
+    def log(
+        self,
+        actor: str,
+        action: str,
+        target: Optional[str] = None,
+        details: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
         """Append an immutable audit log entry."""
         from datetime import timezone
+
         model = AuditLogModel(
             actor=actor,
             action=action,
@@ -1033,49 +1113,69 @@ class SqlAlchemyAuditLogRepository:
         self.session.add(model)
 
     def get_recent(self, limit: int = 50) -> list:
-        models = self.session.query(AuditLogModel).order_by(
-            AuditLogModel.timestamp.desc()
-        ).limit(limit).all()
-        return [{
-            "id": m.id,
-            "actor": m.actor,
-            "action": m.action,
-            "target": m.target,
-            "details": m.details,
-            "ip_address": m.ip_address,
-            "reason": m.reason,
-            "timestamp": str(m.timestamp)[:19],
-        } for m in models]
+        models = (
+            self.session.query(AuditLogModel)
+            .order_by(AuditLogModel.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "id": m.id,
+                "actor": m.actor,
+                "action": m.action,
+                "target": m.target,
+                "details": m.details,
+                "ip_address": m.ip_address,
+                "reason": m.reason,
+                "timestamp": str(m.timestamp)[:19],
+            }
+            for m in models
+        ]
 
     def get_by_actor(self, actor: str, limit: int = 50) -> list:
-        models = self.session.query(AuditLogModel).filter_by(
-            actor=actor
-        ).order_by(AuditLogModel.timestamp.desc()).limit(limit).all()
-        return [{
-            "id": m.id,
-            "actor": m.actor,
-            "action": m.action,
-            "target": m.target,
-            "details": m.details,
-            "ip_address": m.ip_address,
-            "reason": m.reason,
-            "timestamp": str(m.timestamp)[:19],
-        } for m in models]
+        models = (
+            self.session.query(AuditLogModel)
+            .filter_by(actor=actor)
+            .order_by(AuditLogModel.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "id": m.id,
+                "actor": m.actor,
+                "action": m.action,
+                "target": m.target,
+                "details": m.details,
+                "ip_address": m.ip_address,
+                "reason": m.reason,
+                "timestamp": str(m.timestamp)[:19],
+            }
+            for m in models
+        ]
 
     def get_by_action(self, action: str, limit: int = 50) -> list:
-        models = self.session.query(AuditLogModel).filter_by(
-            action=action
-        ).order_by(AuditLogModel.timestamp.desc()).limit(limit).all()
-        return [{
-            "id": m.id,
-            "actor": m.actor,
-            "action": m.action,
-            "target": m.target,
-            "details": m.details,
-            "ip_address": m.ip_address,
-            "reason": m.reason,
-            "timestamp": str(m.timestamp)[:19],
-        } for m in models]
+        models = (
+            self.session.query(AuditLogModel)
+            .filter_by(action=action)
+            .order_by(AuditLogModel.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "id": m.id,
+                "actor": m.actor,
+                "action": m.action,
+                "target": m.target,
+                "details": m.details,
+                "ip_address": m.ip_address,
+                "reason": m.reason,
+                "timestamp": str(m.timestamp)[:19],
+            }
+            for m in models
+        ]
 
     def commit(self) -> None:
         self.session.commit()

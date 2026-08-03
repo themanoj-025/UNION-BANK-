@@ -143,7 +143,6 @@ def savings_goal_service(account_repo, txn_repo, savings_goal_repo):
 
 
 class TestAuthService:
-
     def test_customer_login_success(self, auth_service, account_repo, sample_account):
         account_repo.create(sample_account)
         result = auth_service.customer_login("1000000001", "Secure1Pass")
@@ -211,9 +210,7 @@ class TestAuthService:
         result = auth_service.admin_login("admin", "Wrong1")
         assert result.success is False
 
-    def test_admin_login_locked(
-        self, auth_service, admin_repo, sample_admin, login_attempt_repo
-    ):
+    def test_admin_login_locked(self, auth_service, admin_repo, sample_admin, login_attempt_repo):
         admin_repo.create(sample_admin)
         for _ in range(6):
             auth_service.admin_login("admin", "Wrong1")
@@ -227,7 +224,6 @@ class TestAuthService:
 
 
 class TestAccountService:
-
     def test_get_profile(self, account_service, account_repo, sample_account):
         account_repo.create(sample_account)
         profile = account_service.get_profile("1000000001")
@@ -241,9 +237,7 @@ class TestAccountService:
 
     def test_update_profile(self, account_service, account_repo, sample_account):
         account_repo.create(sample_account)
-        result = account_service.update_profile(
-            "1000000001", name="Updated Name", age=35
-        )
+        result = account_service.update_profile("1000000001", name="Updated Name", age=35)
         assert result.success is True
         updated = account_repo.get("1000000001")
         assert updated.name == "Updated Name"
@@ -256,20 +250,17 @@ class TestAccountService:
 
     def test_change_password_success(self, account_service, account_repo, sample_account):
         account_repo.create(sample_account)
-        result = account_service.change_password(
-            "1000000001", "Secure1Pass", "NewSecure1Pass"
-        )
+        result = account_service.change_password("1000000001", "Secure1Pass", "NewSecure1Pass")
         assert result.success is True
         # Verify new password works
         from unionbank.utils.hashing import verify_password
+
         updated = account_repo.get("1000000001")
         assert verify_password("NewSecure1Pass", updated.password)
 
     def test_change_password_wrong_current(self, account_service, account_repo, sample_account):
         account_repo.create(sample_account)
-        result = account_service.change_password(
-            "1000000001", "Wrong1", "NewSecure1Pass"
-        )
+        result = account_service.change_password("1000000001", "Wrong1", "NewSecure1Pass")
         assert result.success is False
         assert "incorrect" in result.message.lower()
 
@@ -298,7 +289,6 @@ class TestAccountService:
 
 
 class TestTransactionService:
-
     def test_deposit_success(self, transaction_service, account_repo, sample_account):
         account_repo.create(sample_account)
         result = transaction_service.deposit("1000000001", Decimal("500.00"), "Salary")
@@ -385,7 +375,8 @@ class TestTransactionService:
 
     def test_transfer_insufficient_balance(self, transaction_service, account_repo, sample_account):
         receiver = Account(
-            account_number="2000000002", name="Receiver", password=hash_password("p"))
+            account_number="2000000002", name="Receiver", password=hash_password("p")
+        )
         account_repo.create(sample_account)
         account_repo.create(receiver)
 
@@ -421,8 +412,10 @@ class TestTransactionService:
 
     def test_apply_interest_zero_balance(self, transaction_service, account_repo):
         account = Account(
-            account_number="1000000001", name="Zero Bal",
-            balance=Decimal("0.00"), password=hash_password("pass"),
+            account_number="1000000001",
+            name="Zero Bal",
+            balance=Decimal("0.00"),
+            password=hash_password("pass"),
         )
         account_repo.create(account)
         result = transaction_service.apply_interest("1000000001")
@@ -442,20 +435,27 @@ class TestTransactionService:
 
 
 class TestAdminService:
-
     def test_list_accounts(self, admin_service, account_repo, sample_account):
         account_repo.create(sample_account)
-        account_repo.create(Account(
-            account_number="2000000002", name="User 2", password=hash_password("p"),
-        ))
+        account_repo.create(
+            Account(
+                account_number="2000000002",
+                name="User 2",
+                password=hash_password("p"),
+            )
+        )
         accounts = admin_service.list_accounts()
         assert len(accounts) == 2
 
     def test_search_accounts(self, admin_service, account_repo, sample_account):
         account_repo.create(sample_account)
-        account_repo.create(Account(
-            account_number="2000000002", name="Another User", password=hash_password("p"),
-        ))
+        account_repo.create(
+            Account(
+                account_number="2000000002",
+                name="Another User",
+                password=hash_password("p"),
+            )
+        )
 
         results = admin_service.search_accounts("Test")
         assert len(results) == 1
@@ -506,10 +506,15 @@ class TestAdminService:
 
     def test_get_statistics(self, admin_service, account_repo, txn_repo, sample_account):
         account_repo.create(sample_account)
-        account_repo.create(Account(
-            account_number="2000000002", name="User 2", password=hash_password("p"),
-            balance=Decimal("500.00"), is_frozen=True,
-        ))
+        account_repo.create(
+            Account(
+                account_number="2000000002",
+                name="User 2",
+                password=hash_password("p"),
+                balance=Decimal("500.00"),
+                is_frozen=True,
+            )
+        )
 
         stats = admin_service.get_statistics()
         assert stats["total_customers"] == 2
@@ -517,18 +522,15 @@ class TestAdminService:
         assert stats["frozen"] == 1
         assert float(stats["total_balance"]) >= 1000.0
 
-    def test_audit_log_on_freeze(self, admin_service, account_repo, sample_account,
-                                  audit_log_repo):
+    def test_audit_log_on_freeze(self, admin_service, account_repo, sample_account, audit_log_repo):
         account_repo.create(sample_account)
-        admin_service.freeze_account("1000000001", actor="admin_test",
-                                      reason="Fraud suspicion")
+        admin_service.freeze_account("1000000001", actor="admin_test", reason="Fraud suspicion")
         entries = audit_log_repo.get_by_action("freeze")
         assert len(entries) >= 1
         assert entries[0]["actor"] == "admin_test"
         assert entries[0]["reason"] == "Fraud suspicion"
 
-    def test_audit_log_on_delete(self, admin_service, account_repo, sample_account,
-                                  audit_log_repo):
+    def test_audit_log_on_delete(self, admin_service, account_repo, sample_account, audit_log_repo):
         account_repo.create(sample_account)
         admin_service.delete_account("1000000001", actor="admin_test")
         entries = audit_log_repo.get_by_action("delete")
@@ -537,11 +539,10 @@ class TestAdminService:
 
     def test_change_admin_password(self, admin_service, admin_repo, sample_admin):
         admin_repo.create(sample_admin)
-        result = admin_service.change_admin_password(
-            "admin", "AdminPass1", "NewAdmin1Pass"
-        )
+        result = admin_service.change_admin_password("admin", "AdminPass1", "NewAdmin1Pass")
         assert result.success is True
         from unionbank.utils.hashing import verify_password
+
         assert verify_password("NewAdmin1Pass", admin_repo.get_by_username("admin").password)
 
 
@@ -549,7 +550,6 @@ class TestAdminService:
 
 
 class TestSavingsGoalService:
-
     def test_create_goal(self, savings_goal_service, savings_goal_repo):
         result = savings_goal_service.create_goal(
             acc_no="1000000001",
@@ -577,29 +577,38 @@ class TestSavingsGoalService:
         assert "positive" in result.message.lower()
 
     def test_list_goals(self, savings_goal_service, savings_goal_repo):
-        savings_goal_repo.create(SavingsGoal(
-            goal_id="GOAL-001", account_number="1000000001",
-            name="Goal 1", target_amount=Decimal("1000.00"),
-        ))
-        savings_goal_repo.create(SavingsGoal(
-            goal_id="GOAL-002", account_number="1000000001",
-            name="Goal 2", target_amount=Decimal("2000.00"),
-        ))
+        savings_goal_repo.create(
+            SavingsGoal(
+                goal_id="GOAL-001",
+                account_number="1000000001",
+                name="Goal 1",
+                target_amount=Decimal("1000.00"),
+            )
+        )
+        savings_goal_repo.create(
+            SavingsGoal(
+                goal_id="GOAL-002",
+                account_number="1000000001",
+                name="Goal 2",
+                target_amount=Decimal("2000.00"),
+            )
+        )
         goals = savings_goal_service.list_goals("1000000001")
         assert len(goals) == 2
 
-    def test_contribute_success(self, savings_goal_service, account_repo,
-                                 savings_goal_repo, sample_account):
+    def test_contribute_success(
+        self, savings_goal_service, account_repo, savings_goal_repo, sample_account
+    ):
         account_repo.create(sample_account)
         goal = SavingsGoal(
-            goal_id="GOAL-001", account_number="1000000001",
-            name="Vacation", target_amount=Decimal("2000.00"),
+            goal_id="GOAL-001",
+            account_number="1000000001",
+            name="Vacation",
+            target_amount=Decimal("2000.00"),
         )
         savings_goal_repo.create(goal)
 
-        result = savings_goal_service.contribute(
-            "1000000001", "GOAL-001", Decimal("500.00")
-        )
+        result = savings_goal_service.contribute("1000000001", "GOAL-001", Decimal("500.00"))
         assert result.success is True
 
         updated_goal = savings_goal_repo.get("GOAL-001")
@@ -608,28 +617,32 @@ class TestSavingsGoalService:
         updated_acc = account_repo.get("1000000001")
         assert updated_acc.balance == Decimal("500.00")  # 1000 - 500
 
-    def test_contribute_exceeds_balance(self, savings_goal_service, account_repo,
-                                         savings_goal_repo, sample_account):
+    def test_contribute_exceeds_balance(
+        self, savings_goal_service, account_repo, savings_goal_repo, sample_account
+    ):
         account_repo.create(sample_account)
         goal = SavingsGoal(
-            goal_id="GOAL-001", account_number="1000000001",
-            name="Dream Car", target_amount=Decimal("99999.00"),
+            goal_id="GOAL-001",
+            account_number="1000000001",
+            name="Dream Car",
+            target_amount=Decimal("99999.00"),
         )
         savings_goal_repo.create(goal)
 
-        result = savings_goal_service.contribute(
-            "1000000001", "GOAL-001", Decimal("99999.00")
-        )
+        result = savings_goal_service.contribute("1000000001", "GOAL-001", Decimal("99999.00"))
         assert result.success is False
         assert "insufficient" in result.message.lower()
 
-    def test_contribute_completes_goal(self, savings_goal_service, account_repo,
-                                        savings_goal_repo, sample_account):
+    def test_contribute_completes_goal(
+        self, savings_goal_service, account_repo, savings_goal_repo, sample_account
+    ):
         sample_account.balance = Decimal("5000.00")
         account_repo.create(sample_account)
         goal = SavingsGoal(
-            goal_id="GOAL-001", account_number="1000000001",
-            name="Small Goal", target_amount=Decimal("100.00"),
+            goal_id="GOAL-001",
+            account_number="1000000001",
+            name="Small Goal",
+            target_amount=Decimal("100.00"),
         )
         savings_goal_repo.create(goal)
 
@@ -637,13 +650,16 @@ class TestSavingsGoalService:
         updated_goal = savings_goal_repo.get("GOAL-001")
         assert updated_goal.is_completed is True
 
-    def test_delete_goal_with_refund(self, savings_goal_service, account_repo,
-                                      savings_goal_repo, sample_account):
+    def test_delete_goal_with_refund(
+        self, savings_goal_service, account_repo, savings_goal_repo, sample_account
+    ):
         sample_account.balance = Decimal("1000.00")
         account_repo.create(sample_account)
         goal = SavingsGoal(
-            goal_id="GOAL-001", account_number="1000000001",
-            name="Refund Test", target_amount=Decimal("500.00"),
+            goal_id="GOAL-001",
+            account_number="1000000001",
+            name="Refund Test",
+            target_amount=Decimal("500.00"),
             current_amount=Decimal("200.00"),
         )
         savings_goal_repo.create(goal)

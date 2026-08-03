@@ -16,6 +16,7 @@ from unionbank.domain.entities import Account
 
 #  Loan Rejection Error Paths
 
+
 class TestLoanRejectionErrorPaths:
     """Test edge cases in loan rejection that are currently uncovered."""
 
@@ -59,7 +60,12 @@ class TestLoanRejectionErrorPaths:
             admin_user="admin",
         )
         assert not result.success
-        assert "approve" in result.message.lower() or "approved" in result.message.lower() or "cannot" in result.message.lower() or "reject" in result.message.lower()
+        assert (
+            "approve" in result.message.lower()
+            or "approved" in result.message.lower()
+            or "cannot" in result.message.lower()
+            or "reject" in result.message.lower()
+        )
 
     def test_reject_without_reason(self, c, sample_account):
         """Rejecting a loan without providing a reason should still work."""
@@ -88,6 +94,7 @@ class TestLoanRejectionErrorPaths:
 
 
 #  Admin Freeze / Unfreeze Edge Cases
+
 
 class TestAdminFreezeUnfreeze:
     """Test edge cases in admin freeze/unfreeze operations."""
@@ -124,7 +131,7 @@ class TestAdminFreezeUnfreeze:
         assert result1.success
 
         # Second freeze
-        result2 = c.admin_service().freeze_account(
+        _result2 = c.admin_service().freeze_account(
             acc_no=sample_account.account_number,
             actor="admin_test",
         )
@@ -137,7 +144,7 @@ class TestAdminFreezeUnfreeze:
         c.account_repo().create(sample_account)
         c.account_repo().commit()
 
-        result = c.admin_service().unfreeze_account(
+        _result = c.admin_service().unfreeze_account(
             acc_no=sample_account.account_number,
             actor="admin_test",
         )
@@ -167,6 +174,7 @@ class TestAdminFreezeUnfreeze:
 
 
 #  Notification Service Failure Handling
+
 
 class TestNotificationFailures:
     """Test that notification failures do not crash the system."""
@@ -200,6 +208,7 @@ class TestNotificationFailures:
 
 
 #  Service-level Validation Edge Cases
+
 
 class TestServiceValidation:
     """Test edge cases in service-level validation."""

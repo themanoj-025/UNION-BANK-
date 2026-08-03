@@ -21,8 +21,11 @@ os.environ.setdefault("FLASK_SECRET_KEY", secrets.token_hex(24))
 
 from unionbank.utils import (
     load_json,
-    ACCOUNTS_FILE, TRANSACTIONS_FILE, ADMIN_FILE,
-    LOGIN_ATTEMPTS_FILE, SAVINGS_GOALS_FILE,
+    ACCOUNTS_FILE,
+    TRANSACTIONS_FILE,
+    ADMIN_FILE,
+    LOGIN_ATTEMPTS_FILE,
+    SAVINGS_GOALS_FILE,
 )
 from unionbank.utils.logger import logger
 from unionbank.infrastructure.backward_compat import get_session, close_session
@@ -31,8 +34,11 @@ from unionbank.infrastructure.repositories import (
     SqlAlchemyAdminRepository,
 )
 from unionbank.infrastructure.persistence import (
-    AccountModel, TransactionModel, SavingsGoalModel,
-    AdminModel, LoginAttemptModel,
+    AccountModel,
+    TransactionModel,
+    SavingsGoalModel,
+    AdminModel,
+    LoginAttemptModel,
 )
 
 
@@ -108,7 +114,9 @@ def migrate_transactions() -> int:
                 # Ensure the account exists in the DB (create stub if needed)
                 account = session.query(AccountModel).filter_by(account_number=acc_no).first()
                 if account is None:
-                    logger.warning(f"Account {acc_no} not found in DB - creating stub for transaction {txn_id}")
+                    logger.warning(
+                        f"Account {acc_no} not found in DB - creating stub for transaction {txn_id}"
+                    )
                     account = AccountModel(
                         account_number=acc_no,
                         name=acc_no,  # account number as name

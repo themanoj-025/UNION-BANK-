@@ -19,6 +19,7 @@ All functions are re-exported here for backward compatibility.
 # pure domain function with zero external imports — the interest rate is passed as
 # a parameter.  We import it from config directly here for backward compatibility.
 from unionbank.config import settings as _settings
+
 SAVINGS_INTEREST_RATE = _settings.SAVINGS_INTEREST_RATE
 
 from unionbank.domain.interest import (

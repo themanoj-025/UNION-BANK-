@@ -9,17 +9,20 @@ from datetime import datetime
 
 #  Currency formatting
 
+
 def fmt_currency(amount: float) -> str:
     return f"₹{amount:,.2f}"
 
 
 #  Timestamp
 
+
 def now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 #  ID / number generators
+
 
 def generate_account_number(max_attempts: int = 1000) -> str:
     """
@@ -29,6 +32,7 @@ def generate_account_number(max_attempts: int = 1000) -> str:
     Raises RuntimeError if a unique number cannot be found within max_attempts.
     """
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     repo = c.account_repo()
     for _ in range(max_attempts):
@@ -91,12 +95,17 @@ def calculate_emi(principal: float, annual_rate: float, tenure_months: int) -> f
     if monthly_rate == 0:
         return round(principal / tenure_months, 2)
 
-    emi = principal * monthly_rate * ((1 + monthly_rate) ** tenure_months) / \
-          (((1 + monthly_rate) ** tenure_months) - 1)
+    emi = (
+        principal
+        * monthly_rate
+        * ((1 + monthly_rate) ** tenure_months)
+        / (((1 + monthly_rate) ** tenure_months) - 1)
+    )
     return round(emi, 2)
 
 
 #  CLI input helpers
+
 
 def get_float(prompt: str):
     """Prompt for a positive float; return None on invalid input."""
@@ -137,7 +146,7 @@ def mask_sensitive_data(msg: str) -> str:
     - Email addresses (local-part replaced with ***)
     """
     # Mask account numbers (sequences of 8+ digits)
-    msg = re.sub(r'\b(\d{8,})\b', lambda m: mask_account_number(m.group(1)), msg)
+    msg = re.sub(r"\b(\d{8,})\b", lambda m: mask_account_number(m.group(1)), msg)
     # Mask email addresses
-    msg = re.sub(r'([\w.-]+)@([\w.-]+\.\w{2,})', r'***@\2', msg)
+    msg = re.sub(r"([\w.-]+)@([\w.-]+\.\w{2,})", r"***@\2", msg)
     return msg

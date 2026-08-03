@@ -90,7 +90,9 @@ class AsyncTransactionService:
         self.notif_service = notif_service
         self.idempotency_repo = idempotency_repo
 
-    def _ensure_non_negative_balance(self, balance: Decimal, operation: str = "transaction") -> None:
+    def _ensure_non_negative_balance(
+        self, balance: Decimal, operation: str = "transaction"
+    ) -> None:
         """App-level guard: raise ValueError if balance would go negative."""
         if balance < Decimal("0.00"):
             raise ValueError(f"Insufficient balance for {operation}.")
@@ -112,6 +114,7 @@ class AsyncTransactionService:
                 )
             except (json.JSONDecodeError, KeyError):
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to parse cached idempotency result", exc_info=True)
                 return ServiceResult(
                     success=True,
@@ -120,8 +123,12 @@ class AsyncTransactionService:
         return None
 
     async def _store_idempotency(
-        self, idempotency_key: Optional[str], acc_no: str, operation: str,
-        amount: Decimal, result: ServiceResult,
+        self,
+        idempotency_key: Optional[str],
+        acc_no: str,
+        operation: str,
+        amount: Decimal,
+        result: ServiceResult,
     ) -> None:
         """Store the result of an idempotent operation for future dedup."""
         if not idempotency_key or not self.idempotency_repo:
@@ -130,11 +137,13 @@ class AsyncTransactionService:
             idempotency_key=idempotency_key,
             account_number=acc_no,
             operation=operation,
-            result_json=json.dumps({
-                "success": result.success,
-                "message": result.message,
-                "data": result.data,
-            }),
+            result_json=json.dumps(
+                {
+                    "success": result.success,
+                    "message": result.message,
+                    "data": result.data,
+                }
+            ),
             amount=amount,
         )
         try:
@@ -142,12 +151,16 @@ class AsyncTransactionService:
             await self.idempotency_repo.commit()
         except Exception:
             from unionbank.utils.logger import logger
+
             logger.warning("Failed to persist idempotency record", exc_info=True)
             await self.idempotency_repo.rollback()
 
     async def deposit(
-        self, acc_no: str, amount: Decimal, category: str = "General",
-        idempotency_key: Optional[str] = None
+        self,
+        acc_no: str,
+        amount: Decimal,
+        category: str = "General",
+        idempotency_key: Optional[str] = None,
     ) -> ServiceResult:
         if amount <= 0:
             return ServiceResult(success=False, message="Amount must be positive.")
@@ -185,7 +198,7 @@ class AsyncTransactionService:
         result = ServiceResult(
             success=True,
             message=f"{fmt_currency(float(amount))} deposited successfully. "
-                    f"New balance: {fmt_currency(float(account.balance))}",
+            f"New balance: {fmt_currency(float(account.balance))}",
             data={"balance": float(account.balance)},
         )
 
@@ -195,18 +208,20 @@ class AsyncTransactionService:
         # Send notification (non-fatal if fails)
         if self.notif_service and account:
             try:
-                await self.notif_service.notify_deposit(
-                    acc_no, amount, account.balance, txn.txn_id
-                )
+                await self.notif_service.notify_deposit(acc_no, amount, account.balance, txn.txn_id)
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send deposit notification", exc_info=True)
 
         return result
 
     async def withdraw(
-        self, acc_no: str, amount: Decimal, category: str = "General",
-        idempotency_key: Optional[str] = None
+        self,
+        acc_no: str,
+        amount: Decimal,
+        category: str = "General",
+        idempotency_key: Optional[str] = None,
     ) -> ServiceResult:
         if amount <= 0:
             return ServiceResult(success=False, message="Amount must be positive.")
@@ -251,7 +266,7 @@ class AsyncTransactionService:
         result = ServiceResult(
             success=True,
             message=f"{fmt_currency(float(amount))} withdrawn successfully. "
-                    f"New balance: {fmt_currency(float(account.balance))}",
+            f"New balance: {fmt_currency(float(account.balance))}",
             data={"balance": float(account.balance)},
         )
 
@@ -266,19 +281,25 @@ class AsyncTransactionService:
                 )
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send withdraw notification", exc_info=True)
 
         return result
 
     async def transfer(
-        self, sender_acc_no: str, receiver_acc_no: str,
-        amount: Decimal, category: str = "General",
+        self,
+        sender_acc_no: str,
+        receiver_acc_no: str,
+        amount: Decimal,
+        category: str = "General",
         idempotency_key: Optional[str] = None,
     ) -> TransferResult:
         if amount <= 0:
             return TransferResult(success=False, error_message="Amount must be positive.")
         if sender_acc_no == receiver_acc_no:
-            return TransferResult(success=False, error_message="Cannot transfer to your own account.")
+            return TransferResult(
+                success=False, error_message="Cannot transfer to your own account."
+            )
 
         # Check idempotency first (outside lock — read-only)
         if idempotency_key and self.idempotency_repo:
@@ -309,9 +330,13 @@ class AsyncTransactionService:
                 return TransferResult(success=False, error_message="Recipient account not found.")
 
             if not sender.can_transact:
-                return TransferResult(success=False, error_message="Your account is frozen or closed.")
+                return TransferResult(
+                    success=False, error_message="Your account is frozen or closed."
+                )
             if not receiver.can_transact:
-                return TransferResult(success=False, error_message="Recipient account is frozen or closed.")
+                return TransferResult(
+                    success=False, error_message="Recipient account is frozen or closed."
+                )
 
             if amount > sender.balance:
                 return TransferResult(
@@ -357,6 +382,7 @@ class AsyncTransactionService:
                 await self.account_repo.commit()
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.error("Transfer failed, rolling back", exc_info=True)
                 await self.account_repo.rollback()
                 return TransferResult(
@@ -368,15 +394,22 @@ class AsyncTransactionService:
         if self.notif_service:
             try:
                 await self.notif_service.notify_transfer_sent(
-                    sender_acc_no, amount, receiver_acc_no,
-                    sender.balance, sender_txn.txn_id,
+                    sender_acc_no,
+                    amount,
+                    receiver_acc_no,
+                    sender.balance,
+                    sender_txn.txn_id,
                 )
                 await self.notif_service.notify_transfer_received(
-                    receiver_acc_no, amount, sender_acc_no,
-                    receiver.balance, receiver_txn.txn_id,
+                    receiver_acc_no,
+                    amount,
+                    sender_acc_no,
+                    receiver.balance,
+                    receiver_txn.txn_id,
                 )
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send transfer notification", exc_info=True)
 
         result = TransferResult(
@@ -392,18 +425,21 @@ class AsyncTransactionService:
                     idempotency_key=idempotency_key,
                     account_number=sender_acc_no,
                     operation="transfer",
-                    result_json=json.dumps({
-                        "success": result.success,
-                        "sender_balance": float(result.sender_balance),
-                        "receiver_balance": float(result.receiver_balance),
-                        "error_message": result.error_message,
-                    }),
+                    result_json=json.dumps(
+                        {
+                            "success": result.success,
+                            "sender_balance": float(result.sender_balance),
+                            "receiver_balance": float(result.receiver_balance),
+                            "error_message": result.error_message,
+                        }
+                    ),
                     amount=amount,
                 )
                 await self.idempotency_repo.create(record)
                 await self.idempotency_repo.commit()
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to persist idempotency record for transfer", exc_info=True)
                 await self.idempotency_repo.rollback()
 
@@ -422,9 +458,9 @@ class AsyncTransactionService:
         if not account.can_transact:
             return ServiceResult(success=False, message="Account is frozen or closed.")
 
-        interest = Decimal(str(calculate_monthly_interest(
-            float(account.balance), settings.SAVINGS_INTEREST_RATE
-        )))
+        interest = Decimal(
+            str(calculate_monthly_interest(float(account.balance), settings.SAVINGS_INTEREST_RATE))
+        )
         if interest <= 0:
             return ServiceResult(success=False, message="No interest to apply.")
 
@@ -451,12 +487,13 @@ class AsyncTransactionService:
                 )
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send interest notification", exc_info=True)
 
         return ServiceResult(
             success=True,
             message=f"Interest of {fmt_currency(float(interest))} credited! "
-                    f"New balance: {fmt_currency(float(account.balance))}",
+            f"New balance: {fmt_currency(float(account.balance))}",
             data={"interest": float(interest), "balance": float(account.balance)},
         )
 
@@ -473,8 +510,12 @@ class AsyncTransactionService:
         txn_type: Optional[str] = None,
     ) -> tuple[list[Transaction], int]:
         return await self.txn_repo.get_paginated(
-            acc_no=acc_no, page=page, per_page=per_page,
-            from_date=from_date, to_date=to_date, txn_type=txn_type,
+            acc_no=acc_no,
+            page=page,
+            per_page=per_page,
+            from_date=from_date,
+            to_date=to_date,
+            txn_type=txn_type,
         )
 
     async def get_paginated_keyset(
@@ -488,8 +529,12 @@ class AsyncTransactionService:
     ) -> KeysetPage[Transaction]:
         """Keyset (cursor-based) pagination."""
         return await self.txn_repo.get_paginated_keyset(
-            acc_no=acc_no, limit=limit, cursor=cursor,
-            from_date=from_date, to_date=to_date, txn_type=txn_type,
+            acc_no=acc_no,
+            limit=limit,
+            cursor=cursor,
+            from_date=from_date,
+            to_date=to_date,
+            txn_type=txn_type,
         )
 
 
@@ -596,7 +641,9 @@ class AsyncAuthService:
             return ServiceResult(success=False, message="Account not found.")
 
         if account.is_frozen:
-            return ServiceResult(success=False, message="Account is frozen. Please contact the bank.")
+            return ServiceResult(
+                success=False, message="Account is frozen. Please contact the bank."
+            )
 
         if not account.is_active:
             return ServiceResult(success=False, message="Account has been closed.")
@@ -623,7 +670,11 @@ class AsyncAuthService:
 
     async def customer_register(
         self,
-        name: str, age: int, gender: str, mobile: str, email: str,
+        name: str,
+        age: int,
+        gender: str,
+        mobile: str,
+        email: str,
         password: str,
     ) -> ServiceResult:
         """Register a new customer account."""
@@ -649,6 +700,7 @@ class AsyncAuthService:
                 await self.notif_service.notify_welcome(acc_no)
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send welcome notification", exc_info=True)
 
         return ServiceResult(
@@ -708,14 +760,24 @@ class AsyncAdminService:
         self.audit_log_repo = audit_log_repo
         self.notif_service = notif_service
 
-    async def _audit_log(self, actor: str, action: str, target: Optional[str] = None,
-                   details: Optional[str] = None, ip_address: Optional[str] = None,
-                   reason: Optional[str] = None) -> None:
+    async def _audit_log(
+        self,
+        actor: str,
+        action: str,
+        target: Optional[str] = None,
+        details: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
         """Write an immutable audit log entry."""
         if self.audit_log_repo:
             await self.audit_log_repo.log(
-                actor=actor, action=action, target=target,
-                details=details, ip_address=ip_address, reason=reason,
+                actor=actor,
+                action=action,
+                target=target,
+                details=details,
+                ip_address=ip_address,
+                reason=reason,
             )
             await self.audit_log_repo.commit()
 
@@ -725,8 +787,9 @@ class AsyncAdminService:
     async def search_accounts(self, query: str) -> list[Account]:
         return await self.account_repo.search(query)
 
-    async def freeze_account(self, acc_no: str, actor: str = "admin",
-                       reason: Optional[str] = None) -> ServiceResult:
+    async def freeze_account(
+        self, acc_no: str, actor: str = "admin", reason: Optional[str] = None
+    ) -> ServiceResult:
         account = await self.account_repo.get(acc_no)
         if account is None:
             return ServiceResult(success=False, message="Account not found.")
@@ -740,8 +803,11 @@ class AsyncAdminService:
         await self.account_repo.commit()
 
         await self._audit_log(
-            actor=actor, action="freeze", target=acc_no,
-            details=f"Frozen account for {account.name}", reason=reason,
+            actor=actor,
+            action="freeze",
+            target=acc_no,
+            details=f"Frozen account for {account.name}",
+            reason=reason,
         )
 
         if self.notif_service:
@@ -749,12 +815,16 @@ class AsyncAdminService:
                 await self.notif_service.notify_account_frozen(acc_no, reason=reason or "")
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send freeze notification", exc_info=True)
 
-        return ServiceResult(success=True, message=f"Account {acc_no} ({account.name}) has been frozen.")
+        return ServiceResult(
+            success=True, message=f"Account {acc_no} ({account.name}) has been frozen."
+        )
 
-    async def unfreeze_account(self, acc_no: str, actor: str = "admin",
-                         reason: Optional[str] = None) -> ServiceResult:
+    async def unfreeze_account(
+        self, acc_no: str, actor: str = "admin", reason: Optional[str] = None
+    ) -> ServiceResult:
         account = await self.account_repo.get(acc_no)
         if account is None:
             return ServiceResult(success=False, message="Account not found.")
@@ -765,8 +835,11 @@ class AsyncAdminService:
         await self.account_repo.commit()
 
         await self._audit_log(
-            actor=actor, action="unfreeze", target=acc_no,
-            details=f"Unfrozen account for {account.name}", reason=reason,
+            actor=actor,
+            action="unfreeze",
+            target=acc_no,
+            details=f"Unfrozen account for {account.name}",
+            reason=reason,
         )
 
         if self.notif_service:
@@ -774,12 +847,16 @@ class AsyncAdminService:
                 await self.notif_service.notify_account_unfrozen(acc_no)
             except Exception:
                 from unionbank.utils.logger import logger
+
                 logger.warning("Failed to send unfreeze notification", exc_info=True)
 
-        return ServiceResult(success=True, message=f"Account {acc_no} ({account.name}) has been unfrozen.")
+        return ServiceResult(
+            success=True, message=f"Account {acc_no} ({account.name}) has been unfrozen."
+        )
 
-    async def delete_account(self, acc_no: str, actor: str = "admin",
-                       reason: Optional[str] = None) -> ServiceResult:
+    async def delete_account(
+        self, acc_no: str, actor: str = "admin", reason: Optional[str] = None
+    ) -> ServiceResult:
         account = await self.account_repo.get(acc_no)
         if account is None:
             return ServiceResult(success=False, message="Account not found.")
@@ -789,12 +866,19 @@ class AsyncAdminService:
         await self.account_repo.commit()
 
         await self._audit_log(
-            actor=actor, action="delete", target=acc_no,
-            details=f"Deleted account for {acc_name}", reason=reason,
+            actor=actor,
+            action="delete",
+            target=acc_no,
+            details=f"Deleted account for {acc_name}",
+            reason=reason,
         )
-        return ServiceResult(success=True, message=f"Account {acc_no} ({acc_name}) has been deleted.")
+        return ServiceResult(
+            success=True, message=f"Account {acc_no} ({acc_name}) has been deleted."
+        )
 
-    async def list_accounts_paginated(self, page: int = 1, per_page: int = 20) -> tuple[list[Account], int]:
+    async def list_accounts_paginated(
+        self, page: int = 1, per_page: int = 20
+    ) -> tuple[list[Account], int]:
         """Get accounts with pagination."""
         return await self.account_repo.get_all_paginated(page=page, per_page=per_page)
 
@@ -819,8 +903,9 @@ class AsyncAdminService:
             "sorted_categories": [{"name": c[0], "total": float(c[1])} for c in sorted_cats[:8]],
         }
 
-    async def change_admin_password(self, username: str, current_pwd: str, new_pwd: str,
-                              actor: str = "admin") -> ServiceResult:
+    async def change_admin_password(
+        self, username: str, current_pwd: str, new_pwd: str, actor: str = "admin"
+    ) -> ServiceResult:
         admin = await self.admin_repo.get_by_username(username)
         if admin is None:
             return ServiceResult(success=False, message="Admin not found.")
@@ -831,7 +916,9 @@ class AsyncAdminService:
         await self.admin_repo.commit()
 
         await self._audit_log(
-            actor=actor, action="password_reset", target=username,
+            actor=actor,
+            action="password_reset",
+            target=username,
             details="Admin password changed",
         )
         return ServiceResult(success=True, message="Admin password changed successfully.")
@@ -856,8 +943,9 @@ class AsyncSavingsGoalService:
     async def list_goals(self, acc_no: str) -> list[SavingsGoal]:
         return await self.goal_repo.get_by_account(acc_no)
 
-    async def create_goal(self, acc_no: str, name: str, target_amount: Decimal,
-                    target_date: Optional[str] = None) -> ServiceResult:
+    async def create_goal(
+        self, acc_no: str, name: str, target_amount: Decimal, target_date: Optional[str] = None
+    ) -> ServiceResult:
         if not name or len(name) < 2:
             return ServiceResult(success=False, message="Goal name must be at least 2 characters.")
         if target_amount <= 0:

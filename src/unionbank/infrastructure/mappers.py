@@ -101,6 +101,7 @@ def map_savings_goal(model: SavingsGoalModel) -> SavingsGoal:
 def map_admin(model: AdminModel) -> AdminUser:
     """Map an AdminModel to a domain AdminUser entity."""
     from unionbank.utils.token_security import decrypt_totp_secret
+
     return AdminUser(
         id=model.id,
         username=model.username,

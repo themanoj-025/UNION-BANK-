@@ -76,7 +76,7 @@ class Cache:
 
     def cached(self, ttl: int = 60, key_prefix: str = ""):
         """
-        Decorator: cache the return value of a function.
+        Cache the return value of a function.
 
         The cache key is derived from the function name + args.
         Only works for functions with JSON-serializable arguments.
@@ -86,6 +86,7 @@ class Cache:
             def get_bank_statistics():
                 ...
         """
+
         def decorator(func: Callable) -> Callable:
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -97,9 +98,7 @@ class Cache:
                     parts.append(repr(args))
                 if kwargs:
                     parts.append(repr(sorted(kwargs.items())))
-                cache_key = hashlib.sha256(
-                    ":".join(parts).encode()
-                ).hexdigest()
+                cache_key = hashlib.sha256(":".join(parts).encode()).hexdigest()
 
                 # Try cache
                 cached_value = self.get_json(cache_key)
@@ -113,7 +112,9 @@ class Cache:
                 except Exception:
                     logger.warning("Cache set failed for key %s", cache_key, exc_info=True)
                 return result
+
             return wrapper
+
         return decorator
 
     def invalidate(self, key_prefix: str) -> None:
@@ -183,6 +184,7 @@ class RedisCache(Cache):
             return False  # Already tried and failed
         try:
             import redis as redis_module
+
             self._redis = redis_module.Redis(
                 host=self._host,
                 port=self._port,
@@ -266,6 +268,7 @@ def get_cache() -> Cache:
             # Parse redis:// URL
             try:
                 from urllib.parse import urlparse
+
                 parsed = urlparse(redis_url)
                 _cache_instance = RedisCache(
                     host=parsed.hostname or "localhost",
@@ -274,7 +277,9 @@ def get_cache() -> Cache:
                     password=parsed.password,
                 )
             except Exception:
-                logger.warning("Failed to parse REDIS_URL, falling back to NullCache", exc_info=True)
+                logger.warning(
+                    "Failed to parse REDIS_URL, falling back to NullCache", exc_info=True
+                )
                 _cache_instance = NullCache()
         else:
             _cache_instance = NullCache()
@@ -295,5 +300,5 @@ def reset_cache() -> None:
 
 # Pre-export the cached decorator from the active cache
 def cached(ttl: int = 60, key_prefix: str = ""):
-    """Convenience decorator wrapping the global cache's cached method."""
+    """Wrap the global cache's cached method as a convenience decorator."""
     return get_cache().cached(ttl=ttl, key_prefix=key_prefix)

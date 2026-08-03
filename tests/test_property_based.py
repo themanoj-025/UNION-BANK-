@@ -38,20 +38,23 @@ _BCRYPT_TEST_HASH = "$2b$12$LJ3m4ys3Lk0TSwHnbfOMqeM5YsgCJTiEP6Kj.EXON7pE0uuo1Vcu
 
 valid_account_numbers = st.text(
     alphabet=st.characters(min_codepoint=48, max_codepoint=57),
-    min_size=10, max_size=10,
+    min_size=10,
+    max_size=10,
 )
 
 positive_decimals = st.decimals(
     min_value=Decimal("0.01"),
     max_value=Decimal("1000000.00"),
-    allow_nan=False, allow_infinity=False,
+    allow_nan=False,
+    allow_infinity=False,
     places=2,
 )
 
 amounts = st.decimals(
     min_value=Decimal("0.01"),
     max_value=Decimal("10000.00"),
-    allow_nan=False, allow_infinity=False,
+    allow_nan=False,
+    allow_infinity=False,
     places=2,
 )
 
@@ -59,7 +62,8 @@ passwords = st.text(
     alphabet=st.characters(
         blacklist_categories=("Cc", "Cs"),
     ),
-    min_size=8, max_size=30,
+    min_size=8,
+    max_size=30,
 )
 
 
@@ -179,15 +183,11 @@ def test_transfer_preserves_total_balance(
     repo.create(sender)
     repo.create(receiver)
 
-    total_before = sum(
-        a.balance for a in repo.get_all()
-    )
+    total_before = sum(a.balance for a in repo.get_all())
 
     result = service.transfer(sender_acc, receiver_acc, transfer_amount)
 
-    total_after = sum(
-        a.balance for a in repo.get_all()
-    )
+    total_after = sum(a.balance for a in repo.get_all())
 
     assert total_before == total_after, (
         f"Total balance changed from {total_before} to {total_after}! "
@@ -211,7 +211,8 @@ def test_transfer_preserves_total_balance(
     balance=st.decimals(
         min_value=Decimal("0.00"),
         max_value=Decimal("10000000.00"),
-        allow_nan=False, allow_infinity=False,
+        allow_nan=False,
+        allow_infinity=False,
         places=2,
     ),
 )
@@ -239,12 +240,8 @@ def test_interest_monotonicity(acc_no, balance):
     result = service.apply_interest(acc_no)
 
     if balance >= MIN_INTEREST_BALANCE:
-        assert result.success is True, (
-            f"Interest should succeed for balance {balance}"
-        )
-        assert result.data["interest"] > 0, (
-            f"Interest should be > 0 for balance {balance}"
-        )
+        assert result.success is True, f"Interest should succeed for balance {balance}"
+        assert result.data["interest"] > 0, f"Interest should be > 0 for balance {balance}"
         updated = repo.get(acc_no)
         assert updated.balance > balance
     elif balance > 0:
@@ -313,9 +310,7 @@ class MoneyInvariantMachine(RuleBasedStateMachine):
         """Total balance equals initial balance + deposits - withdrawals."""
         total = sum(a.balance for a in self.account_repo.get_all())
         expected = Decimal("1500.00") + self.total_deposits - self.total_withdrawals
-        assert total == expected, (
-            f"Balance invariant broken! Total: {total}, Expected: {expected}"
-        )
+        assert total == expected, f"Balance invariant broken! Total: {total}, Expected: {expected}"
 
     @invariant()
     def no_negative_balances(self):

@@ -22,20 +22,18 @@ from unionbank.config import settings
 class AccountRateLimiter:
     """
     Per-account sliding window rate limiter for money-movement operations.
-    
+
     Tracks deposit/withdraw/transfer operations per account within a rolling
     time window. When the limit is exceeded, the operation is rejected with
     a clear message indicating when to retry.
-    
+
     Limits are configured via settings.MONEY_MOVEMENT_RATE_LIMIT (default: "5/hour").
     """
 
     def __init__(self):
         # {account_number: [timestamp, timestamp, ...]}
         self._operations: dict[str, list[float]] = defaultdict(list)
-        self._max_ops, self._window_seconds = self._parse_limit(
-            settings.MONEY_MOVEMENT_RATE_LIMIT
-        )
+        self._max_ops, self._window_seconds = self._parse_limit(settings.MONEY_MOVEMENT_RATE_LIMIT)
 
     def _parse_limit(self, limit: str) -> tuple[int, int]:
         """Parse rate limit string like '5/hour' into (count, seconds)."""
@@ -52,14 +50,12 @@ class AccountRateLimiter:
     def _cleanup_window(self, acc_no: str) -> None:
         """Remove timestamps outside the current window."""
         cutoff = time.time() - self._window_seconds
-        self._operations[acc_no] = [
-            ts for ts in self._operations[acc_no] if ts > cutoff
-        ]
+        self._operations[acc_no] = [ts for ts in self._operations[acc_no] if ts > cutoff]
 
     def check_and_record(self, acc_no: str) -> tuple[bool, Optional[str]]:
         """
         Check if an operation is allowed for this account, and record it.
-        
+
         Returns:
             (allowed, retry_after_message):
                 (True, None) if the operation is allowed

@@ -79,10 +79,12 @@ def c():
     but is available globally from conftest.py.
     """
     import tempfile
+
     data_dir = tempfile.mkdtemp(prefix="union_bank_c_")
     old = os.environ.get("UNION_BANK_DATA_DIR")
     os.environ["UNION_BANK_DATA_DIR"] = data_dir
     from unionbank.infrastructure.container import get_container, reset_container
+
     reset_container()
     yield get_container()
     reset_container()

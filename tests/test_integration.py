@@ -77,7 +77,6 @@ def sample_account() -> dict:
 
 
 class TestAccountCRUD:
-
     def test_create_and_get_account(self, c):
         """Create an account via the container and verify it persists."""
         account = Account(
@@ -109,6 +108,7 @@ class TestAccountCRUD:
     def test_idempotency_repo_create_and_get(self, c):
         """Verify the idempotency repository can create and retrieve records."""
         from unionbank.domain.entities import IdempotencyRecord
+
         repo = c.idempotency_repo()
 
         record = IdempotencyRecord(
@@ -273,6 +273,7 @@ class TestAccountCRUD:
 
         # Create a transaction for this account
         from unionbank.domain.entities import Transaction
+
         txn = Transaction(
             txn_id="TXN-DELETETEST",
             account_number="1000000001",
@@ -313,13 +314,14 @@ class TestAccountCRUD:
 
 
 class TestTransactionFlow:
-
     def test_deposit_creates_transaction_record(self, c):
         """Deposit updates account balance AND creates a transaction record."""
         repo = c.account_repo()
         account = Account(
-            account_number="1000000001", name="Flow Test",
-            balance=Decimal("0.00"), password="pw",
+            account_number="1000000001",
+            name="Flow Test",
+            balance=Decimal("0.00"),
+            password="pw",
         )
         repo.create(account)
         repo.commit()
@@ -346,12 +348,16 @@ class TestTransactionFlow:
 
         # Create accounts
         sender = Account(
-            account_number="1000000001", name="Sender",
-            balance=Decimal("500.00"), password="pw",
+            account_number="1000000001",
+            name="Sender",
+            balance=Decimal("500.00"),
+            password="pw",
         )
         receiver = Account(
-            account_number="2000000002", name="Receiver",
-            balance=Decimal("100.00"), password="pw",
+            account_number="2000000002",
+            name="Receiver",
+            balance=Decimal("100.00"),
+            password="pw",
         )
         repo.create(sender)
         repo.create(receiver)
@@ -385,12 +391,16 @@ class TestTransactionFlow:
         svc = c.transaction_service()
 
         sender = Account(
-            account_number="1000000001", name="Sender",
-            balance=Decimal("100.00"), password="pw",
+            account_number="1000000001",
+            name="Sender",
+            balance=Decimal("100.00"),
+            password="pw",
         )
         receiver = Account(
-            account_number="2000000002", name="Receiver",
-            balance=Decimal("50.00"), password="pw",
+            account_number="2000000002",
+            name="Receiver",
+            balance=Decimal("50.00"),
+            password="pw",
         )
         repo.create(sender)
         repo.create(receiver)
@@ -409,7 +419,6 @@ class TestTransactionFlow:
 
 
 class TestAdminOperations:
-
     def test_freeze_account_via_service(self, c):
         """
         Freezing an account via AdminService should persist in SQLite.
@@ -419,9 +428,12 @@ class TestAdminOperations:
         """
         repo = c.account_repo()
         account = Account(
-            account_number="1000000001", name="Freeze Target",
-            balance=Decimal("1000.00"), password="pw",
-            is_active=True, is_frozen=False,
+            account_number="1000000001",
+            name="Freeze Target",
+            balance=Decimal("1000.00"),
+            password="pw",
+            is_active=True,
+            is_frozen=False,
         )
         repo.create(account)
         repo.commit()
@@ -439,15 +451,16 @@ class TestAdminOperations:
         """Admin audit log entries should be persisted in SQLite."""
         repo = c.account_repo()
         account = Account(
-            account_number="1000000001", name="Audit Target",
-            balance=Decimal("500.00"), password="pw",
+            account_number="1000000001",
+            name="Audit Target",
+            balance=Decimal("500.00"),
+            password="pw",
         )
         repo.create(account)
         repo.commit()
 
         admin_svc = c.admin_service()
-        admin_svc.freeze_account("1000000001", actor="test_admin",
-                                  reason="Testing audit log")
+        admin_svc.freeze_account("1000000001", actor="test_admin", reason="Testing audit log")
 
         # Check audit log via the audit_log_repo
         audit_repo = c.audit_log_repo()
@@ -461,15 +474,16 @@ class TestAdminOperations:
 
 
 class TestSavingsGoalPersistence:
-
     def test_create_and_contribute_to_goal(self, c):
         """Create a savings goal, contribute to it, verify everything persisted."""
         repo = c.account_repo()
         goal_repo = c.savings_goal_repo()
 
         account = Account(
-            account_number="1000000001", name="Savery",
-            balance=Decimal("1000.00"), password="pw",
+            account_number="1000000001",
+            name="Savery",
+            balance=Decimal("1000.00"),
+            password="pw",
         )
         repo.create(account)
         repo.commit()
@@ -505,7 +519,6 @@ class TestSavingsGoalPersistence:
         txns = c.transaction_repo().get_by_account("1000000001")
         assert any("Savings goal" in t.description for t in txns)
 
-
     def test_unfreeze_does_not_reactivate_closed_account(self, c):
         """
         ⭐ REGRESSION TEST: Unfreezing must NOT reactivate a closed account.
@@ -523,9 +536,12 @@ class TestSavingsGoalPersistence:
         """
         repo = c.account_repo()
         account = Account(
-            account_number="1000000001", name="Freeze Regression",
-            balance=Decimal("500.00"), password="pw",
-            is_active=True, is_frozen=False,
+            account_number="1000000001",
+            name="Freeze Regression",
+            balance=Decimal("500.00"),
+            password="pw",
+            is_active=True,
+            is_frozen=False,
         )
         repo.create(account)
         repo.commit()
@@ -553,9 +569,12 @@ class TestSavingsGoalPersistence:
         """Freezing a permanently closed account should fail gracefully."""
         repo = c.account_repo()
         account = Account(
-            account_number="1000000001", name="Closed Account",
-            balance=Decimal("0.00"), password="pw",
-            is_active=False, is_frozen=False,
+            account_number="1000000001",
+            name="Closed Account",
+            balance=Decimal("0.00"),
+            password="pw",
+            is_active=False,
+            is_frozen=False,
         )
         repo.create(account)
         repo.commit()
@@ -570,7 +589,6 @@ class TestSavingsGoalPersistence:
 
 
 class TestAuthFlow:
-
     def test_register_and_login_flow(self, c):
         """Full auth flow: register → login → verify session data."""
         # Register via auth service
@@ -594,10 +612,12 @@ class TestAuthFlow:
     def test_admin_login(self, c):
         """Admin login via container should work."""
         from unionbank.utils.hashing import hash_password
+
         admin_repo = c.admin_repo()
 
         # Create admin user directly in DB
         from unionbank.domain.entities import AdminUser
+
         admin = AdminUser(
             username="test_admin",
             password=hash_password("AdminStr0ng!"),
@@ -646,14 +666,16 @@ class TestConcurrentTransfers:
             name="Sender",
             balance=INITIAL_BALANCE,
             password="pw",
-            is_active=True, is_frozen=False,
+            is_active=True,
+            is_frozen=False,
         )
         receiver = Account(
             account_number="2000000002",
             name="Receiver",
             balance=Decimal("0.00"),
             password="pw",
-            is_active=True, is_frozen=False,
+            is_active=True,
+            is_frozen=False,
         )
         repo.create(sender)
         repo.create(receiver)
@@ -665,6 +687,7 @@ class TestConcurrentTransfers:
         def do_transfer(_):
             """Execute one transfer in its own thread-local session."""
             from unionbank.infrastructure.container import get_container
+
             local_c = get_container()
             return local_c.transaction_service().transfer(
                 sender_acc_no="1000000001",
@@ -722,7 +745,8 @@ class TestConcurrentTransfers:
             name="Deposit Target",
             balance=Decimal("0.00"),
             password="pw",
-            is_active=True, is_frozen=False,
+            is_active=True,
+            is_frozen=False,
         )
         repo.create(acc)
         repo.commit()
@@ -732,6 +756,7 @@ class TestConcurrentTransfers:
 
         def do_deposit(_):
             from unionbank.infrastructure.container import get_container
+
             local_c = get_container()
             return local_c.transaction_service().deposit(
                 acc_no="1000000001",
@@ -763,34 +788,31 @@ class TestConcurrentTransfers:
 
 
 class TestPagination:
-
     def test_paginated_transactions(self, c):
         """Verify offset-based pagination works correctly via the real SQLite DB."""
         repo = c.account_repo()
         svc = c.transaction_service()
 
         account = Account(
-            account_number="1000000001", name="Page Test",
-            balance=Decimal("0.00"), password="pw",
+            account_number="1000000001",
+            name="Page Test",
+            balance=Decimal("0.00"),
+            password="pw",
         )
         repo.create(account)
         repo.commit()
 
         # Create 25 deposits
-        for i in range(25):
+        for _i in range(25):
             svc.deposit("1000000001", Decimal("100.00"))
 
         # Page 1: 20 items
-        page1, total = svc.get_paginated_transactions(
-            acc_no="1000000001", page=1, per_page=20
-        )
+        page1, total = svc.get_paginated_transactions(acc_no="1000000001", page=1, per_page=20)
         assert len(page1) == 20
         assert total == 25
 
         # Page 2: 5 items
-        page2, _ = svc.get_paginated_transactions(
-            acc_no="1000000001", page=2, per_page=20
-        )
+        page2, _ = svc.get_paginated_transactions(acc_no="1000000001", page=2, per_page=20)
         assert len(page2) == 5
 
     def test_keyset_pagination_roundtrip(self, c):
@@ -804,43 +826,37 @@ class TestPagination:
         svc = c.transaction_service()
 
         account = Account(
-            account_number="1000000001", name="Keyset Test",
-            balance=Decimal("0.00"), password="pw",
+            account_number="1000000001",
+            name="Keyset Test",
+            balance=Decimal("0.00"),
+            password="pw",
         )
         repo.create(account)
         repo.commit()
 
         # Create 15 deposits (timestamps will be slightly different due to DB precision)
-        for i in range(15):
+        for _i in range(15):
             svc.deposit("1000000001", Decimal("50.00"))
 
         # Page 1: should get 5 items, has_more=True
-        page1 = svc.get_paginated_keyset(
-            acc_no="1000000001", limit=5
-        )
+        page1 = svc.get_paginated_keyset(acc_no="1000000001", limit=5)
         assert len(page1.items) == 5
         assert page1.has_more is True
         assert page1.cursor is not None
         assert page1.cursor_key == "timestamp"
 
         # Page 2: should get 5 items, has_more=True
-        page2 = svc.get_paginated_keyset(
-            acc_no="1000000001", limit=5, cursor=page1.cursor
-        )
+        page2 = svc.get_paginated_keyset(acc_no="1000000001", limit=5, cursor=page1.cursor)
         assert len(page2.items) == 5
         assert page2.has_more is True
 
         # Page 3: should get 5 items, has_more=False
-        page3 = svc.get_paginated_keyset(
-            acc_no="1000000001", limit=5, cursor=page2.cursor
-        )
+        page3 = svc.get_paginated_keyset(acc_no="1000000001", limit=5, cursor=page2.cursor)
         assert len(page3.items) == 5
         assert page3.has_more is False
 
         # Page 4: should get 0 items
-        page4 = svc.get_paginated_keyset(
-            acc_no="1000000001", limit=5, cursor=page3.cursor
-        )
+        page4 = svc.get_paginated_keyset(acc_no="1000000001", limit=5, cursor=page3.cursor)
         assert len(page4.items) == 0
         assert page4.has_more is False
 

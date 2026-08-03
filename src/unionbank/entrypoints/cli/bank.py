@@ -38,7 +38,6 @@ from unionbank.utils import (
 
 
 class Bank:
-
     def register(self):
         header("NEW ACCOUNT REGISTRATION")
 
@@ -60,19 +59,19 @@ class Bank:
             error("Invalid age.")
             return
 
-        gender  = input("  Gender         : ").strip()
+        gender = input("  Gender         : ").strip()
 
-        mobile  = input("  Mobile Number  : ").strip()
+        mobile = input("  Mobile Number  : ").strip()
         if not validate_phone(mobile):
             error("Invalid mobile number. Must be 10 digits starting with 6-9.")
             return
 
-        email   = input("  Email Address  : ").strip()
+        email = input("  Email Address  : ").strip()
         if not validate_email(email):
             error("Invalid email format.")
             return
 
-        pwd     = prompt_password("  Create Password: ")
+        pwd = prompt_password("  Create Password: ")
         valid_pwd, pwd_msg = validate_password(pwd)
         if not valid_pwd:
             error(pwd_msg)
@@ -87,13 +86,13 @@ class Bank:
         acc_no = generate_account_number()
         data = {
             "account_number": acc_no,
-            "name":      name,
-            "age":       age,
-            "gender":    gender,
-            "mobile":    mobile,
-            "email":     email,
-            "password":  hash_password(pwd),
-            "balance":   0.0,
+            "name": name,
+            "age": age,
+            "gender": gender,
+            "mobile": mobile,
+            "email": email,
+            "password": hash_password(pwd),
+            "balance": 0.0,
             "is_active": True,
             "is_frozen": False,
             "created_at": now_str(),
@@ -116,9 +115,10 @@ class Bank:
     def login(self):
         header("ACCOUNT LOGIN")
         acc_no = input("  Account Number : ").strip()
-        pwd    = prompt_password("  Password       : ")
+        pwd = prompt_password("  Password       : ")
 
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
 
         # Use the container's auth service for DB-backed authentication
@@ -179,39 +179,44 @@ class Bank:
             # Check session timeout
             if not check_session_timeout(acc.last_activity):
                 mins = get_session_timeout_seconds() // 60
-                warning(f"Session timed out after {mins} minutes of inactivity. Please login again.")
+                warning(
+                    f"Session timed out after {mins} minutes of inactivity. Please login again."
+                )
                 logger.info(f"Session timeout -> Acc:{acc.account_number}  Name:{acc.name}")
                 break
 
             # Refresh account data directly from SQLite via the container
             from unionbank.infrastructure.container import get_container
+
             c = get_container()
             fresh_domain = c.account_repo().get(acc.account_number)
             if fresh_domain:
-                acc.balance   = float(fresh_domain.balance)
+                acc.balance = float(fresh_domain.balance)
                 acc.is_active = fresh_domain.is_active
                 acc.is_frozen = fresh_domain.is_frozen
 
             if acc.is_frozen:
                 error("Your account has been frozen by admin. Logging out.")
-                logger.warning(f"Session terminated - account frozen mid-session: Acc:{acc.account_number}")
+                logger.warning(
+                    f"Session terminated - account frozen mid-session: Acc:{acc.account_number}"
+                )
                 break
             if not acc.is_active:
                 warning("Account closed. Logging out.")
                 break
 
             print(f"""
-  {GREEN}{BOLD}{'═' * 50}{RESET}
+  {GREEN}{BOLD}{"═" * 50}{RESET}
   {GREEN}   Welcome, {acc.name}{RESET}
   {GREEN}   Account No : {acc.account_number}{RESET}
   {GREEN}   Balance    : {fmt_currency(acc.balance)}{RESET}
   {YELLOW}   (Session: active){RESET}
-  {GREEN}{'═' * 50}{RESET}
+  {GREEN}{"═" * 50}{RESET}
   {CYAN}   1) Account Services{RESET}
   {CYAN}   2) Transactions{RESET}
   {CYAN}   3) Profile Settings{RESET}
   {CYAN}   4) Logout{RESET}
-  {GREEN}{'═' * 50}{RESET}""")
+  {GREEN}{"═" * 50}{RESET}""")
 
             choice = input("  Enter choice: ").strip()
             acc.last_activity = _time.time()  # Reset timer on any interaction
@@ -232,9 +237,9 @@ class Bank:
     def _account_services(self, acc):
         while True:
             print(f"""
-  {CYAN}{'─' * 42}{RESET}
+  {CYAN}{"─" * 42}{RESET}
   {CYAN}{BOLD}   ACCOUNT SERVICES{RESET}
-  {CYAN}{'─' * 42}{RESET}
+  {CYAN}{"─" * 42}{RESET}
   {WHITE}   1) Check Balance{RESET}
   {WHITE}   2) Mini Statement  (last 5 txns){RESET}
   {WHITE}   3) Full Statement{RESET}
@@ -242,7 +247,7 @@ class Bank:
   {WHITE}   6) Apply Monthly Interest{RESET}
   {WHITE}   7) Savings Goals{RESET}
   {WHITE}   8) Back{RESET}
-  {CYAN}{'─' * 42}{RESET}""")
+  {CYAN}{"─" * 42}{RESET}""")
             choice = input("  Enter choice: ").strip()
             if choice == "1":
                 acc.check_balance()
@@ -266,14 +271,14 @@ class Bank:
     def _transactions_menu(self, acc):
         while True:
             print(f"""
-  {CYAN}{'─' * 42}{RESET}
+  {CYAN}{"─" * 42}{RESET}
   {CYAN}{BOLD}   TRANSACTIONS{RESET}
-  {CYAN}{'─' * 42}{RESET}
+  {CYAN}{"─" * 42}{RESET}
   {WHITE}   1) Deposit Money{RESET}
   {WHITE}   2) Withdraw Money{RESET}
   {WHITE}   3) Transfer Funds{RESET}
   {WHITE}   4) Back{RESET}
-  {CYAN}{'─' * 42}{RESET}""")
+  {CYAN}{"─" * 42}{RESET}""")
             choice = input("  Enter choice: ").strip()
             if choice == "1":
                 acc.deposit()
@@ -289,14 +294,14 @@ class Bank:
     def _profile_settings(self, acc):
         while True:
             print(f"""
-  {CYAN}{'─' * 42}{RESET}
+  {CYAN}{"─" * 42}{RESET}
   {CYAN}{BOLD}   PROFILE SETTINGS{RESET}
-  {CYAN}{'─' * 42}{RESET}
+  {CYAN}{"─" * 42}{RESET}
   {WHITE}   1) Update Profile{RESET}
   {WHITE}   2) Change Password{RESET}
   {WHITE}   3) Close Account{RESET}
   {WHITE}   4) Back{RESET}
-  {CYAN}{'─' * 42}{RESET}""")
+  {CYAN}{"─" * 42}{RESET}""")
             choice = input("  Enter choice: ").strip()
             if choice == "1":
                 acc.update_profile()

@@ -122,7 +122,9 @@ def clear_auth_cookies(response: Response) -> None:
     response.delete_cookie(key=ROLE_COOKIE, path="/")
 
 
-def get_token_from_cookies(request: Request, cookie_name: str = ACCESS_TOKEN_COOKIE) -> Optional[str]:
+def get_token_from_cookies(
+    request: Request, cookie_name: str = ACCESS_TOKEN_COOKIE
+) -> Optional[str]:
     """Extract a token from cookies."""
     return request.cookies.get(cookie_name)
 

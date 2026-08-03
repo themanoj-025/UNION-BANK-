@@ -60,14 +60,17 @@ class AccountModel(ModelBase):
     deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     transactions = relationship(
-        "TransactionModel", back_populates="account",
+        "TransactionModel",
+        back_populates="account",
         order_by="TransactionModel.timestamp.desc()",
     )
     savings_goals = relationship(
-        "SavingsGoalModel", back_populates="account",
+        "SavingsGoalModel",
+        back_populates="account",
     )
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the account model."""
         return f"<AccountModel {self.account_number} ({self.name})>"
 
 
@@ -102,6 +105,7 @@ class TransactionModel(ModelBase):
     account = relationship("AccountModel", back_populates="transactions")
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the transaction model."""
         return f"<TransactionModel {self.txn_id} ({self.type} {self.amount})>"
 
 
@@ -137,6 +141,7 @@ class LoanModel(ModelBase):
     admin_notes = Column(String(500), nullable=True, default="")
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the loan model."""
         return f"<LoanModel {self.loan_id}: {self.loan_type} {self.principal_amount}>"
 
 
@@ -162,6 +167,7 @@ class SavingsGoalModel(ModelBase):
     account = relationship("AccountModel", back_populates="savings_goals")
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the savings-goal model."""
         return f"<SavingsGoalModel {self.goal_id}: {self.name}>"
 
 
@@ -179,6 +185,7 @@ class AdminModel(ModelBase):
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the admin model."""
         return f"<AdminModel {self.username}>"
 
 
@@ -222,6 +229,7 @@ class IdempotencyModel(ModelBase):
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the idempotency model."""
         return f"<IdempotencyModel {self.idempotency_key}: {self.operation}>"
 
 
@@ -240,9 +248,7 @@ class NotificationModel(ModelBase):
 
     __tablename__ = "notifications"
 
-    __table_args__ = (
-        Index("idx_notif_account_read", "account_number", "is_read"),
-    )
+    __table_args__ = (Index("idx_notif_account_read", "account_number", "is_read"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     notif_id = Column(String(24), nullable=False, unique=True, index=True)
@@ -260,6 +266,7 @@ class NotificationModel(ModelBase):
     related_txn_id = Column(String(20), nullable=True)
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the notification model."""
         return f"<NotificationModel {self.notif_id}: {self.type}>"
 
 
@@ -281,6 +288,7 @@ class NotificationPreferenceModel(ModelBase):
     updated_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow)
 
     def __repr__(self) -> str:
+        """Return a debug-friendly representation of the notification-preference model."""
         return f"<NotificationPreferenceModel {self.account_number}>"
 
 
@@ -291,7 +299,9 @@ class AuditLogModel(ModelBase):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     actor = Column(String(50), nullable=False, index=True)  # Admin username
-    action = Column(String(50), nullable=False, index=True)  # freeze, unfreeze, delete, close, password_reset
+    action = Column(
+        String(50), nullable=False, index=True
+    )  # freeze, unfreeze, delete, close, password_reset
     target = Column(String(50), nullable=True)  # Account number or username affected
     details = Column(String(500), nullable=True)  # Human-readable details (no PII)
     ip_address = Column(String(45), nullable=True)  # Client IP

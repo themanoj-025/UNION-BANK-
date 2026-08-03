@@ -58,6 +58,7 @@ def client():
     """FastAPI TestClient connected to the real application."""
     # Import api after container is reset so init_db uses the test DB
     from unionbank.entrypoints.api.main import app
+
     with TestClient(app) as tc:
         yield tc
 
@@ -67,7 +68,7 @@ def client():
 
 @pytest.fixture
 def sample_customer_registration() -> dict:
-    """Valid customer registration payload."""
+    """Return a valid customer registration payload."""
     return {
         "name": "Alice Johnson",
         "age": 28,
@@ -92,10 +93,13 @@ def registered_customer(client: TestClient, sample_customer_registration: dict) 
     acc_no = msg.split(": ")[-1].strip()
 
     # Login to get JWT token
-    login_resp = client.post("/api/auth/login", json={
-        "account_number": acc_no,
-        "password": sample_customer_registration["password"],
-    })
+    login_resp = client.post(
+        "/api/auth/login",
+        json={
+            "account_number": acc_no,
+            "password": sample_customer_registration["password"],
+        },
+    )
     assert login_resp.status_code == 200
     login_data = login_resp.json()
 
@@ -119,23 +123,29 @@ def registered_customer(client: TestClient, sample_customer_registration: dict) 
 @pytest.fixture
 def second_registered_customer(client: TestClient) -> dict:
     """Register a second customer (for transfer tests)."""
-    resp = client.post("/api/auth/register", json={
-        "name": "Bob Smith",
-        "age": 32,
-        "gender": "Male",
-        "mobile": "9123456789",
-        "email": "bob@example.com",
-        "password": "BobStr0ng!",
-        "confirm_password": "BobStr0ng!",
-    })
+    resp = client.post(
+        "/api/auth/register",
+        json={
+            "name": "Bob Smith",
+            "age": 32,
+            "gender": "Male",
+            "mobile": "9123456789",
+            "email": "bob@example.com",
+            "password": "BobStr0ng!",
+            "confirm_password": "BobStr0ng!",
+        },
+    )
     assert resp.status_code == 200
     msg = resp.json().get("message", "")
     acc_no = msg.split(": ")[-1].strip()
 
-    login_resp = client.post("/api/auth/login", json={
-        "account_number": acc_no,
-        "password": "BobStr0ng!",
-    })
+    login_resp = client.post(
+        "/api/auth/login",
+        json={
+            "account_number": acc_no,
+            "password": "BobStr0ng!",
+        },
+    )
     assert login_resp.status_code == 200
     login_data = login_resp.json()
 
@@ -168,10 +178,13 @@ def admin_token(client: TestClient) -> dict:
     admin_repo.commit()
 
     # Login
-    resp = client.post("/api/auth/admin-login", json={
-        "username": "admin",
-        "password": "admin123",
-    })
+    resp = client.post(
+        "/api/auth/admin-login",
+        json={
+            "username": "admin",
+            "password": "admin123",
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
 
@@ -189,7 +202,6 @@ def admin_token(client: TestClient) -> dict:
 
 
 class TestHealthAndUtilities:
-
     def test_health_check(self, client):
         """GET /api/health should return healthy status."""
         resp = client.get("/api/health")
@@ -214,7 +226,6 @@ class TestHealthAndUtilities:
 
 
 class TestAuth:
-
     def test_register_success(self, client, sample_customer_registration):
         """Register a new customer should succeed."""
         resp = client.post("/api/auth/register", json=sample_customer_registration)
@@ -263,10 +274,13 @@ class TestAuth:
 
     def test_login_success(self, client, registered_customer):
         """Successful login should return JWT tokens."""
-        resp = client.post("/api/auth/login", json={
-            "account_number": registered_customer["account_number"],
-            "password": registered_customer["password"],
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": registered_customer["account_number"],
+                "password": registered_customer["password"],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "access_token" in data
@@ -275,18 +289,24 @@ class TestAuth:
 
     def test_login_wrong_password(self, client, registered_customer):
         """Login with wrong password should fail."""
-        resp = client.post("/api/auth/login", json={
-            "account_number": registered_customer["account_number"],
-            "password": "WrongPassword!1",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": registered_customer["account_number"],
+                "password": "WrongPassword!1",
+            },
+        )
         assert resp.status_code == 401
 
     def test_login_nonexistent_account(self, client):
         """Login with an account that doesn't exist should fail."""
-        resp = client.post("/api/auth/login", json={
-            "account_number": "9999999999",
-            "password": "SomePass123",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": "9999999999",
+                "password": "SomePass123",
+            },
+        )
         assert resp.status_code == 404
 
     def test_admin_login_success(self, client, admin_token):
@@ -295,10 +315,13 @@ class TestAuth:
 
     def test_admin_login_wrong_password(self, client):
         """Admin login with wrong password should fail."""
-        resp = client.post("/api/auth/admin-login", json={
-            "username": "admin",
-            "password": "WrongPassword",
-        })
+        resp = client.post(
+            "/api/auth/admin-login",
+            json={
+                "username": "admin",
+                "password": "WrongPassword",
+            },
+        )
         assert resp.status_code == 401
 
 
@@ -306,7 +329,6 @@ class TestAuth:
 
 
 class TestAccountProfile:
-
     def test_get_profile(self, client, registered_customer):
         """GET /api/account/profile should return the customer's profile."""
         resp = client.get("/api/account/profile", headers=registered_customer["headers"])
@@ -329,10 +351,14 @@ class TestAccountProfile:
 
     def test_update_profile(self, client, registered_customer):
         """PUT /api/account/profile should update customer details."""
-        resp = client.put("/api/account/profile", headers=registered_customer["headers"], json={
-            "name": "Alice Johnson Jr.",
-            "age": 29,
-        })
+        resp = client.put(
+            "/api/account/profile",
+            headers=registered_customer["headers"],
+            json={
+                "name": "Alice Johnson Jr.",
+                "age": 29,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["name"] == "Alice Johnson Jr."
@@ -340,18 +366,25 @@ class TestAccountProfile:
 
     def test_change_password(self, client, registered_customer):
         """POST /api/account/change-password should update the password."""
-        resp = client.post("/api/account/change-password", headers=registered_customer["headers"], json={
-            "current_password": registered_customer["password"],
-            "new_password": "NewStr0ngP@ss",
-            "confirm_password": "NewStr0ngP@ss",
-        })
+        resp = client.post(
+            "/api/account/change-password",
+            headers=registered_customer["headers"],
+            json={
+                "current_password": registered_customer["password"],
+                "new_password": "NewStr0ngP@ss",
+                "confirm_password": "NewStr0ngP@ss",
+            },
+        )
         assert resp.status_code == 200
 
         # Verify new password works for login
-        login_resp = client.post("/api/auth/login", json={
-            "account_number": registered_customer["account_number"],
-            "password": "NewStr0ngP@ss",
-        })
+        login_resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": registered_customer["account_number"],
+                "password": "NewStr0ngP@ss",
+            },
+        )
         assert login_resp.status_code == 200
 
 
@@ -359,7 +392,6 @@ class TestAccountProfile:
 
 
 class TestTransactions:
-
     def test_get_balance(self, client, registered_customer):
         """GET /api/account/balance should return the current balance."""
         resp = client.get("/api/account/balance", headers=registered_customer["headers"])
@@ -370,10 +402,14 @@ class TestTransactions:
 
     def test_deposit(self, client, registered_customer):
         """POST /api/account/deposit should add funds."""
-        resp = client.post("/api/account/deposit", headers=registered_customer["headers"], json={
-            "amount": 500.0,
-            "category": "Salary",
-        })
+        resp = client.post(
+            "/api/account/deposit",
+            headers=registered_customer["headers"],
+            json={
+                "amount": 500.0,
+                "category": "Salary",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "deposited successfully" in data["message"]
@@ -389,41 +425,59 @@ class TestTransactions:
         The Pydantic model enforces gt=0 on the amount field, so the request
         fails with a 422 Unprocessable Entity (not 400).
         """
-        resp = client.post("/api/account/deposit", headers=registered_customer["headers"], json={
-            "amount": -100.0,
-        })
+        resp = client.post(
+            "/api/account/deposit",
+            headers=registered_customer["headers"],
+            json={
+                "amount": -100.0,
+            },
+        )
         assert resp.status_code == 422
 
     def test_withdraw(self, client, registered_customer):
         """POST /api/account/withdraw should deduct funds."""
-        resp = client.post("/api/account/withdraw", headers=registered_customer["headers"], json={
-            "amount": 200.0,
-            "category": "Food & Dining",
-        })
+        resp = client.post(
+            "/api/account/withdraw",
+            headers=registered_customer["headers"],
+            json={
+                "amount": 200.0,
+                "category": "Food & Dining",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "withdrawn successfully" in data["message"]
 
     def test_withdraw_insufficient(self, client, registered_customer):
         """Withdraw more than balance should fail."""
-        resp = client.post("/api/account/withdraw", headers=registered_customer["headers"], json={
-            "amount": 999999.0,
-        })
+        resp = client.post(
+            "/api/account/withdraw",
+            headers=registered_customer["headers"],
+            json={
+                "amount": 999999.0,
+            },
+        )
         assert resp.status_code == 400
 
     def test_transfer(self, client, registered_customer, second_registered_customer):
         """POST /api/account/transfer should move funds between accounts."""
-        resp = client.post("/api/account/transfer", headers=registered_customer["headers"], json={
-            "target_account": second_registered_customer["account_number"],
-            "amount": 300.0,
-            "category": "General",
-        })
+        resp = client.post(
+            "/api/account/transfer",
+            headers=registered_customer["headers"],
+            json={
+                "target_account": second_registered_customer["account_number"],
+                "amount": 300.0,
+                "category": "General",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "transferred" in data["message"].lower()
 
         # Verify sender balance decreased
-        sender_bal = client.get("/api/account/balance", headers=registered_customer["headers"]).json()
+        sender_bal = client.get(
+            "/api/account/balance", headers=registered_customer["headers"]
+        ).json()
         assert sender_bal["balance"] >= 700.0  # 1000 - 300 = 700
 
         # Verify receiver balance increased
@@ -434,33 +488,49 @@ class TestTransactions:
 
     def test_transfer_to_self(self, client, registered_customer):
         """Transfer to own account should fail."""
-        resp = client.post("/api/account/transfer", headers=registered_customer["headers"], json={
-            "target_account": registered_customer["account_number"],
-            "amount": 100.0,
-        })
+        resp = client.post(
+            "/api/account/transfer",
+            headers=registered_customer["headers"],
+            json={
+                "target_account": registered_customer["account_number"],
+                "amount": 100.0,
+            },
+        )
         assert resp.status_code == 400
 
     def test_transfer_to_nonexistent(self, client, registered_customer):
         """Transfer to nonexistent account should fail."""
-        resp = client.post("/api/account/transfer", headers=registered_customer["headers"], json={
-            "target_account": "9999999999",
-            "amount": 100.0,
-        })
+        resp = client.post(
+            "/api/account/transfer",
+            headers=registered_customer["headers"],
+            json={
+                "target_account": "9999999999",
+                "amount": 100.0,
+            },
+        )
         assert resp.status_code == 404
 
     def test_transfer_insufficient(self, client, registered_customer, second_registered_customer):
         """Transfer more than balance should fail."""
-        resp = client.post("/api/account/transfer", headers=registered_customer["headers"], json={
-            "target_account": second_registered_customer["account_number"],
-            "amount": 999999.0,
-        })
+        resp = client.post(
+            "/api/account/transfer",
+            headers=registered_customer["headers"],
+            json={
+                "target_account": second_registered_customer["account_number"],
+                "amount": 999999.0,
+            },
+        )
         assert resp.status_code == 400
 
     def test_full_statement(self, client, registered_customer):
         """GET /api/account/statements should return transaction history."""
         # Do some transactions first
-        client.post("/api/account/deposit", headers=registered_customer["headers"], json={"amount": 100.0})
-        client.post("/api/account/withdraw", headers=registered_customer["headers"], json={"amount": 50.0})
+        client.post(
+            "/api/account/deposit", headers=registered_customer["headers"], json={"amount": 100.0}
+        )
+        client.post(
+            "/api/account/withdraw", headers=registered_customer["headers"], json={"amount": 50.0}
+        )
 
         resp = client.get("/api/account/statements", headers=registered_customer["headers"])
         assert resp.status_code == 200
@@ -492,13 +562,16 @@ class TestTransactions:
 
 
 class TestSavingsGoals:
-
     def test_create_goal(self, client, registered_customer):
         """POST /api/savings should create a new savings goal."""
-        resp = client.post("/api/savings", headers=registered_customer["headers"], json={
-            "name": "Vacation Fund",
-            "target_amount": 5000.0,
-        })
+        resp = client.post(
+            "/api/savings",
+            headers=registered_customer["headers"],
+            json={
+                "name": "Vacation Fund",
+                "target_amount": 5000.0,
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["name"] == "Vacation Fund"
@@ -509,12 +582,22 @@ class TestSavingsGoals:
     def test_list_goals(self, client, registered_customer):
         """GET /api/savings should list all goals."""
         # Create two goals
-        client.post("/api/savings", headers=registered_customer["headers"], json={
-            "name": "Goal 1", "target_amount": 1000.0,
-        })
-        client.post("/api/savings", headers=registered_customer["headers"], json={
-            "name": "Goal 2", "target_amount": 2000.0,
-        })
+        client.post(
+            "/api/savings",
+            headers=registered_customer["headers"],
+            json={
+                "name": "Goal 1",
+                "target_amount": 1000.0,
+            },
+        )
+        client.post(
+            "/api/savings",
+            headers=registered_customer["headers"],
+            json={
+                "name": "Goal 2",
+                "target_amount": 2000.0,
+            },
+        )
 
         resp = client.get("/api/savings", headers=registered_customer["headers"])
         assert resp.status_code == 200
@@ -525,15 +608,24 @@ class TestSavingsGoals:
     def test_contribute_to_goal(self, client, registered_customer):
         """POST /api/savings/{goal_id}/contribute should move funds to goal."""
         # Create a goal
-        create_resp = client.post("/api/savings", headers=registered_customer["headers"], json={
-            "name": "New Car", "target_amount": 10000.0,
-        })
+        create_resp = client.post(
+            "/api/savings",
+            headers=registered_customer["headers"],
+            json={
+                "name": "New Car",
+                "target_amount": 10000.0,
+            },
+        )
         goal_id = create_resp.json()["goal_id"]
 
         # Contribute
-        resp = client.post(f"/api/savings/{goal_id}/contribute", headers=registered_customer["headers"], json={
-            "amount": 500.0,
-        })
+        resp = client.post(
+            f"/api/savings/{goal_id}/contribute",
+            headers=registered_customer["headers"],
+            json={
+                "amount": 500.0,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["current_amount"] == 500.0
@@ -541,21 +633,35 @@ class TestSavingsGoals:
 
     def test_contribute_insufficient(self, client, registered_customer):
         """Contribute more than balance should fail."""
-        create_resp = client.post("/api/savings", headers=registered_customer["headers"], json={
-            "name": "Dream House", "target_amount": 500000.0,
-        })
+        create_resp = client.post(
+            "/api/savings",
+            headers=registered_customer["headers"],
+            json={
+                "name": "Dream House",
+                "target_amount": 500000.0,
+            },
+        )
         goal_id = create_resp.json()["goal_id"]
 
-        resp = client.post(f"/api/savings/{goal_id}/contribute", headers=registered_customer["headers"], json={
-            "amount": 99999999.0,
-        })
+        resp = client.post(
+            f"/api/savings/{goal_id}/contribute",
+            headers=registered_customer["headers"],
+            json={
+                "amount": 99999999.0,
+            },
+        )
         assert resp.status_code == 400
 
     def test_delete_goal(self, client, registered_customer):
         """DELETE /api/savings/{goal_id} should delete a goal."""
-        create_resp = client.post("/api/savings", headers=registered_customer["headers"], json={
-            "name": "Temporary Goal", "target_amount": 1000.0,
-        })
+        create_resp = client.post(
+            "/api/savings",
+            headers=registered_customer["headers"],
+            json={
+                "name": "Temporary Goal",
+                "target_amount": 1000.0,
+            },
+        )
         goal_id = create_resp.json()["goal_id"]
 
         resp = client.delete(f"/api/savings/{goal_id}", headers=registered_customer["headers"])
@@ -567,7 +673,6 @@ class TestSavingsGoals:
 
 
 class TestAdminOperations:
-
     def test_admin_view_accounts(self, client, admin_token, registered_customer):
         """GET /api/admin/accounts should return all accounts."""
         resp = client.get("/api/admin/accounts", headers=admin_token["headers"])
@@ -654,8 +759,9 @@ class TestAdminOperations:
         resp = client.get("/api/admin/accounts")
         assert resp.status_code == 401
 
-    def test_frozen_account_cannot_transact(self, client, admin_token, registered_customer,
-                                             second_registered_customer):
+    def test_frozen_account_cannot_transact(
+        self, client, admin_token, registered_customer, second_registered_customer
+    ):
         """A frozen account should not be able to withdraw or transfer."""
         acc_no = registered_customer["account_number"]
 
@@ -663,17 +769,25 @@ class TestAdminOperations:
         client.post(f"/api/admin/accounts/{acc_no}/freeze", headers=admin_token["headers"])
 
         # Try to withdraw
-        resp = client.post("/api/account/withdraw", headers=registered_customer["headers"], json={
-            "amount": 100.0,
-        })
+        resp = client.post(
+            "/api/account/withdraw",
+            headers=registered_customer["headers"],
+            json={
+                "amount": 100.0,
+            },
+        )
         # Note: the v1 API uses process_withdraw directly, so it may return 400
         assert resp.status_code in (400, 403)
 
         # Try to transfer
-        resp = client.post("/api/account/transfer", headers=registered_customer["headers"], json={
-            "target_account": second_registered_customer["account_number"],
-            "amount": 100.0,
-        })
+        resp = client.post(
+            "/api/account/transfer",
+            headers=registered_customer["headers"],
+            json={
+                "target_account": second_registered_customer["account_number"],
+                "amount": 100.0,
+            },
+        )
         assert resp.status_code in (400, 403)
 
 
@@ -681,7 +795,6 @@ class TestAdminOperations:
 
 
 class TestErrorHandling:
-
     def test_invalid_json_body(self, client):
         """Send invalid JSON should return 422 (Pydantic validation)."""
         resp = client.post("/api/auth/login", json={"not_correct_field": "x"})
@@ -694,10 +807,13 @@ class TestErrorHandling:
 
     def test_invalid_account_number_format(self, client):
         """Login with empty password should fail validation."""
-        resp = client.post("/api/auth/login", json={
-            "account_number": "",
-            "password": "",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "account_number": "",
+                "password": "",
+            },
+        )
         assert resp.status_code == 422  # Pydantic min_length validation
 
 
@@ -705,7 +821,6 @@ class TestErrorHandling:
 
 
 class TestV2API:
-
     def test_v2_health_check(self, client):
         """V2 health check should use ApiResponse envelope."""
         resp = client.get("/api/v2/health")
@@ -722,15 +837,18 @@ class TestV2API:
         Note: "Charlie V2" contains a digit which fails validate_name()
         (letters and spaces only). Using "Charlie" instead.
         """
-        resp = client.post("/api/v2/auth/register", json={
-            "name": "Charlie",
-            "age": 26,
-            "gender": "Male",
-            "mobile": "9988776655",
-            "email": "charlie@example.com",
-            "password": "CharlieP@ss1",
-            "confirm_password": "CharlieP@ss1",
-        })
+        resp = client.post(
+            "/api/v2/auth/register",
+            json={
+                "name": "Charlie",
+                "age": 26,
+                "gender": "Male",
+                "mobile": "9988776655",
+                "email": "charlie@example.com",
+                "password": "CharlieP@ss1",
+                "confirm_password": "CharlieP@ss1",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -738,10 +856,13 @@ class TestV2API:
 
     def test_v2_login_envelope(self, client, registered_customer):
         """V2 login should return success=true + data.access_token."""
-        resp = client.post("/api/v2/auth/login", json={
-            "account_number": registered_customer["account_number"],
-            "password": registered_customer["password"],
-        })
+        resp = client.post(
+            "/api/v2/auth/login",
+            json={
+                "account_number": registered_customer["account_number"],
+                "password": registered_customer["password"],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -755,10 +876,13 @@ class TestV2API:
         The V2 login endpoint returns 404 for 'not found' accounts
         (distinct from 401 for wrong credentials on existing accounts).
         """
-        resp = client.post("/api/v2/auth/login", json={
-            "account_number": "9999999999",
-            "password": "wrong",
-        })
+        resp = client.post(
+            "/api/v2/auth/login",
+            json={
+                "account_number": "9999999999",
+                "password": "wrong",
+            },
+        )
         assert resp.status_code == 404
         data = resp.json()
         assert data["success"] is False
@@ -773,15 +897,18 @@ class TestV2API:
         via the validate_name() function which returns False, triggering _err()
         which raises HTTPException with an ApiResponse dict.
         """
-        resp = client.post("/api/v2/auth/register", json={
-            "name": "A",  # too short
-            "age": 25,
-            "gender": "Male",
-            "mobile": "9876543210",
-            "email": "test@test.com",
-            "password": "TestP@ss1",
-            "confirm_password": "TestP@ss1",
-        })
+        resp = client.post(
+            "/api/v2/auth/register",
+            json={
+                "name": "A",  # too short
+                "age": 25,
+                "gender": "Male",
+                "mobile": "9876543210",
+                "email": "test@test.com",
+                "password": "TestP@ss1",
+                "confirm_password": "TestP@ss1",
+            },
+        )
         assert resp.status_code == 400
         data = resp.json()
         assert data["success"] is False
@@ -797,10 +924,14 @@ class TestV2API:
 
     def test_v2_deposit(self, client, registered_customer):
         """V2 deposit should work with ApiResponse."""
-        resp = client.post("/api/v2/account/deposit", headers=registered_customer["headers"], json={
-            "amount": 250.0,
-            "category": "Salary",
-        })
+        resp = client.post(
+            "/api/v2/account/deposit",
+            headers=registered_customer["headers"],
+            json={
+                "amount": 250.0,
+                "category": "Salary",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -808,10 +939,14 @@ class TestV2API:
 
     def test_v2_transfer(self, client, registered_customer, second_registered_customer):
         """V2 transfer should work with ApiResponse."""
-        resp = client.post("/api/v2/account/transfer", headers=registered_customer["headers"], json={
-            "target_account": second_registered_customer["account_number"],
-            "amount": 200.0,
-        })
+        resp = client.post(
+            "/api/v2/account/transfer",
+            headers=registered_customer["headers"],
+            json={
+                "target_account": second_registered_customer["account_number"],
+                "amount": 200.0,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True

@@ -37,27 +37,35 @@ class LogNotificationSender:
     def send_email(self, to_email: str, subject: str, body: str) -> bool:
         """Simulate sending an email by logging it."""
         from unionbank.utils.logger import logger
-        logger.info(
-            f"[EMAIL] To: {to_email} | Subject: {subject} | Body: {body[:200]}"
-        )
+
+        logger.info(f"[EMAIL] To: {to_email} | Subject: {subject} | Body: {body[:200]}")
         return True
 
     def send_sms(self, to_phone: str, message: str) -> bool:
         """Simulate sending an SMS by logging it."""
         from unionbank.utils.logger import logger
-        logger.info(
-            f"[SMS] To: {to_phone} | Message: {message[:160]}"
-        )
+
+        logger.info(f"[SMS] To: {to_phone} | Message: {message[:160]}")
         return True
 
 
 #  Notification Service
 
 NOTIFICATION_TYPES = [
-    "deposit", "withdraw", "transfer_sent", "transfer_received",
-    "interest", "loan_approved", "loan_rejected", "loan_emi_paid",
-    "loan_closed", "account_frozen", "account_unfrozen", "account_closed",
-    "goal_completed", "welcome",
+    "deposit",
+    "withdraw",
+    "transfer_sent",
+    "transfer_received",
+    "interest",
+    "loan_approved",
+    "loan_rejected",
+    "loan_emi_paid",
+    "loan_closed",
+    "account_frozen",
+    "account_unfrozen",
+    "account_closed",
+    "goal_completed",
+    "welcome",
 ]
 
 
@@ -165,12 +173,16 @@ class NotificationService:
                 )
         except Exception:
             from unionbank.utils.logger import logger
+
             logger.warning(f"Failed to send alerts for {acc_no}", exc_info=True)
 
     # ── Convenience methods for common notification types ───────────────────
 
     def notify_deposit(
-        self, acc_no: str, amount: Decimal, balance: Decimal,
+        self,
+        acc_no: str,
+        amount: Decimal,
+        balance: Decimal,
         txn_id: str,
     ) -> Notification:
         title = "Deposit Received"
@@ -181,7 +193,10 @@ class NotificationService:
         return self.notify_and_commit(acc_no, "deposit", title, message, txn_id)
 
     def notify_withdraw(
-        self, acc_no: str, amount: Decimal, balance: Decimal,
+        self,
+        acc_no: str,
+        amount: Decimal,
+        balance: Decimal,
         txn_id: str,
     ) -> Notification:
         title = "Withdrawal Processed"
@@ -192,8 +207,12 @@ class NotificationService:
         return self.notify_and_commit(acc_no, "withdraw", title, message, txn_id)
 
     def notify_transfer_sent(
-        self, acc_no: str, amount: Decimal, target_acc: str,
-        balance: Decimal, txn_id: str,
+        self,
+        acc_no: str,
+        amount: Decimal,
+        target_acc: str,
+        balance: Decimal,
+        txn_id: str,
     ) -> Notification:
         title = "Transfer Sent"
         message = (
@@ -203,8 +222,12 @@ class NotificationService:
         return self.notify_and_commit(acc_no, "transfer_sent", title, message, txn_id)
 
     def notify_transfer_received(
-        self, acc_no: str, amount: Decimal, from_acc: str,
-        balance: Decimal, txn_id: str,
+        self,
+        acc_no: str,
+        amount: Decimal,
+        from_acc: str,
+        balance: Decimal,
+        txn_id: str,
     ) -> Notification:
         title = "Transfer Received"
         message = (
@@ -214,7 +237,10 @@ class NotificationService:
         return self.notify_and_commit(acc_no, "transfer_received", title, message, txn_id)
 
     def notify_interest(
-        self, acc_no: str, amount: Decimal, balance: Decimal,
+        self,
+        acc_no: str,
+        amount: Decimal,
+        balance: Decimal,
         txn_id: str,
     ) -> Notification:
         title = "Interest Credited"
@@ -225,7 +251,11 @@ class NotificationService:
         return self.notify_and_commit(acc_no, "interest", title, message, txn_id)
 
     def notify_loan_approved(
-        self, acc_no: str, amount: Decimal, loan_type: str, loan_id: str,
+        self,
+        acc_no: str,
+        amount: Decimal,
+        loan_type: str,
+        loan_id: str,
     ) -> Notification:
         title = "Loan Approved 🎉"
         message = (
@@ -235,17 +265,24 @@ class NotificationService:
         return self.notify_and_commit(acc_no, "loan_approved", title, message, loan_id)
 
     def notify_loan_rejected(
-        self, acc_no: str, loan_type: str, loan_id: str, reason: str = "",
+        self,
+        acc_no: str,
+        loan_type: str,
+        loan_id: str,
+        reason: str = "",
     ) -> Notification:
         title = "Loan Application Rejected"
-        message = (
-            f"Your {loan_type} loan application ({loan_id}) has been rejected."
-            + (f" Reason: {reason}" if reason else "")
+        message = f"Your {loan_type} loan application ({loan_id}) has been rejected." + (
+            f" Reason: {reason}" if reason else ""
         )
         return self.notify_and_commit(acc_no, "loan_rejected", title, message, loan_id)
 
     def notify_emi_paid(
-        self, acc_no: str, amount: Decimal, loan_type: str, loan_id: str,
+        self,
+        acc_no: str,
+        amount: Decimal,
+        loan_type: str,
+        loan_id: str,
         remaining: Decimal,
     ) -> Notification:
         title = "EMI Payment Confirmed"
@@ -256,21 +293,23 @@ class NotificationService:
         return self.notify_and_commit(acc_no, "loan_emi_paid", title, message, loan_id)
 
     def notify_loan_closed(
-        self, acc_no: str, loan_type: str, loan_id: str,
+        self,
+        acc_no: str,
+        loan_type: str,
+        loan_id: str,
     ) -> Notification:
         title = "Loan Fully Paid 🎉"
-        message = (
-            f"Congratulations! Your {loan_type} loan ({loan_id}) has been fully paid off!"
-        )
+        message = f"Congratulations! Your {loan_type} loan ({loan_id}) has been fully paid off!"
         return self.notify_and_commit(acc_no, "loan_closed", title, message, loan_id)
 
     def notify_account_frozen(
-        self, acc_no: str, reason: str = "",
+        self,
+        acc_no: str,
+        reason: str = "",
     ) -> Notification:
         title = "Account Frozen"
-        message = (
-            "Your account has been frozen by the bank."
-            + (f" Reason: {reason}" if reason else " Please contact support.")
+        message = "Your account has been frozen by the bank." + (
+            f" Reason: {reason}" if reason else " Please contact support."
         )
         return self.notify_and_commit(acc_no, "account_frozen", title, message)
 

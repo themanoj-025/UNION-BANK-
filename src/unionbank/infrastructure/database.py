@@ -185,6 +185,7 @@ def reset_engine():
             _engine_instance.dispose()
         except Exception:
             from unionbank.utils.logger import logger
+
             logger.warning("Failed to dispose database engine", exc_info=True)
         _engine_instance = None
         _session_maker = None
@@ -193,6 +194,7 @@ def reset_engine():
             _async_engine_instance.dispose()
         except Exception:
             from unionbank.utils.logger import logger
+
             logger.warning("Failed to dispose async database engine", exc_info=True)
         _async_engine_instance = None
         _async_session_maker = None
@@ -216,6 +218,7 @@ def close_session():
             _thread_local.session.close()
         except Exception:
             from unionbank.utils.logger import logger
+
             logger.warning("Failed to close database session", exc_info=True)
         _thread_local.session = None
 
@@ -297,5 +300,6 @@ def init_db():
         TokenVersionModel,
         TransactionModel,
     )
+
     engine = get_engine()
     ModelBase.metadata.create_all(bind=engine)

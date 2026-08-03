@@ -17,9 +17,11 @@ SESSION_TIMEOUT_SECONDS = settings.SESSION_TIMEOUT_SECONDS
 
 #  Rate limiting (via container's LoginAttemptRepository)
 
+
 def _get_login_attempt_repo():
     """Get the LoginAttemptRepository from the container."""
     from unionbank.infrastructure.container import get_container
+
     return get_container().login_attempt_repo()
 
 
@@ -39,6 +41,7 @@ def record_failed_login(acc_no: str) -> int:
     Returns remaining attempts before lockout.
     """
     from unionbank.utils.logger import logger
+
     repo = _get_login_attempt_repo()
     remaining = repo.record_failure(acc_no, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
     repo.commit()
@@ -57,6 +60,7 @@ def reset_login_attempts(acc_no: str) -> None:
 
 
 #  Session management
+
 
 def check_session_timeout(last_activity: float) -> bool:
     """

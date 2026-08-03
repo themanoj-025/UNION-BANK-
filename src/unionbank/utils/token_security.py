@@ -48,6 +48,7 @@ def _get_fernet():
         return _fernet_instance
 
     from unionbank.config import settings
+
     key = settings.TOKEN_ENCRYPTION_KEY
     if not key:
         logger.warning(
@@ -58,6 +59,7 @@ def _get_fernet():
 
     try:
         from cryptography.fernet import Fernet
+
         _fernet_instance = Fernet(key.encode() if isinstance(key, str) else key)
         return _fernet_instance
     except Exception:

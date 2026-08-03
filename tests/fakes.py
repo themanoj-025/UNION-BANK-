@@ -53,7 +53,6 @@ class SimulatedDuplicateKeyError(Exception):
     """
 
 
-
 class SimulatedForeignKeyViolation(Exception):
     """
     Raised when a fake repository simulates a foreign key violation.
@@ -64,7 +63,6 @@ class SimulatedForeignKeyViolation(Exception):
         with pytest.raises(SimulatedForeignKeyViolation):
             repo.create(txn_with_bad_account)
     """
-
 
 
 class SimulatedRaceConditionError(Exception):
@@ -82,7 +80,6 @@ class SimulatedRaceConditionError(Exception):
     """
 
 
-
 class SimulatedDatabaseTimeout(Exception):
     """
     Raised when a fake repository simulates a database timeout.
@@ -92,7 +89,6 @@ class SimulatedDatabaseTimeout(Exception):
         with pytest.raises(SimulatedDatabaseTimeout):
             repo.commit()
     """
-
 
 
 def _utcnow() -> datetime:
@@ -110,6 +106,7 @@ class _FakeSession:
     savepoints (e.g. atomic transfer) work transparently with fakes without
     requiring a real SQLAlchemy session.
     """
+
     def begin_nested(self):
         return self
 
@@ -215,7 +212,8 @@ class FakeAccountRepository:
     def search(self, query: str) -> list[Account]:
         q = query.lower()
         return [
-            a for a in self._accounts.values()
+            a
+            for a in self._accounts.values()
             if q in a.account_number.lower() or q in a.name.lower()
         ]
 
@@ -229,19 +227,13 @@ class FakeAccountRepository:
         )
 
     def active_count(self) -> int:
-        return sum(
-            1 for a in self._accounts.values()
-            if a.is_active and not a.is_frozen
-        )
+        return sum(1 for a in self._accounts.values() if a.is_active and not a.is_frozen)
 
     def frozen_count(self) -> int:
         return sum(1 for a in self._accounts.values() if a.is_frozen)
 
     def closed_count(self) -> int:
-        return sum(
-            1 for a in self._accounts.values()
-            if not a.is_active and not a.is_frozen
-        )
+        return sum(1 for a in self._accounts.values() if not a.is_active and not a.is_frozen)
 
     def get_statistics(self) -> dict:
         """Compute bank-wide statistics from in-memory data."""
@@ -251,9 +243,7 @@ class FakeAccountRepository:
             "active": sum(1 for a in accounts if a.is_active and not a.is_frozen),
             "frozen": sum(1 for a in accounts if a.is_frozen),
             "closed": sum(1 for a in accounts if not a.is_active and not a.is_frozen),
-            "total_balance": float(
-                sum(a.balance for a in accounts) if accounts else 0
-            ),
+            "total_balance": float(sum(a.balance for a in accounts) if accounts else 0),
         }
 
     def get_all_paginated(self, page: int = 1, per_page: int = 20) -> tuple[list[Account], int]:
@@ -261,7 +251,7 @@ class FakeAccountRepository:
         accounts = list(self._accounts.values())
         total = len(accounts)
         start = (page - 1) * per_page
-        return accounts[start:start + per_page], total
+        return accounts[start : start + per_page], total
 
     def get_by_email(self, email: str) -> Optional[Account]:
         for a in self._accounts.values():
@@ -335,7 +325,7 @@ class FakeTransactionRepository:
         filtered.sort(key=lambda t: t.timestamp or _utcnow(), reverse=True)
         total = len(filtered)
         start = (page - 1) * per_page
-        return filtered[start:start + per_page], total
+        return filtered[start : start + per_page], total
 
     def get_paginated_keyset(
         self,
@@ -482,9 +472,7 @@ class FakeLoginAttemptRepository:
     def get(self, key: str) -> Optional[LoginAttempt]:
         return self._records.get(key)
 
-    def record_failure(
-        self, key: str, max_attempts: int = 5, lockout_minutes: int = 15
-    ) -> int:
+    def record_failure(self, key: str, max_attempts: int = 5, lockout_minutes: int = 15) -> int:
         now = _utcnow()
         record = self._records.get(key)
 
@@ -573,12 +561,10 @@ class FakeNotificationRepository:
         return results[:limit]
 
     def get_unread_count(self, acc_no: str) -> int:
-        return sum(1 for n in self._notifications
-                   if n.account_number == acc_no and not n.is_read)
+        return sum(1 for n in self._notifications if n.account_number == acc_no and not n.is_read)
 
     def get_unread(self, acc_no: str, limit: int = 20) -> list[Notification]:
-        results = [n for n in self._notifications
-                   if n.account_number == acc_no and not n.is_read]
+        results = [n for n in self._notifications if n.account_number == acc_no and not n.is_read]
         results.sort(key=lambda n: n.created_at, reverse=True)
         return results[:limit]
 
@@ -603,6 +589,7 @@ class FakeNotificationRepository:
 
     def delete_old(self, days: int = 30) -> int:
         from datetime import timedelta, timezone
+
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         old = [n for n in self._notifications if n.created_at < cutoff]
         for n in old:
@@ -662,11 +649,13 @@ class FakeRefreshTokenRepository:
         if token_id not in self._tokens:
             return False
         from datetime import datetime, timezone
+
         self._tokens[token_id].revoked_at = datetime.now(timezone.utc)
         return True
 
     def revoke_all_for_account(self, account_number: str) -> int:
         from datetime import datetime, timezone
+
         count = 0
         for t in self._tokens.values():
             if t.account_number == account_number and t.revoked_at is None:
@@ -676,6 +665,7 @@ class FakeRefreshTokenRepository:
 
     def clean_expired(self) -> int:
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc)
         expired = [id for id, t in self._tokens.items() if t.expires_at < now]
         for id in expired:
@@ -698,18 +688,26 @@ class FakeAuditLogRepository:
     def __init__(self):
         self._entries: list[dict] = []
 
-    def log(self, actor: str, action: str, target: Optional[str] = None,
-            details: Optional[str] = None, ip_address: Optional[str] = None,
-            reason: Optional[str] = None) -> None:
-        self._entries.append({
-            "actor": actor,
-            "action": action,
-            "target": target,
-            "details": details,
-            "ip_address": ip_address,
-            "reason": reason,
-            "timestamp": str(_utcnow())[:19],
-        })
+    def log(
+        self,
+        actor: str,
+        action: str,
+        target: Optional[str] = None,
+        details: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
+        self._entries.append(
+            {
+                "actor": actor,
+                "action": action,
+                "target": target,
+                "details": details,
+                "ip_address": ip_address,
+                "reason": reason,
+                "timestamp": str(_utcnow())[:19],
+            }
+        )
 
     def get_recent(self, limit: int = 50) -> list:
         return list(reversed(self._entries))[:limit]

@@ -18,20 +18,24 @@ def export_transactions_to_csv(acc_no: str, records: list, filepath: str) -> str
 
     with open(filepath, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["Transaction ID", "Date/Time", "Type", "Amount", "Balance", "Description", "Category"])
+        writer.writerow(
+            ["Transaction ID", "Date/Time", "Type", "Amount", "Balance", "Description", "Category"]
+        )
 
         for t in records:
             sign = "+" if t["type"] in ("DEPOSIT", "TRANSFER_IN") else "-"
             amount_str = f"{sign}{t['amount']}"
-            writer.writerow([
-                t.get("txn_id", ""),
-                t.get("timestamp", ""),
-                t.get("type", ""),
-                amount_str,
-                t.get("balance", ""),
-                t.get("description", ""),
-                t.get("category", "General"),
-            ])
+            writer.writerow(
+                [
+                    t.get("txn_id", ""),
+                    t.get("timestamp", ""),
+                    t.get("type", ""),
+                    amount_str,
+                    t.get("balance", ""),
+                    t.get("description", ""),
+                    t.get("category", "General"),
+                ]
+            )
 
     return filepath
 
@@ -39,4 +43,6 @@ def export_transactions_to_csv(acc_no: str, records: list, filepath: str) -> str
 def generate_csv_filename(acc_no: str) -> str:
     """Generate a default CSV export filename."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", f"statement_{acc_no}_{timestamp}.csv")
+    return os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "data", f"statement_{acc_no}_{timestamp}.csv"
+    )

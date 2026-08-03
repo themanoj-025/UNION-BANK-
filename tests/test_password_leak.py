@@ -17,7 +17,11 @@ from pathlib import Path
 # Resolve the path to api/common.py (now lives in src/unionbank/entrypoints/api/)
 _COMMON_PY_PATH = (
     Path(__file__).resolve().parent.parent
-    / "src" / "unionbank" / "entrypoints" / "api" / "common.py"
+    / "src"
+    / "unionbank"
+    / "entrypoints"
+    / "api"
+    / "common.py"
 )
 
 
@@ -94,8 +98,7 @@ def _get_current_customer_return_dict() -> list[str]:
                     # Look for the final return dict literal
                     if isinstance(subnode, ast.Return) and isinstance(subnode.value, ast.Dict):
                         return [
-                            key.value for key in subnode.value.keys
-                            if isinstance(key, ast.Constant)
+                            key.value for key in subnode.value.keys if isinstance(key, ast.Constant)
                         ]
     return []
 
@@ -134,6 +137,7 @@ class TestNoPasswordLeak:
     def test_password_not_in_profile_response(self):
         """Verify ProfileData model doesn't contain any password fields."""
         from unionbank.entrypoints.api.models import ProfileData
+
         fields = ProfileData.model_fields
         assert "password" not in fields, (
             "ProfileData should never include a password field. "

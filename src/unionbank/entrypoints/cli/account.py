@@ -46,33 +46,32 @@ init_db()
 
 
 class Account:
-
     def __init__(self, data: dict):
         self.account_number = data["account_number"]
-        self.name           = data["name"]
-        self.age            = data["age"]
-        self.gender         = data["gender"]
-        self.mobile         = data["mobile"]
-        self.email          = data["email"]
-        self.password       = data["password"]
-        self.balance        = data.get("balance", 0.0)
-        self.is_active      = data.get("is_active", True)
-        self.is_frozen      = data.get("is_frozen", False)
-        self.created_at     = data.get("created_at", now_str())
+        self.name = data["name"]
+        self.age = data["age"]
+        self.gender = data["gender"]
+        self.mobile = data["mobile"]
+        self.email = data["email"]
+        self.password = data["password"]
+        self.balance = data.get("balance", 0.0)
+        self.is_active = data.get("is_active", True)
+        self.is_frozen = data.get("is_frozen", False)
+        self.created_at = data.get("created_at", now_str())
 
     def to_dict(self):
         return {
             "account_number": self.account_number,
-            "name":           self.name,
-            "age":            self.age,
-            "gender":         self.gender,
-            "mobile":         self.mobile,
-            "email":          self.email,
-            "password":       self.password,
-            "balance":        self.balance,
-            "is_active":      self.is_active,
-            "is_frozen":      self.is_frozen,
-            "created_at":     self.created_at,
+            "name": self.name,
+            "age": self.age,
+            "gender": self.gender,
+            "mobile": self.mobile,
+            "email": self.email,
+            "password": self.password,
+            "balance": self.balance,
+            "is_active": self.is_active,
+            "is_frozen": self.is_frozen,
+            "created_at": self.created_at,
         }
 
     def save(self):
@@ -137,14 +136,17 @@ class Account:
         acc_repo = c.account_repo()
         if not acc_repo.exists(self.account_number):
             from unionbank.domain.entities import Account as DomainAccount
-            acc_repo.create(DomainAccount(
-                account_number=self.account_number,
-                name=self.name,
-                password=self.password,
-                balance=Decimal(str(self.balance)),
-                is_active=self.is_active,
-                is_frozen=self.is_frozen,
-            ))
+
+            acc_repo.create(
+                DomainAccount(
+                    account_number=self.account_number,
+                    name=self.name,
+                    password=self.password,
+                    balance=Decimal(str(self.balance)),
+                    is_active=self.is_active,
+                    is_frozen=self.is_frozen,
+                )
+            )
             acc_repo.commit()
 
         domain_txn = DomainTransaction(
@@ -180,22 +182,30 @@ class Account:
         print(f"  {GREEN}Name       : {BOLD}{self.name}{RESET}")
         print(f"  {GREEN}Balance    : {BOLD}{fmt_currency(self.balance)}{RESET}")
         divider()
-        logger.info(f"Balance checked -> Acc:{self.account_number}  Bal:{fmt_currency(self.balance)}")
+        logger.info(
+            f"Balance checked -> Acc:{self.account_number}  Bal:{fmt_currency(self.balance)}"
+        )
 
     def mini_statement(self):
         header("MINI STATEMENT  (Last 5 transactions)")
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         # Use the modern transaction service via transaction_repo
         from unionbank.domain.entities import TransactionType
+
         records = []
         for txn in c.transaction_repo().get_mini(self.account_number, limit=5):
-            sign = "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
+            sign = (
+                "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
+            )
             color = GREEN if sign == "+" else RED
             cat = txn.category or ""
             ts = str(txn.timestamp)[:19] if txn.timestamp else ""
-            print(f"  {ts}  |  {txn.type.value:<14}  |  "
-                  f"{color}{sign}{fmt_currency(float(txn.amount))}{RESET}  |  Bal: {fmt_currency(float(txn.balance))}")
+            print(
+                f"  {ts}  |  {txn.type.value:<14}  |  "
+                f"{color}{sign}{fmt_currency(float(txn.amount))}{RESET}  |  Bal: {fmt_currency(float(txn.balance))}"
+            )
             if cat:
                 print(f"  {'':>12}[{cat}]")
         if not records:
@@ -206,21 +216,29 @@ class Account:
     def full_statement(self):
         header("FULL TRANSACTION HISTORY")
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         from unionbank.domain.entities import TransactionType
+
         records = c.transaction_repo().get_by_account(self.account_number)
         if not records:
             info("No transactions found.")
         else:
             # Show oldest first for full statement
             for txn in reversed(records):
-                sign = "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
+                sign = (
+                    "+"
+                    if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN)
+                    else "-"
+                )
                 color = GREEN if sign == "+" else RED
                 cat = txn.category or ""
                 ts = str(txn.timestamp)[:19] if txn.timestamp else ""
-                print(f"  [{txn.txn_id}]  {ts}  |  "
-                      f"{txn.type.value:<14}  |  {color}{sign}{fmt_currency(float(txn.amount))}{RESET}  |  "
-                      f"Bal: {fmt_currency(float(txn.balance))}")
+                print(
+                    f"  [{txn.txn_id}]  {ts}  |  "
+                    f"{txn.type.value:<14}  |  {color}{sign}{fmt_currency(float(txn.amount))}{RESET}  |  "
+                    f"Bal: {fmt_currency(float(txn.balance))}"
+                )
                 if cat and cat != "General":
                     print(f"    {CYAN}    Category: {cat}{RESET}")
                 if txn.description:
@@ -253,8 +271,11 @@ class Account:
         from decimal import Decimal
 
         from unionbank.infrastructure.container import get_container
-        result = get_container().transaction_service().deposit(
-            self.account_number, Decimal(str(amount)), category
+
+        result = (
+            get_container()
+            .transaction_service()
+            .deposit(self.account_number, Decimal(str(amount)), category)
         )
         if result.success:
             self.balance = result.data["balance"]
@@ -273,8 +294,11 @@ class Account:
         from decimal import Decimal
 
         from unionbank.infrastructure.container import get_container
-        result = get_container().transaction_service().withdraw(
-            self.account_number, Decimal(str(amount)), category
+
+        result = (
+            get_container()
+            .transaction_service()
+            .withdraw(self.account_number, Decimal(str(amount)), category)
         )
         if result.success:
             self.balance = result.data["balance"]
@@ -289,6 +313,7 @@ class Account:
         target_acc_no = input("  Enter recipient account number : ").strip()
 
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         target_account = c.account_repo().get(target_acc_no)
 
@@ -316,13 +341,16 @@ class Account:
             return
 
         category = get_category_choice()
-        confirm = input(f"  Confirm transfer of {YELLOW}{fmt_currency(amount)}{RESET} to {CYAN}{target_account.name}{RESET}? (y/n): ")
+        confirm = input(
+            f"  Confirm transfer of {YELLOW}{fmt_currency(amount)}{RESET} to {CYAN}{target_account.name}{RESET}? (y/n): "
+        )
         if confirm.lower() != "y":
             warning("Transfer cancelled.")
             divider()
             return
 
         from decimal import Decimal
+
         result = c.transaction_service().transfer(
             sender_acc_no=self.account_number,
             receiver_acc_no=target_acc_no,
@@ -341,11 +369,11 @@ class Account:
     def update_profile(self):
         header("UPDATE PROFILE")
         print(f"  {WHITE}(Press Enter to keep current value)\n{RESET}")
-        name   = input(f"  Name   [{CYAN}{self.name}{RESET}]   : ").strip()
-        age    = input(f"  Age    [{CYAN}{self.age}{RESET}]    : ").strip()
+        name = input(f"  Name   [{CYAN}{self.name}{RESET}]   : ").strip()
+        age = input(f"  Age    [{CYAN}{self.age}{RESET}]    : ").strip()
         gender = input(f"  Gender [{CYAN}{self.gender}{RESET}] : ").strip()
         mobile = input(f"  Mobile [{CYAN}{self.mobile}{RESET}] : ").strip()
-        email  = input(f"  Email  [{CYAN}{self.email}{RESET}]  : ").strip()
+        email = input(f"  Email  [{CYAN}{self.email}{RESET}]  : ").strip()
         old_name = self.name
         if name:
             if not validate_name(name):
@@ -353,9 +381,12 @@ class Account:
                 return
             self.name = name
         if age:
-            try:   self.age = int(age)
-            except ValueError: error("Invalid age - keeping current.")
-        if gender: self.gender = gender
+            try:
+                self.age = int(age)
+            except ValueError:
+                error("Invalid age - keeping current.")
+        if gender:
+            self.gender = gender
         if mobile:
             if not validate_phone(mobile):
                 error("Invalid mobile number. Must be 10 digits starting with 6-9.")
@@ -367,7 +398,9 @@ class Account:
                 return
             self.email = email
         self.save()
-        logger.info(f"Profile updated -> Acc:{self.account_number}  (was: {old_name}  now: {self.name})")
+        logger.info(
+            f"Profile updated -> Acc:{self.account_number}  (was: {old_name}  now: {self.name})"
+        )
         success("Profile updated successfully!")
         divider()
 
@@ -407,6 +440,7 @@ class Account:
         pwd = prompt_password("  Enter password to confirm : ")
 
         from unionbank.infrastructure.container import get_container
+
         result = get_container().account_service().close_account(self.account_number, pwd)
         if result.success:
             self.is_active = False
@@ -419,21 +453,24 @@ class Account:
         """Export full transaction history to CSV."""
         header("EXPORT TO CSV")
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         from unionbank.domain.entities import TransactionType
+
         domain_txns = c.transaction_repo().get_by_account(self.account_number)
         records = []
         for txn in domain_txns:
-            sign = "+" if txn.type in (TransactionType.DEPOSIT, TransactionType.TRANSFER_IN) else "-"
-            records.append({
-                "txn_id": txn.txn_id,
-                "timestamp": str(txn.timestamp)[:19],
-                "type": txn.type.value,
-                "amount": float(txn.amount),
-                "balance": float(txn.balance),
-                "description": txn.description,
-                "category": txn.category or "General",
-            })
+            records.append(
+                {
+                    "txn_id": txn.txn_id,
+                    "timestamp": str(txn.timestamp)[:19],
+                    "type": txn.type.value,
+                    "amount": float(txn.amount),
+                    "balance": float(txn.balance),
+                    "description": txn.description,
+                    "category": txn.category or "General",
+                }
+            )
         if not records:
             info("No transactions to export.")
             divider()
@@ -446,13 +483,19 @@ class Account:
 
     def _show_goal(self, goal: dict, index: int):
         """Display a single savings goal."""
-        pct = (goal["current_amount"] / goal["target_amount"] * 100) if goal["target_amount"] > 0 else 0
+        pct = (
+            (goal["current_amount"] / goal["target_amount"] * 100)
+            if goal["target_amount"] > 0
+            else 0
+        )
         status = "✅ COMPLETED" if goal.get("is_completed") else "🔄 ACTIVE"
         bar_len = 30
         filled = int(bar_len * pct / 100)
         bar = "█" * filled + "░" * (bar_len - filled)
         print(f"  {index}. {goal['name']}")
-        print(f"     {status}  |  {fmt_currency(goal['current_amount'])} / {fmt_currency(goal['target_amount'])}  ({pct:.1f}%)")
+        print(
+            f"     {status}  |  {fmt_currency(goal['current_amount'])} / {fmt_currency(goal['target_amount'])}  ({pct:.1f}%)"
+        )
         print(f"     [{bar}]")
         if goal.get("target_date"):
             print(f"     Target date: {goal['target_date']}")
@@ -460,18 +503,21 @@ class Account:
 
     def _goals_to_dicts(self, domain_goals) -> list[dict]:
         """Convert domain SavingsGoal entities to dicts for display."""
-        return [{
-            "goal_id": g.goal_id,
-            "name": g.name,
-            "target_amount": float(g.target_amount),
-            "current_amount": float(g.current_amount),
-            "target_date": g.target_date or "",
-            "created_at": str(g.created_at)[:19],
-            "is_completed": g.is_completed,
-        } for g in domain_goals]
+        return [
+            {
+                "goal_id": g.goal_id,
+                "name": g.name,
+                "target_amount": float(g.target_amount),
+                "current_amount": float(g.current_amount),
+                "target_date": g.target_date or "",
+                "created_at": str(g.created_at)[:19],
+                "is_completed": g.is_completed,
+            }
+            for g in domain_goals
+        ]
 
     def savings_goals_menu(self):
-        """Savings goals management menu."""
+        """Manage savings goals through an interactive menu."""
         from unionbank.infrastructure.container import get_container
 
         while True:
@@ -483,7 +529,9 @@ class Account:
             if goals:
                 total_saved = sum(g["current_amount"] for g in goals)
                 completed = sum(1 for g in goals if g.get("is_completed"))
-                print(f"  Goals: {len(goals)}  |  Completed: {completed}  |  Total saved: {fmt_currency(total_saved)}")
+                print(
+                    f"  Goals: {len(goals)}  |  Completed: {completed}  |  Total saved: {fmt_currency(total_saved)}"
+                )
                 print()
                 for i, g in enumerate(goals, 1):
                     self._show_goal(g, i)
@@ -515,6 +563,8 @@ class Account:
                 error("Invalid choice.")
 
     def _create_goal(self):
+        from decimal import Decimal
+
         header("🎯 CREATE SAVINGS GOAL")
         name = input("  Goal name: ").strip()
         if not name or len(name) < 2:
@@ -526,6 +576,7 @@ class Account:
         date_str = input("  Target date (YYYY-MM-DD, optional): ").strip()
 
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         result = c.savings_goal_service().create_goal(
             acc_no=self.account_number,
@@ -541,7 +592,9 @@ class Account:
         divider()
 
     def _contribute_to_goal(self):
+        from decimal import Decimal
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         domain_goals = c.savings_goal_service().list_goals(self.account_number)
         active = [g for g in domain_goals if not g.is_completed]
@@ -551,7 +604,9 @@ class Account:
 
         header("💰 CONTRIBUTE TO GOAL")
         for i, g in enumerate(active, 1):
-            print(f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}")
+            print(
+                f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}"
+            )
         print()
         idx = get_int("  Select goal number: ")
         if idx is None or idx < 1 or idx > len(active):
@@ -563,7 +618,11 @@ class Account:
         if amount is None:
             return
 
-        confirm = input(f"  Contribute {YELLOW}{fmt_currency(amount)}{RESET} to '{goal.name}'? (y/n): ").strip().lower()
+        confirm = (
+            input(f"  Contribute {YELLOW}{fmt_currency(amount)}{RESET} to '{goal.name}'? (y/n): ")
+            .strip()
+            .lower()
+        )
         if confirm != "y":
             warning("Cancelled.")
             return
@@ -580,7 +639,9 @@ class Account:
         divider()
 
     def _edit_goal(self):
+        from decimal import Decimal
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         domain_goals = c.savings_goal_service().list_goals(self.account_number)
         if not domain_goals:
@@ -589,7 +650,9 @@ class Account:
 
         header("✏️ EDIT GOAL")
         for i, g in enumerate(domain_goals, 1):
-            print(f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}")
+            print(
+                f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}"
+            )
         print()
         idx = get_int("  Select goal number: ")
         if idx is None or idx < 1 or idx > len(domain_goals):
@@ -619,6 +682,7 @@ class Account:
 
     def _delete_goal(self):
         from unionbank.infrastructure.container import get_container
+
         c = get_container()
         domain_goals = c.savings_goal_service().list_goals(self.account_number)
         if not domain_goals:
@@ -627,7 +691,9 @@ class Account:
 
         header("🗑️ DELETE GOAL")
         for i, g in enumerate(domain_goals, 1):
-            print(f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}")
+            print(
+                f"  {i}. {g.name} — {fmt_currency(float(g.current_amount))} / {fmt_currency(float(g.target_amount))}"
+            )
         print()
         idx = get_int("  Select goal number: ")
         if idx is None or idx < 1 or idx > len(domain_goals):
@@ -655,6 +721,7 @@ class Account:
         """Apply monthly interest using an atomic SQLite transaction."""
         header("INTEREST CALCULATION")
         from unionbank.infrastructure.container import get_container
+
         result = get_container().transaction_service().apply_interest(self.account_number)
         if result.success:
             self.balance = result.data["balance"]

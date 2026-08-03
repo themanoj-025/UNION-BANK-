@@ -21,6 +21,7 @@ ADMIN_FILE = os.path.join(_data_dir, "admin.json")
 
 #  JSON helpers (hardened with auto-backup)
 
+
 def _backup_path(filepath: str) -> str:
     """Return the backup file path (same directory, .bak extension)."""
     return filepath + ".bak"
@@ -28,6 +29,7 @@ def _backup_path(filepath: str) -> str:
 
 def _get_logger():
     from unionbank.utils.logger import logger
+
     return logger
 
 

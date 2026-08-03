@@ -26,7 +26,6 @@ from unionbank.utils.analyzr_core import (
 
 
 class TestIntentClassification:
-
     def test_intent_patterns_list_is_not_empty(self):
         """INTENT_PATTERNS should have at least 15 defined intents."""
         assert len(INTENT_PATTERNS) >= 15
@@ -174,7 +173,6 @@ class TestIntentClassification:
 
 
 class TestAmountExtraction:
-
     def test_extract_over_amount(self):
         """'over 500' should extract min=500."""
         min_amt, max_amt = extract_amount_range("transactions over 500", [])
@@ -257,7 +255,6 @@ class TestAmountExtraction:
 
 
 class TestTimeWindow:
-
     def test_time_today(self):
         intents = [{"name": "today", "time_window": "today"}]
         from_date, to_date = compute_time_window(intents)
@@ -323,7 +320,6 @@ class TestTimeWindow:
 
 
 class TestAverageAmount:
-
     def test_empty_list_uses_default(self):
         """Empty transaction list should use the default fallback of 500."""
         avg = _compute_average_txn_amount([])
@@ -332,6 +328,7 @@ class TestAverageAmount:
     def test_single_transaction(self):
         """Single transaction should return its amount."""
         from collections import namedtuple
+
         MockTxn = namedtuple("MockTxn", ["amount"])
         txns = [MockTxn(amount=Decimal("250.00"))]
         avg = _compute_average_txn_amount(txns)
@@ -340,6 +337,7 @@ class TestAverageAmount:
     def test_multiple_transactions(self):
         """Multiple transactions should return the arithmetic mean."""
         from collections import namedtuple
+
         MockTxn = namedtuple("MockTxn", ["amount"])
         txns = [
             MockTxn(amount=Decimal("100.00")),
@@ -352,6 +350,7 @@ class TestAverageAmount:
     def test_decimal_precision_preserved(self):
         """Decimal precision should be preserved in average calculation."""
         from collections import namedtuple
+
         MockTxn = namedtuple("MockTxn", ["amount"])
         txns = [MockTxn(amount=Decimal("100.50")), MockTxn(amount=Decimal("200.75"))]
         avg = _compute_average_txn_amount(txns)
@@ -362,7 +361,6 @@ class TestAverageAmount:
 
 
 class TestConstants:
-
     def test_large_amount_multiplier(self):
         assert LARGE_AMOUNT_MULTIPLIER == 5  # 5x average
 

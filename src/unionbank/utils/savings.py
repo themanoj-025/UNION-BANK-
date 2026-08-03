@@ -11,17 +11,21 @@ from decimal import Decimal
 def load_goals(acc_no: str) -> list:
     """Load savings goals for a specific account from SQLite."""
     from unionbank.infrastructure.container import get_container
+
     c = get_container()
     domain_goals = c.savings_goal_service().list_goals(acc_no)
-    return [{
-        "goal_id": g.goal_id,
-        "name": g.name,
-        "target_amount": float(g.target_amount),
-        "current_amount": float(g.current_amount),
-        "target_date": g.target_date or "",
-        "created_at": str(g.created_at)[:19],
-        "is_completed": g.is_completed,
-    } for g in domain_goals]
+    return [
+        {
+            "goal_id": g.goal_id,
+            "name": g.name,
+            "target_amount": float(g.target_amount),
+            "current_amount": float(g.current_amount),
+            "target_date": g.target_date or "",
+            "created_at": str(g.created_at)[:19],
+            "is_completed": g.is_completed,
+        }
+        for g in domain_goals
+    ]
 
 
 def save_goals(acc_no: str, goals: list) -> None:
@@ -33,6 +37,7 @@ def save_goals(acc_no: str, goals: list) -> None:
     """
     from unionbank.infrastructure.container import get_container
     from unionbank.domain.entities import SavingsGoal
+
     c = get_container()
     goal_repo = c.savings_goal_repo()
 

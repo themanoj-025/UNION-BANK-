@@ -71,11 +71,13 @@ router = APIRouter(prefix="/api/v2")
 def _get_container():
     """Lazy-import the DI container."""
     from unionbank.infrastructure.container import get_container
+
     return get_container()
 
 
 def _fmt_currency(val: float) -> str:
     from unionbank.utils import fmt_currency as _fc
+
     return _fc(val)
 
 
@@ -125,15 +127,15 @@ async def v2_http_exception_handler(request, exc: HTTPException):
         content=ApiResponse(success=False, error=str(detail)).model_dump(),
     )
 
+
 # Exception handlers must be added to the FastAPI app instance, not APIRouter
 async def v2_generic_exception_handler(request, exc: Exception):
     """Catch unhandled exceptions and return a 500 envelope response."""
     from fastapi.responses import JSONResponse
+
     return JSONResponse(
         status_code=500,
-        content=ApiResponse(
-            success=False, error="An unexpected error occurred."
-        ).model_dump(),
+        content=ApiResponse(success=False, error="An unexpected error occurred.").model_dump(),
     )
 
 
@@ -156,7 +158,11 @@ def v2_customer_login(req: LoginRequest, request: Request, response: Response):
     if not auth_result.success:
         msg = auth_result.message.lower()
         if "locked" in msg:
-            _err(auth_result.message, status.HTTP_429_TOO_MANY_REQUESTS, ErrorCode.AUTH_ACCOUNT_LOCKED)
+            _err(
+                auth_result.message,
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                ErrorCode.AUTH_ACCOUNT_LOCKED,
+            )
         if "not found" in msg:
             _err(auth_result.message, status.HTTP_404_NOT_FOUND, ErrorCode.ACCOUNT_NOT_FOUND)
         _err(auth_result.message, status.HTTP_401_UNAUTHORIZED, ErrorCode.AUTH_INVALID_CREDENTIALS)
@@ -172,12 +178,14 @@ def v2_customer_login(req: LoginRequest, request: Request, response: Response):
         role="customer",
     )
 
-    return _ok(TokenData(
-        access_token=tokens["access_token"],
-        refresh_token=tokens["refresh_token"],
-        role="customer",
-        expires_in=tokens["expires_in"],
-    ))
+    return _ok(
+        TokenData(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            role="customer",
+            expires_in=tokens["expires_in"],
+        )
+    )
 
 
 @router.post("/auth/register", response_model=ApiResponse[MessageData])
@@ -199,8 +207,12 @@ def v2_customer_register(req: RegisterRequest):
 
     c = _get_container()
     result = c.auth_service().customer_register(
-        name=req.name, age=req.age, gender=req.gender,
-        mobile=req.mobile, email=req.email, password=req.password,
+        name=req.name,
+        age=req.age,
+        gender=req.gender,
+        mobile=req.mobile,
+        email=req.email,
+        password=req.password,
     )
     if not result.success:
         _err(result.message)
@@ -238,12 +250,14 @@ def v2_admin_login(req: AdminLoginRequest, request: Request, response: Response)
         role="admin",
     )
 
-    return _ok(TokenData(
-        access_token=tokens["access_token"],
-        refresh_token=tokens["refresh_token"],
-        role="admin",
-        expires_in=tokens["expires_in"],
-    ))
+    return _ok(
+        TokenData(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            role="admin",
+            expires_in=tokens["expires_in"],
+        )
+    )
 
 
 @router.post("/auth/refresh", response_model=ApiResponse[TokenData])
@@ -258,7 +272,8 @@ def v2_refresh_token(request: Request, response: Response, req: Optional[Refresh
     The previous refresh token is revoked (rotation) so it cannot be reused.
     """
     from unionbank.utils.cookie_auth import (
-        get_token_from_cookies, set_auth_cookies,
+        get_token_from_cookies,
+        set_auth_cookies,
     )
     from unionbank.utils.logger import logger
 
@@ -302,12 +317,14 @@ def v2_refresh_token(request: Request, response: Response, req: Optional[Refresh
         role=result["role"],
     )
 
-    return _ok(TokenData(
-        access_token=tokens["access_token"],
-        refresh_token=tokens["refresh_token"],
-        role=result["role"],
-        expires_in=tokens["expires_in"],
-    ))
+    return _ok(
+        TokenData(
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            role=result["role"],
+            expires_in=tokens["expires_in"],
+        )
+    )
 
 
 #  Customer Account Endpoints
@@ -318,18 +335,20 @@ def v2_get_profile(customer: dict = Depends(get_current_customer)):
     """Get the authenticated customer's profile details."""
     from unionbank.entrypoints.api.common import get_account_status
 
-    return _ok(ProfileData(
-        account_number=customer["account_number"],
-        name=customer["name"],
-        age=customer["age"],
-        gender=customer["gender"],
-        mobile=customer["mobile"],
-        email=customer["email"],
-        balance=customer["balance"],
-        balance_formatted=_fmt_currency(customer["balance"]),
-        status=get_account_status(customer),
-        created_at=customer.get("created_at", "N/A"),
-    ))
+    return _ok(
+        ProfileData(
+            account_number=customer["account_number"],
+            name=customer["name"],
+            age=customer["age"],
+            gender=customer["gender"],
+            mobile=customer["mobile"],
+            email=customer["email"],
+            balance=customer["balance"],
+            balance_formatted=_fmt_currency(customer["balance"]),
+            status=get_account_status(customer),
+            created_at=customer.get("created_at", "N/A"),
+        )
+    )
 
 
 @router.put("/account/profile", response_model=ApiResponse[ProfileData])
@@ -364,21 +383,25 @@ def v2_update_profile(req: UpdateProfileRequest, customer: dict = Depends(get_cu
     c.account_repo().update(domain_account)
     c.account_repo().commit()
 
-    return _ok(ProfileData(
-        account_number=domain_account.account_number,
-        name=domain_account.name,
-        age=domain_account.age,
-        gender=domain_account.gender,
-        mobile=domain_account.mobile,
-        email=domain_account.email,
-        balance=float(domain_account.balance),
-        balance_formatted=_fmt_currency(float(domain_account.balance)),
-        status=get_account_status({
-            "is_frozen": domain_account.is_frozen,
-            "is_active": domain_account.is_active,
-        }),
-        created_at=str(domain_account.created_at)[:19],
-    ))
+    return _ok(
+        ProfileData(
+            account_number=domain_account.account_number,
+            name=domain_account.name,
+            age=domain_account.age,
+            gender=domain_account.gender,
+            mobile=domain_account.mobile,
+            email=domain_account.email,
+            balance=float(domain_account.balance),
+            balance_formatted=_fmt_currency(float(domain_account.balance)),
+            status=get_account_status(
+                {
+                    "is_frozen": domain_account.is_frozen,
+                    "is_active": domain_account.is_active,
+                }
+            ),
+            created_at=str(domain_account.created_at)[:19],
+        )
+    )
 
 
 @router.post("/account/change-password", response_model=ApiResponse[MessageData])
@@ -431,12 +454,14 @@ def v2_get_balance(customer: dict = Depends(get_current_customer)):
     if not domain_account:
         _err("Account not found.", status.HTTP_404_NOT_FOUND)
 
-    return _ok(BalanceData(
-        account_number=domain_account.account_number,
-        name=domain_account.name,
-        balance=float(domain_account.balance),
-        balance_formatted=_fmt_currency(float(domain_account.balance)),
-    ))
+    return _ok(
+        BalanceData(
+            account_number=domain_account.account_number,
+            name=domain_account.name,
+            balance=float(domain_account.balance),
+            balance_formatted=_fmt_currency(float(domain_account.balance)),
+        )
+    )
 
 
 @router.post("/account/deposit", response_model=ApiResponse[MessageData])
@@ -445,7 +470,9 @@ def v2_deposit_money(req: TransactionRequest, customer: dict = Depends(get_curre
     acc_no = customer["account_number"]
     c = _get_container()
     result = c.transaction_service().deposit(
-        acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category,
+        acc_no=acc_no,
+        amount=Decimal(str(req.amount)),
+        category=req.category,
         idempotency_key=req.idempotency_key,
     )
     if not result.success:
@@ -460,7 +487,9 @@ def v2_withdraw_money(req: TransactionRequest, customer: dict = Depends(get_curr
     acc_no = customer["account_number"]
     c = _get_container()
     result = c.transaction_service().withdraw(
-        acc_no=acc_no, amount=Decimal(str(req.amount)), category=req.category,
+        acc_no=acc_no,
+        amount=Decimal(str(req.amount)),
+        category=req.category,
         idempotency_key=req.idempotency_key,
     )
     if not result.success:
@@ -493,10 +522,12 @@ def v2_transfer_funds(req: TransferRequest, customer: dict = Depends(get_current
     if not result.success:
         _err(result.error_message)
 
-    return _ok(MessageData(
-        message=f"{_fmt_currency(req.amount)} transferred to {receiver.name} "
-                f"({req.target_account}). New balance: {_fmt_currency(float(result.sender_balance))}"
-    ))
+    return _ok(
+        MessageData(
+            message=f"{_fmt_currency(req.amount)} transferred to {receiver.name} "
+            f"({req.target_account}). New balance: {_fmt_currency(float(result.sender_balance))}"
+        )
+    )
 
 
 @router.get("/account/statements", response_model=ApiResponse[list[TransactionOut]])
@@ -506,19 +537,21 @@ def v2_get_full_statement(customer: dict = Depends(get_current_customer)):
     c = _get_container()
     domain_txns = c.transaction_repo().get_by_account(acc_no)
 
-    return _ok([
-        TransactionOut(
-            txn_id=t.txn_id,
-            timestamp=str(t.timestamp)[:19],
-            type=t.type.value,
-            amount=float(t.amount),
-            balance=float(t.balance),
-            description=t.description,
-            category=t.category,
-            target_account=t.target_account,
-        )
-        for t in domain_txns
-    ])
+    return _ok(
+        [
+            TransactionOut(
+                txn_id=t.txn_id,
+                timestamp=str(t.timestamp)[:19],
+                type=t.type.value,
+                amount=float(t.amount),
+                balance=float(t.balance),
+                description=t.description,
+                category=t.category,
+                target_account=t.target_account,
+            )
+            for t in domain_txns
+        ]
+    )
 
 
 @router.get("/account/statements/mini", response_model=ApiResponse[list[TransactionOut]])
@@ -528,19 +561,21 @@ def v2_get_mini_statement(customer: dict = Depends(get_current_customer)):
     c = _get_container()
     domain_txns = c.transaction_repo().get_mini(acc_no, 5)
 
-    return _ok([
-        TransactionOut(
-            txn_id=t.txn_id,
-            timestamp=str(t.timestamp)[:19],
-            type=t.type.value,
-            amount=float(t.amount),
-            balance=float(t.balance),
-            description=t.description,
-            category=t.category,
-            target_account=t.target_account,
-        )
-        for t in domain_txns
-    ])
+    return _ok(
+        [
+            TransactionOut(
+                txn_id=t.txn_id,
+                timestamp=str(t.timestamp)[:19],
+                type=t.type.value,
+                amount=float(t.amount),
+                balance=float(t.balance),
+                description=t.description,
+                category=t.category,
+                target_account=t.target_account,
+            )
+            for t in domain_txns
+        ]
+    )
 
 
 @router.get("/account/statements/keyset", response_model=ApiResponse[list[TransactionOut]])
@@ -584,11 +619,14 @@ def v2_get_statement_keyset(
     ]
 
     next_cursor = str(page.cursor) if page.cursor else None
-    return _ok(items, meta=KeysetMeta(
-        cursor=next_cursor,
-        has_more=page.has_more,
-        cursor_key=page.cursor_key,
-    ).model_dump())
+    return _ok(
+        items,
+        meta=KeysetMeta(
+            cursor=next_cursor,
+            has_more=page.has_more,
+            cursor_key=page.cursor_key,
+        ).model_dump(),
+    )
 
 
 @router.get("/account/export-csv", response_model=None)
@@ -603,19 +641,22 @@ def v2_export_csv(customer: dict = Depends(get_current_customer)):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Transaction ID", "Date/Time", "Type", "Amount",
-                      "Balance", "Description", "Category"])
+    writer.writerow(
+        ["Transaction ID", "Date/Time", "Type", "Amount", "Balance", "Description", "Category"]
+    )
     for t in domain_txns:
         sign = "+" if t.type.value in ("DEPOSIT", "TRANSFER_IN") else "-"
-        writer.writerow([
-            t.txn_id,
-            str(t.timestamp)[:19],
-            t.type.value,
-            f"{sign}{float(t.amount)}",
-            float(t.balance),
-            t.description,
-            t.category or "General",
-        ])
+        writer.writerow(
+            [
+                t.txn_id,
+                str(t.timestamp)[:19],
+                t.type.value,
+                f"{sign}{float(t.amount)}",
+                float(t.balance),
+                t.description,
+                t.category or "General",
+            ]
+        )
 
     output.seek(0)
     return Response(
@@ -637,36 +678,51 @@ def v2_list_savings_goals(customer: dict = Depends(get_current_customer)):
 
     goal_list = []
     for g in goals:
-        pct = round((float(g.current_amount) / float(g.target_amount) * 100), 1) if float(g.target_amount) > 0 else 0
-        goal_list.append(SavingsGoalOut(
-            goal_id=g.goal_id, name=g.name,
-            target_amount=float(g.target_amount),
-            current_amount=float(g.current_amount),
-            target_date=g.target_date,
-            created_at=str(g.created_at)[:19],
-            is_completed=g.is_completed,
-            progress_pct=pct,
-        ))
+        pct = (
+            round((float(g.current_amount) / float(g.target_amount) * 100), 1)
+            if float(g.target_amount) > 0
+            else 0
+        )
+        goal_list.append(
+            SavingsGoalOut(
+                goal_id=g.goal_id,
+                name=g.name,
+                target_amount=float(g.target_amount),
+                current_amount=float(g.current_amount),
+                target_date=g.target_date,
+                created_at=str(g.created_at)[:19],
+                is_completed=g.is_completed,
+                progress_pct=pct,
+            )
+        )
 
     total_saved = sum(float(g.current_amount) for g in goals)
     total_target = sum(float(g.target_amount) for g in goals)
     completed = sum(1 for g in goals if g.is_completed)
 
-    return _ok(SavingsGoalsSummary(
-        total_goals=len(goals), completed=completed,
-        total_saved=total_saved, total_saved_formatted=_fmt_currency(total_saved),
-        total_target=total_target, total_target_formatted=_fmt_currency(total_target),
-        goals=goal_list,
-    ))
+    return _ok(
+        SavingsGoalsSummary(
+            total_goals=len(goals),
+            completed=completed,
+            total_saved=total_saved,
+            total_saved_formatted=_fmt_currency(total_saved),
+            total_target=total_target,
+            total_target_formatted=_fmt_currency(total_target),
+            goals=goal_list,
+        )
+    )
 
 
-@router.post("/savings", response_model=ApiResponse[SavingsGoalOut], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/savings", response_model=ApiResponse[SavingsGoalOut], status_code=status.HTTP_201_CREATED
+)
 def v2_create_savings_goal(req: SavingsGoalCreate, customer: dict = Depends(get_current_customer)):
     """Create a new savings goal."""
     acc_no = customer["account_number"]
     c = _get_container()
     result = c.savings_goal_service().create_goal(
-        acc_no=acc_no, name=req.name,
+        acc_no=acc_no,
+        name=req.name,
         target_amount=Decimal(str(req.target_amount)),
         target_date=req.target_date,
     )
@@ -676,19 +732,25 @@ def v2_create_savings_goal(req: SavingsGoalCreate, customer: dict = Depends(get_
     goals = c.savings_goal_repo().get_by_account(acc_no)
     if goals:
         g = goals[-1]
-        return _ok(SavingsGoalOut(
-            goal_id=g.goal_id, name=g.name,
-            target_amount=float(g.target_amount),
-            current_amount=float(g.current_amount),
-            target_date=g.target_date,
-            created_at=str(g.created_at)[:19],
-            is_completed=False, progress_pct=0.0,
-        ))
+        return _ok(
+            SavingsGoalOut(
+                goal_id=g.goal_id,
+                name=g.name,
+                target_amount=float(g.target_amount),
+                current_amount=float(g.current_amount),
+                target_date=g.target_date,
+                created_at=str(g.created_at)[:19],
+                is_completed=False,
+                progress_pct=0.0,
+            )
+        )
     _err("Failed to create goal.", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @router.post("/savings/{goal_id}/contribute", response_model=ApiResponse[SavingsGoalOut])
-def v2_contribute_to_goal(goal_id: str, req: SavingsGoalContribute, customer: dict = Depends(get_current_customer)):
+def v2_contribute_to_goal(
+    goal_id: str, req: SavingsGoalContribute, customer: dict = Depends(get_current_customer)
+):
     """Contribute money from your balance to a savings goal."""
     acc_no = customer["account_number"]
     c = _get_container()
@@ -703,15 +765,23 @@ def v2_contribute_to_goal(goal_id: str, req: SavingsGoalContribute, customer: di
     if not goal:
         _err("Goal not found.", status.HTTP_404_NOT_FOUND)
 
-    pct = round((float(goal.current_amount) / float(goal.target_amount) * 100), 1) if float(goal.target_amount) > 0 else 0
-    return _ok(SavingsGoalOut(
-        goal_id=goal.goal_id, name=goal.name,
-        target_amount=float(goal.target_amount),
-        current_amount=float(goal.current_amount),
-        target_date=goal.target_date,
-        created_at=str(goal.created_at)[:19],
-        is_completed=goal.is_completed, progress_pct=pct,
-    ))
+    pct = (
+        round((float(goal.current_amount) / float(goal.target_amount) * 100), 1)
+        if float(goal.target_amount) > 0
+        else 0
+    )
+    return _ok(
+        SavingsGoalOut(
+            goal_id=goal.goal_id,
+            name=goal.name,
+            target_amount=float(goal.target_amount),
+            current_amount=float(goal.current_amount),
+            target_date=goal.target_date,
+            created_at=str(goal.created_at)[:19],
+            is_completed=goal.is_completed,
+            progress_pct=pct,
+        )
+    )
 
 
 @router.delete("/savings/{goal_id}", response_model=ApiResponse[MessageData])
@@ -738,43 +808,72 @@ def v2_list_loans(customer: dict = Depends(get_current_customer)):
 
     loan_list = []
     for loan in loans:
-        pct = float(loan.amount_paid / loan.principal_amount * 100) if loan.principal_amount > 0 else 0
-        remaining_emis = int(loan.remaining_amount / loan.emi_amount) + (1 if loan.remaining_amount % loan.emi_amount > 0 else 0) if loan.emi_amount > 0 else 0
+        pct = (
+            float(loan.amount_paid / loan.principal_amount * 100)
+            if loan.principal_amount > 0
+            else 0
+        )
+        remaining_emis = (
+            int(loan.remaining_amount / loan.emi_amount)
+            + (1 if loan.remaining_amount % loan.emi_amount > 0 else 0)
+            if loan.emi_amount > 0
+            else 0
+        )
         is_overdue = False
         if loan.next_emi_date and loan.status in ("APPROVED", "ACTIVE"):
             is_overdue = datetime.now(timezone.utc) > loan.next_emi_date
 
-        loan_list.append(LoanOut(
-            loan_id=loan.loan_id, account_number=loan.account_number,
-            loan_type=loan.loan_type, principal_amount=float(loan.principal_amount),
-            interest_rate=float(loan.interest_rate), tenure_months=loan.tenure_months,
-            emi_amount=float(loan.emi_amount), amount_paid=float(loan.amount_paid),
-            remaining_amount=float(loan.remaining_amount), status=loan.status,
-            application_date=str(loan.application_date)[:19],
-            approval_date=str(loan.approval_date)[:19] if loan.approval_date else None,
-            next_emi_date=str(loan.next_emi_date)[:19] if loan.next_emi_date else None,
-            purpose=loan.purpose, admin_notes=loan.admin_notes,
-            progress_pct=round(pct, 1), remaining_emis=remaining_emis,
-            is_overdue=is_overdue,
-        ))
+        loan_list.append(
+            LoanOut(
+                loan_id=loan.loan_id,
+                account_number=loan.account_number,
+                loan_type=loan.loan_type,
+                principal_amount=float(loan.principal_amount),
+                interest_rate=float(loan.interest_rate),
+                tenure_months=loan.tenure_months,
+                emi_amount=float(loan.emi_amount),
+                amount_paid=float(loan.amount_paid),
+                remaining_amount=float(loan.remaining_amount),
+                status=loan.status,
+                application_date=str(loan.application_date)[:19],
+                approval_date=str(loan.approval_date)[:19] if loan.approval_date else None,
+                next_emi_date=str(loan.next_emi_date)[:19] if loan.next_emi_date else None,
+                purpose=loan.purpose,
+                admin_notes=loan.admin_notes,
+                progress_pct=round(pct, 1),
+                remaining_emis=remaining_emis,
+                is_overdue=is_overdue,
+            )
+        )
 
     active_loans = sum(1 for loan in loans if loan.status in ("APPROVED", "ACTIVE"))
     closed_loans = sum(1 for loan in loans if loan.status == "CLOSED")
-    total_disbursed = sum(float(loan.principal_amount) for loan in loans if loan.status in ("APPROVED", "ACTIVE", "CLOSED"))
-    total_outstanding = sum(float(loan.remaining_amount) for loan in loans if loan.status in ("APPROVED", "ACTIVE"))
+    total_disbursed = sum(
+        float(loan.principal_amount)
+        for loan in loans
+        if loan.status in ("APPROVED", "ACTIVE", "CLOSED")
+    )
+    total_outstanding = sum(
+        float(loan.remaining_amount) for loan in loans if loan.status in ("APPROVED", "ACTIVE")
+    )
 
-    return _ok(LoanSummaryData(
-        total_loans=len(loans), active_loans=active_loans,
-        closed_loans=closed_loans,
-        total_disbursed=total_disbursed,
-        total_disbursed_formatted=_fmt_currency(total_disbursed),
-        total_outstanding=total_outstanding,
-        total_outstanding_formatted=_fmt_currency(total_outstanding),
-        loans=loan_list,
-    ))
+    return _ok(
+        LoanSummaryData(
+            total_loans=len(loans),
+            active_loans=active_loans,
+            closed_loans=closed_loans,
+            total_disbursed=total_disbursed,
+            total_disbursed_formatted=_fmt_currency(total_disbursed),
+            total_outstanding=total_outstanding,
+            total_outstanding_formatted=_fmt_currency(total_outstanding),
+            loans=loan_list,
+        )
+    )
 
 
-@router.post("/loans/apply", response_model=ApiResponse[MessageData], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/loans/apply", response_model=ApiResponse[MessageData], status_code=status.HTTP_201_CREATED
+)
 def v2_apply_loan(req: LoanApplyRequest, customer: dict = Depends(get_current_customer)):
     """Apply for a new loan."""
     acc_no = customer["account_number"]
@@ -807,36 +906,50 @@ def v2_get_loan(loan_id: str, customer: dict = Depends(get_current_customer)):
         _err("Loan not found for this account.", status.HTTP_404_NOT_FOUND)
 
     pct = float(loan.amount_paid / loan.principal_amount * 100) if loan.principal_amount > 0 else 0
-    remaining_emis = int(loan.remaining_amount / loan.emi_amount) + (1 if loan.remaining_amount % loan.emi_amount > 0 else 0) if loan.emi_amount > 0 else 0
+    remaining_emis = (
+        int(loan.remaining_amount / loan.emi_amount)
+        + (1 if loan.remaining_amount % loan.emi_amount > 0 else 0)
+        if loan.emi_amount > 0
+        else 0
+    )
     is_overdue = False
     if loan.next_emi_date and loan.status in ("APPROVED", "ACTIVE"):
         is_overdue = datetime.now(timezone.utc) > loan.next_emi_date
 
-    return _ok(LoanOut(
-        loan_id=loan.loan_id, account_number=loan.account_number,
-        loan_type=loan.loan_type, principal_amount=float(loan.principal_amount),
-        interest_rate=float(loan.interest_rate), tenure_months=loan.tenure_months,
-        emi_amount=float(loan.emi_amount), amount_paid=float(loan.amount_paid),
-        remaining_amount=float(loan.remaining_amount), status=loan.status,
-        application_date=str(loan.application_date)[:19],
-        approval_date=str(loan.approval_date)[:19] if loan.approval_date else None,
-        next_emi_date=str(loan.next_emi_date)[:19] if loan.next_emi_date else None,
-        purpose=loan.purpose, admin_notes=loan.admin_notes,
-        progress_pct=round(pct, 1), remaining_emis=remaining_emis,
-        is_overdue=is_overdue,
-    ))
+    return _ok(
+        LoanOut(
+            loan_id=loan.loan_id,
+            account_number=loan.account_number,
+            loan_type=loan.loan_type,
+            principal_amount=float(loan.principal_amount),
+            interest_rate=float(loan.interest_rate),
+            tenure_months=loan.tenure_months,
+            emi_amount=float(loan.emi_amount),
+            amount_paid=float(loan.amount_paid),
+            remaining_amount=float(loan.remaining_amount),
+            status=loan.status,
+            application_date=str(loan.application_date)[:19],
+            approval_date=str(loan.approval_date)[:19] if loan.approval_date else None,
+            next_emi_date=str(loan.next_emi_date)[:19] if loan.next_emi_date else None,
+            purpose=loan.purpose,
+            admin_notes=loan.admin_notes,
+            progress_pct=round(pct, 1),
+            remaining_emis=remaining_emis,
+            is_overdue=is_overdue,
+        )
+    )
 
 
 @router.post("/loans/{loan_id}/pay-emi", response_model=ApiResponse[MessageData])
-def v2_pay_emi(loan_id: str, req: LoanPayEMIRequest, customer: dict = Depends(get_current_customer)):
+def v2_pay_emi(
+    loan_id: str, req: LoanPayEMIRequest, customer: dict = Depends(get_current_customer)
+):
     """Pay the monthly EMI for a loan."""
     acc_no = customer["account_number"]
     c = _get_container()
 
     amount = Decimal(str(req.amount)) if req.amount is not None else None
-    result = c.loan_service().pay_emi(
-        acc_no=acc_no, loan_id=loan_id, amount=amount
-    )
+    result = c.loan_service().pay_emi(acc_no=acc_no, loan_id=loan_id, amount=amount)
     if not result.success:
         _err(result.message)
 
@@ -848,7 +961,8 @@ def v2_calculate_emi(req: EMICalculateRequest):
     """Calculate EMI preview without applying for a loan."""
     c = _get_container()
     result = c.loan_service().calculate_emi_preview(
-        principal=req.principal, annual_rate=req.annual_rate,
+        principal=req.principal,
+        annual_rate=req.annual_rate,
         tenure_months=req.tenure_months,
     )
     return _ok(EMIPreviewData(**result))
@@ -863,17 +977,19 @@ def v2_admin_list_loans(admin: dict = Depends(get_current_admin)):
     c = _get_container()
     stats = c.loan_service().get_loan_statistics()
 
-    return _ok(LoanAdminStats(
-        total_pending=stats["total_pending"],
-        total_approved=stats["total_approved"],
-        total_active=stats["total_active"],
-        total_closed=stats["total_closed"],
-        total_rejected=stats["total_rejected"],
-        total_disbursed=stats["total_disbursed"],
-        total_disbursed_formatted=_fmt_currency(stats["total_disbursed"]),
-        total_outstanding=stats["total_outstanding"],
-        total_outstanding_formatted=_fmt_currency(stats["total_outstanding"]),
-    ))
+    return _ok(
+        LoanAdminStats(
+            total_pending=stats["total_pending"],
+            total_approved=stats["total_approved"],
+            total_active=stats["total_active"],
+            total_closed=stats["total_closed"],
+            total_rejected=stats["total_rejected"],
+            total_disbursed=stats["total_disbursed"],
+            total_disbursed_formatted=_fmt_currency(stats["total_disbursed"]),
+            total_outstanding=stats["total_outstanding"],
+            total_outstanding_formatted=_fmt_currency(stats["total_outstanding"]),
+        )
+    )
 
 
 @router.get("/admin/loans/pending", response_model=ApiResponse[list[LoanOut]])
@@ -882,19 +998,28 @@ def v2_admin_list_pending_loans(admin: dict = Depends(get_current_admin)):
     c = _get_container()
     loans = c.loan_service().list_pending()
 
-    return _ok([
-        LoanOut(
-            loan_id=loan.loan_id, account_number=loan.account_number,
-            loan_type=loan.loan_type, principal_amount=float(loan.principal_amount),
-            interest_rate=float(loan.interest_rate), tenure_months=loan.tenure_months,
-            emi_amount=float(loan.emi_amount), amount_paid=float(loan.amount_paid),
-            remaining_amount=float(loan.remaining_amount), status=loan.status,
-            application_date=str(loan.application_date)[:19],
-            purpose=loan.purpose,
-            progress_pct=0.0, remaining_emis=loan.tenure_months, is_overdue=False,
-        )
-        for loan in loans
-    ])
+    return _ok(
+        [
+            LoanOut(
+                loan_id=loan.loan_id,
+                account_number=loan.account_number,
+                loan_type=loan.loan_type,
+                principal_amount=float(loan.principal_amount),
+                interest_rate=float(loan.interest_rate),
+                tenure_months=loan.tenure_months,
+                emi_amount=float(loan.emi_amount),
+                amount_paid=float(loan.amount_paid),
+                remaining_amount=float(loan.remaining_amount),
+                status=loan.status,
+                application_date=str(loan.application_date)[:19],
+                purpose=loan.purpose,
+                progress_pct=0.0,
+                remaining_emis=loan.tenure_months,
+                is_overdue=False,
+            )
+            for loan in loans
+        ]
+    )
 
 
 @router.post("/admin/loans/{loan_id}/approve", response_model=ApiResponse[MessageData])
@@ -913,11 +1038,14 @@ def v2_admin_approve_loan(loan_id: str, admin: dict = Depends(get_current_admin)
 
 
 @router.post("/admin/loans/{loan_id}/reject", response_model=ApiResponse[MessageData])
-def v2_admin_reject_loan(loan_id: str, req: LoanRejectRequest, admin: dict = Depends(get_current_admin)):
+def v2_admin_reject_loan(
+    loan_id: str, req: LoanRejectRequest, admin: dict = Depends(get_current_admin)
+):
     """Reject a pending loan application (admin only)."""
     c = _get_container()
     result = c.loan_service().reject_loan(
-        loan_id=loan_id, reason=req.reason,
+        loan_id=loan_id,
+        reason=req.reason,
         admin_user=admin.get("username", "admin"),
     )
     if not result.success:
@@ -934,21 +1062,31 @@ def v2_admin_list_all_loans(admin: dict = Depends(get_current_admin)):
     c = _get_container()
     loans = c.loan_service().list_all()
 
-    return _ok([
-        LoanOut(
-            loan_id=loan.loan_id, account_number=loan.account_number,
-            loan_type=loan.loan_type, principal_amount=float(loan.principal_amount),
-            interest_rate=float(loan.interest_rate), tenure_months=loan.tenure_months,
-            emi_amount=float(loan.emi_amount), amount_paid=float(loan.amount_paid),
-            remaining_amount=float(loan.remaining_amount), status=loan.status,
-            application_date=str(loan.application_date)[:19],
-            approval_date=str(loan.approval_date)[:19] if loan.approval_date else None,
-            next_emi_date=str(loan.next_emi_date)[:19] if loan.next_emi_date else None,
-            purpose=loan.purpose, admin_notes=loan.admin_notes,
-            progress_pct=0.0, remaining_emis=0, is_overdue=False,
-        )
-        for loan in loans
-    ])
+    return _ok(
+        [
+            LoanOut(
+                loan_id=loan.loan_id,
+                account_number=loan.account_number,
+                loan_type=loan.loan_type,
+                principal_amount=float(loan.principal_amount),
+                interest_rate=float(loan.interest_rate),
+                tenure_months=loan.tenure_months,
+                emi_amount=float(loan.emi_amount),
+                amount_paid=float(loan.amount_paid),
+                remaining_amount=float(loan.remaining_amount),
+                status=loan.status,
+                application_date=str(loan.application_date)[:19],
+                approval_date=str(loan.approval_date)[:19] if loan.approval_date else None,
+                next_emi_date=str(loan.next_emi_date)[:19] if loan.next_emi_date else None,
+                purpose=loan.purpose,
+                admin_notes=loan.admin_notes,
+                progress_pct=0.0,
+                remaining_emis=0,
+                is_overdue=False,
+            )
+            for loan in loans
+        ]
+    )
 
 
 #  Admin Endpoints
@@ -981,19 +1119,21 @@ def v2_admin_view_transactions(
     # Sort by timestamp descending
     domain_txns.sort(key=lambda t: t.timestamp, reverse=True)
 
-    return _ok([
-        TransactionOut(
-            txn_id=t.txn_id,
-            timestamp=str(t.timestamp)[:19],
-            type=t.type.value,
-            amount=float(t.amount),
-            balance=float(t.balance),
-            description=t.description,
-            category=t.category,
-            target_account=t.target_account,
-        )
-        for t in domain_txns
-    ])
+    return _ok(
+        [
+            TransactionOut(
+                txn_id=t.txn_id,
+                timestamp=str(t.timestamp)[:19],
+                type=t.type.value,
+                amount=float(t.amount),
+                balance=float(t.balance),
+                description=t.description,
+                category=t.category,
+                target_account=t.target_account,
+            )
+            for t in domain_txns
+        ]
+    )
 
 
 @router.get("/admin/accounts", response_model=ApiResponse[list[AccountListItem]])
@@ -1009,21 +1149,26 @@ def v2_admin_view_accounts(
     Returns X-Total-Count header for pagination-aware UIs.
     """
     c = _get_container()
-    domain_accounts, total = c.admin_service().list_accounts_paginated(
-        page=page, per_page=per_page
-    )
+    domain_accounts, total = c.admin_service().list_accounts_paginated(page=page, per_page=per_page)
     response.headers["X-Total-Count"] = str(total)
-    return _ok([
-        AccountListItem(
-            account_number=a.account_number, name=a.name,
-            balance=float(a.balance),
-            balance_formatted=_fmt_currency(float(a.balance)),
-            status="frozen" if a.is_frozen else ("closed" if not a.is_active else "active"),
-            mobile=a.mobile, email=a.email, age=a.age, gender=a.gender,
-            created_at=str(a.created_at)[:19],
-        )
-        for a in domain_accounts
-    ], meta={"page": page, "per_page": per_page, "total": total})
+    return _ok(
+        [
+            AccountListItem(
+                account_number=a.account_number,
+                name=a.name,
+                balance=float(a.balance),
+                balance_formatted=_fmt_currency(float(a.balance)),
+                status="frozen" if a.is_frozen else ("closed" if not a.is_active else "active"),
+                mobile=a.mobile,
+                email=a.email,
+                age=a.age,
+                gender=a.gender,
+                created_at=str(a.created_at)[:19],
+            )
+            for a in domain_accounts
+        ],
+        meta={"page": page, "per_page": per_page, "total": total},
+    )
 
 
 @router.get("/admin/accounts/search", response_model=ApiResponse[list[AccountListItem]])
@@ -1034,17 +1179,23 @@ def v2_admin_search_accounts(
     """Search accounts by account number or name (admin only)."""
     c = _get_container()
     domain_accounts = c.admin_service().search_accounts(q)
-    return _ok([
-        AccountListItem(
-            account_number=a.account_number, name=a.name,
-            balance=float(a.balance),
-            balance_formatted=_fmt_currency(float(a.balance)),
-            status="frozen" if a.is_frozen else ("closed" if not a.is_active else "active"),
-            mobile=a.mobile, email=a.email, age=a.age, gender=a.gender,
-            created_at=str(a.created_at)[:19],
-        )
-        for a in domain_accounts
-    ])
+    return _ok(
+        [
+            AccountListItem(
+                account_number=a.account_number,
+                name=a.name,
+                balance=float(a.balance),
+                balance_formatted=_fmt_currency(float(a.balance)),
+                status="frozen" if a.is_frozen else ("closed" if not a.is_active else "active"),
+                mobile=a.mobile,
+                email=a.email,
+                age=a.age,
+                gender=a.gender,
+                created_at=str(a.created_at)[:19],
+            )
+            for a in domain_accounts
+        ]
+    )
 
 
 @router.post("/admin/accounts/{acc_no}/freeze", response_model=ApiResponse[MessageData])
@@ -1090,18 +1241,20 @@ def v2_admin_statistics(admin: dict = Depends(get_current_admin)):
     c = _get_container()
     s = c.admin_service().get_statistics()
 
-    return _ok(StatisticsData(
-        total_customers=s["total_customers"],
-        active_accounts=s["active"],
-        frozen_accounts=s["frozen"],
-        closed_accounts=s["closed"],
-        total_balance=s["total_balance"],
-        total_balance_formatted=s["total_balance_formatted"],
-        total_deposits=s["total_dep"],
-        total_withdrawals=s["total_with"],
-        total_transfers=s["total_trans"],
-        total_transactions=s["total_txns"],
-    ))
+    return _ok(
+        StatisticsData(
+            total_customers=s["total_customers"],
+            active_accounts=s["active"],
+            frozen_accounts=s["frozen"],
+            closed_accounts=s["closed"],
+            total_balance=s["total_balance"],
+            total_balance_formatted=s["total_balance_formatted"],
+            total_deposits=s["total_dep"],
+            total_withdrawals=s["total_with"],
+            total_transfers=s["total_trans"],
+            total_transactions=s["total_txns"],
+        )
+    )
 
 
 #  Utility Endpoints
@@ -1111,6 +1264,7 @@ def v2_admin_statistics(admin: dict = Depends(get_current_admin)):
 def v2_list_categories():
     """List all available transaction categories."""
     from unionbank.application.services import TRANSACTION_CATEGORIES
+
     return _ok(TRANSACTION_CATEGORIES)
 
 
@@ -1159,15 +1313,18 @@ def v2_health_check():
 
     try:
         from unionbank.infrastructure.database import get_engine
+
         engine = get_engine()
         with engine.connect() as conn:
             from sqlalchemy import text
+
             conn.execute(text("SELECT 1"))
     except Exception:
         db_status = "disconnected"
 
     try:
         from unionbank.infrastructure.cache import get_cache
+
         cache = get_cache()
         cache.ping()
     except Exception:
@@ -1177,14 +1334,17 @@ def v2_health_check():
 
     if overall == "degraded":
         from fastapi import status
+
         _err(
             f"Database: {db_status}, Cache: {cache_status}",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
-    return _ok(HealthData(
-        status=overall,
-        database=db_status,
-        cache=cache_status,
-        timestamp=datetime.now(timezone.utc).isoformat(),
-    ))
+    return _ok(
+        HealthData(
+            status=overall,
+            database=db_status,
+            cache=cache_status,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+    )

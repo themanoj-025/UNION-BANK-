@@ -32,7 +32,7 @@ jobs:
       - name: Lint with ruff
         run: |
           pip install ruff
-          ruff check . --ignore E402,F403,F401,E501,D,B004
+          ruff check . --ignore E402,F403,F401,E501,D,B004,B008
 
       - name: "Check for bare except: pass (security anti-pattern)"
         run: |

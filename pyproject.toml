@@ -69,6 +69,7 @@ ignore = [
     "D413",  # Missing blank line after last section
     # Bugbear
     "B004",  # Using hasattr(x, "__call__")
+    "B008",  # Do not perform function call in argument defaults (FastAPI Depends() pattern)
     # Import formatting — ruff --fix handles this, no need to block on it
     "I001",  # Import block is un-sorted or un-formatted
 ]

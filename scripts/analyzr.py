@@ -95,7 +95,8 @@ def list_queries() -> None:
         if intent["name"] == "general_search":
             continue
         print(f"  {D}{intent['description']}{R}")
-        print(f"      patterns: {', '.join(f'"{p}"' for p in intent['patterns'][:3])}")
+        patterns_str = ', '.join(f'"{p}"' for p in intent['patterns'][:3])
+        print(f"      patterns: {patterns_str}")
         if intent.get("type_filter"):
             print(f"      filters: {', '.join(intent['type_filter'])}")
         print()

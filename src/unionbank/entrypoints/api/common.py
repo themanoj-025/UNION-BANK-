@@ -31,7 +31,7 @@ JWT_REFRESH_TOKEN_EXPIRE_DAYS = settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
 
 #  Security scheme (shared between v1 and v2)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 #  JWT Helper Functions
@@ -242,9 +242,15 @@ def _check_token_version(payload: dict) -> None:
 
 
 async def get_current_customer(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> dict:
     """Dependency: extract and validate a customer JWT token."""
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     payload = decode_token(credentials.credentials)
     if payload.get("role") != "customer":
         raise HTTPException(
@@ -283,9 +289,15 @@ async def get_current_customer(
 
 
 async def get_current_admin(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> dict:
     """Dependency: extract and validate an admin JWT token."""
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     payload = decode_token(credentials.credentials)
     if payload.get("role") != "admin":
         raise HTTPException(

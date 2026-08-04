@@ -57,7 +57,8 @@ def registered_customer(client: TestClient) -> dict:
     
     unique_suffix = os.urandom(4).hex()
     email = f"security_{unique_suffix}@test.com"
-    mobile = str(random.randint(1000000000, 9999999999))
+    # Mobile must start with 6-9 (Indian number validation)
+    mobile = str(random.randint(6000000000, 9999999999))
     
     resp = client.post(
         "/api/auth/register",
@@ -254,14 +255,17 @@ class TestCSRF:
 
     def test_csrf_token_set_on_login(self, client):
         """Login should set ub_csrf_token cookie."""
+        import os
+        import random
+        unique = os.urandom(4).hex()
         reg_resp = client.post(
             "/api/auth/register",
             json={
                 "name": "CSRF Test User",
                 "age": 28,
                 "gender": "Female",
-                "mobile": "9876543213",
-                "email": "csrf@test.com",
+                "mobile": str(random.randint(6000000000, 9999999999)),
+                "email": f"csrf_{unique}@test.com",
                 "password": "SecureP@ss1",
                 "confirm_password": "SecureP@ss1",
             },
@@ -345,14 +349,17 @@ class TestCookieSecurity:
 
     def test_access_token_cookie_is_http_only(self, client):
         """Access token cookie should be httpOnly (not accessible to JS)."""
+        import os
+        import random
+        unique = os.urandom(4).hex()
         reg_resp = client.post(
             "/api/auth/register",
             json={
                 "name": "Cookie Test User",
                 "age": 25,
                 "gender": "Male",
-                "mobile": "9876543214",
-                "email": "cookie@test.com",
+                "mobile": str(random.randint(6000000000, 9999999999)),
+                "email": f"cookie_{unique}@test.com",
                 "password": "SecureP@ss1",
                 "confirm_password": "SecureP@ss1",
             },
@@ -377,14 +384,17 @@ class TestCookieSecurity:
 
     def test_csrf_token_cookie_is_not_http_only(self, client):
         """CSRF token cookie should NOT be httpOnly (JS needs to read it)."""
+        import os
+        import random
+        unique = os.urandom(4).hex()
         reg_resp = client.post(
             "/api/auth/register",
             json={
                 "name": "CSRF Cookie Test",
                 "age": 25,
                 "gender": "Male",
-                "mobile": "9876543215",
-                "email": "csrfcookie@test.com",
+                "mobile": str(random.randint(6000000000, 9999999999)),
+                "email": f"csrfcookie_{unique}@test.com",
                 "password": "SecureP@ss1",
                 "confirm_password": "SecureP@ss1",
             },

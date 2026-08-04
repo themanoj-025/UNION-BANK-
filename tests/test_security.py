@@ -52,14 +52,21 @@ def registered_customer(client: TestClient) -> dict:
     After login, clears cookies so subsequent requests use Bearer-only auth
     (no CSRF cookie), preventing 403s from the CSRF middleware.
     """
+    import os
+    import random
+    
+    unique_suffix = os.urandom(4).hex()
+    email = f"security_{unique_suffix}@test.com"
+    mobile = str(random.randint(1000000000, 9999999999))
+    
     resp = client.post(
         "/api/auth/register",
         json={
             "name": "Security Test User",
             "age": 30,
             "gender": "Male",
-            "mobile": "9876543210",
-            "email": "security@test.com",
+            "mobile": mobile,
+            "email": email,
             "password": "SecureP@ss1",
             "confirm_password": "SecureP@ss1",
         },
@@ -96,16 +103,18 @@ def admin_token(client: TestClient) -> dict:
     Clears cookies after login for Bearer-only auth.
     """
     from unionbank.domain.entities import AdminUser
+    import os
 
     c = get_container()
-    admin = AdminUser(username="testadmin", password=hash_password("Admin123!"))
+    username = f"testadmin_{os.urandom(4).hex()}"
+    admin = AdminUser(username=username, password=hash_password("Admin123!"))
     c.admin_repo().create(admin)
     c.admin_repo().commit()
 
     login_resp = client.post(
         "/api/auth/admin-login",
         json={
-            "username": "testadmin",
+            "username": username,
             "password": "Admin123!",
         },
     )
@@ -116,7 +125,7 @@ def admin_token(client: TestClient) -> dict:
     client.cookies.clear()
 
     return {
-        "username": "testadmin",
+        "username": username,
         "access_token": login_data["access_token"],
         "headers": {"Authorization": f"Bearer {login_data['access_token']}"},
     }

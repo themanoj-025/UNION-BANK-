@@ -15,5 +15,5 @@ updates:
       - "dependencies"
       - "python"
     commit-message:
-      prefix: "deps"
+      prefix: "chore"
       include: "scope"

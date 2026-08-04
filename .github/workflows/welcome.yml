@@ -4,6 +4,8 @@
 
 name: "Welcome new contributors"
 
+permissions:
+  contents: read
 on:
   issues:
     types: [opened]
@@ -12,6 +14,7 @@ on:
 
 jobs:
   welcome:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       issues: write

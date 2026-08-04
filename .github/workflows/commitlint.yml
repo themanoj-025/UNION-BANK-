@@ -1,11 +1,14 @@
 name: Commitlint
 
+permissions:
+  contents: read
 on:
   pull_request:
     branches: [main]
 
 jobs:
   commitlint:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

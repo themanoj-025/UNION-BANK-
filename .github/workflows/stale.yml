@@ -7,12 +7,15 @@
 
 name: "Stale issues & PRs"
 
+permissions:
+  contents: read
 on:
   schedule:
     - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
 
 jobs:
   stale:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       issues: write

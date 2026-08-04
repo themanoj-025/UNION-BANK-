@@ -1,5 +1,7 @@
 name: CI
 
+permissions:
+  contents: read
 on:
   push:
     branches: [main]
@@ -8,6 +10,7 @@ on:
 
 jobs:
   backend-tests:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -31,53 +34,53 @@ jobs:
           pip install ruff
           ruff check . --ignore E402,F403,F401,E501
 
-      - name: Check for bare except: pass (security anti-pattern)
+      - name: "Check for bare except: pass (security anti-pattern)"
         run: |
           python -c "
-import sys, os, re
+          import sys, os, re
 
-failed = 0
-# Match 'except:' or 'except Exception:' or 'except BaseException:' on its own line
-# followed by 'pass' on the next line (the anti-pattern we ban)
-except_re = re.compile(r'^\s*except(\s+(Exception|BaseException)|\s*)?:\s*$')
-pass_re = re.compile(r'^\s*pass\s*$')
+          failed = 0
+          # Match 'except:' or 'except Exception:' or 'except BaseException:' on its own line
+          # followed by 'pass' on the next line (the anti-pattern we ban)
+          except_re = re.compile(r'^\s*except(\s+(Exception|BaseException)|\s*)?:\s*$')
+          pass_re = re.compile(r'^\s*pass\s*$')
 
-dirs = ['src', 'api']
-files = ['api.py']
+          dirs = ['src', 'api']
+          files = ['api.py']
 
-for d in dirs:
-    if not os.path.isdir(d):
-        continue
-    for root, _, filenames in os.walk(d):
-        for f in filenames:
-            if not f.endswith('.py'):
-                continue
-            path = os.path.join(root, f)
-            with open(path, encoding='utf-8') as fh:
-                lines = fh.readlines()
-            for i, line in enumerate(lines):
-                if except_re.match(line):
-                    if i + 1 < len(lines) and pass_re.match(lines[i + 1]):
-                        print(f'BARE EXCEPT FOUND: {path}:{i+1}: "{line.strip()}" followed by "{lines[i+1].strip()}"')
-                        failed = 1
+          for d in dirs:
+              if not os.path.isdir(d):
+                  continue
+              for root, _, filenames in os.walk(d):
+                  for f in filenames:
+                      if not f.endswith('.py'):
+                          continue
+                      path = os.path.join(root, f)
+                      with open(path, encoding='utf-8') as fh:
+                          lines = fh.readlines()
+                      for i, line in enumerate(lines):
+                          if except_re.match(line):
+                              if i + 1 < len(lines) and pass_re.match(lines[i + 1]):
+                                  print(f'BARE EXCEPT FOUND: {path}:{i+1}: "{line.strip()}" followed by "{lines[i+1].strip()}"')
+                                  failed = 1
 
-for f in files:
-    if os.path.isfile(f):
-        path = f
-        with open(path, encoding='utf-8') as fh:
-            lines = fh.readlines()
-        for i, line in enumerate(lines):
-            if except_re.match(line):
-                if i + 1 < len(lines) and pass_re.match(lines[i + 1]):
-                    print(f'BARE EXCEPT FOUND: {path}:{i+1}: "{line.strip()}" followed by "{lines[i+1].strip()}"')
-                    failed = 1
+          for f in files:
+              if os.path.isfile(f):
+                  path = f
+                  with open(path, encoding='utf-8') as fh:
+                      lines = fh.readlines()
+                  for i, line in enumerate(lines):
+                      if except_re.match(line):
+                          if i + 1 < len(lines) and pass_re.match(lines[i + 1]):
+                              print(f'BARE EXCEPT FOUND: {path}:{i+1}: "{line.strip()}" followed by "{lines[i+1].strip()}"')
+                              failed = 1
 
-if failed:
-    print('FAIL: bare except:pass anti-patterns found (should log exception, not silently swallow)')
-    sys.exit(1)
-else:
-    print('  ✓ No bare except:pass found')
-"
+          if failed:
+              print('FAIL: bare except:pass anti-patterns found (should log exception, not silently swallow)')
+              sys.exit(1)
+          else:
+              print('  ✓ No bare except:pass found')
+          "
         shell: bash
 
       - name: Check for password field in API response models
@@ -129,7 +132,7 @@ else:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U unionbank_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -241,11 +244,11 @@ else:
       - name: Generate OpenAPI spec
         run: |
           UNION_BANK_TESTING=1 python -c "
-from unionbank.entrypoints.api.main import app
-import json
-with open('/tmp/openapi.json', 'w') as f:
-    json.dump(app.openapi(), f, indent=2)
-"
+          from unionbank.entrypoints.api.main import app
+          import json
+          with open('/tmp/openapi.json', 'w') as f:
+              json.dump(app.openapi(), f, indent=2)
+          "
         env:
           JWT_SECRET: "ci-test-secret"
           FLASK_SECRET_KEY: "ci-test-flask-secret"
@@ -310,47 +313,47 @@ with open('/tmp/openapi.json', 'w') as f:
           fi
           # Check for potential secret patterns in non-config files
           python -c "
-import os, re, sys
+          import os, re, sys
 
-# Patterns that look like secrets (not in config files or tests)
-secret_patterns = [
-    (r'-----BEGIN RSA PRIVATE KEY-----', 'RSA private key'),
-    (r'AKIA[0-9A-Z]{16}', 'AWS access key'),
-    (r'ghp_[0-9a-zA-Z]{36}', 'GitHub personal access token'),
-    (r'gho_[0-9a-zA-Z]{36}', 'GitHub OAuth access token'),
-    (r'xox[baprs]-[0-9a-zA-Z-]+', 'Slack token'),
-    (r'sk_live_[0-9a-z]+', 'Stripe live secret key'),
-]
+          # Patterns that look like secrets (not in config files or tests)
+          secret_patterns = [
+              (r'-----BEGIN RSA PRIVATE KEY-----', 'RSA private key'),
+              (r'AKIA[0-9A-Z]{16}', 'AWS access key'),
+              (r'ghp_[0-9a-zA-Z]{36}', 'GitHub personal access token'),
+              (r'gho_[0-9a-zA-Z]{36}', 'GitHub OAuth access token'),
+              (r'xox[baprs]-[0-9a-zA-Z-]+', 'Slack token'),
+              (r'sk_live_[0-9a-z]+', 'Stripe live secret key'),
+          ]
 
-# Files to skip (expected to contain patterns)
-skip_files = {'.gitignore', 'secrets-check', 'SECURITY.md', 'THREAT_MODEL.md'}
-skip_dirs = {'.git', 'node_modules', '__pycache__', '.venv', 'venv'}
+          # Files to skip (expected to contain patterns)
+          skip_files = {'.gitignore', 'secrets-check', 'SECURITY.md', 'THREAT_MODEL.md'}
+          skip_dirs = {'.git', 'node_modules', '__pycache__', '.venv', 'venv'}
 
-found = False
-for root, dirs, files in os.walk('.'):
-    dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith('.')]
-    for fname in files:
-        if fname in skip_files:
-            continue
-        fpath = os.path.join(root, fname)
-        if not os.path.isfile(fpath):
-            continue
-        try:
-            with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-            for pattern, desc in secret_patterns:
-                if re.search(pattern, content):
-                    print(f'  ⚠️  {desc} pattern found in: {fpath}')
-                    found = True
-        except:
-            pass
+          found = False
+          for root, dirs, files in os.walk('.'):
+              dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith('.')]
+              for fname in files:
+                  if fname in skip_files:
+                      continue
+                  fpath = os.path.join(root, fname)
+                  if not os.path.isfile(fpath):
+                      continue
+                  try:
+                      with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                          content = f.read()
+                      for pattern, desc in secret_patterns:
+                          if re.search(pattern, content):
+                              print(f'  ⚠️  {desc} pattern found in: {fpath}')
+                              found = True
+                  except:
+                      pass
 
-if found:
-    print('Secrets detected in repository! Review and remove before committing.')
-    sys.exit(1)
-else:
-    print('  ✓ No secret patterns found in repository')
-"
+          if found:
+              print('Secrets detected in repository! Review and remove before committing.')
+              sys.exit(1)
+          else:
+              print('  ✓ No secret patterns found in repository')
+          "
         shell: bash
         continue-on-error: true
 

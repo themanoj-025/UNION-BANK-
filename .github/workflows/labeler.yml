@@ -1,10 +1,13 @@
 name: "Pull request labeler"
 
+permissions:
+  contents: read
 on:
   - pull_request_target
 
 jobs:
   label:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: read

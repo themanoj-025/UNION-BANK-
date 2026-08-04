@@ -60,11 +60,15 @@ ignore = [
     "D102",  # Missing docstring in public method
     "D103",  # Missing docstring in public function
     "D104",  # Missing docstring in public package
+    "D107",  # Missing docstring in __init__
     # Docstring formatting — multi-line vs single-line is style preference
     "D200",  # One-line docstring should fit on one line
     "D204",  # 1 blank line required after class docstring
+    "D205",  # 1 blank line required between summary line and description
     "D212",  # Multi-line docstring summary should start at first line
     "D413",  # Missing blank line after last section
+    # Bugbear
+    "B004",  # Using hasattr(x, "__call__")
     # Import formatting — ruff --fix handles this, no need to block on it
     "I001",  # Import block is un-sorted or un-formatted
 ]

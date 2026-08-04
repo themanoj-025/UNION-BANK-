@@ -273,6 +273,7 @@ jobs:
 
       - name: Build Docker image
         run: |
+          touch .env
           docker compose build api
 
       - name: Start services

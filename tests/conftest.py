@@ -22,7 +22,7 @@ os.environ.setdefault("UNION_BANK_TESTING", "1")
 # The unionbank package is installed via pip install -e ., so all
 # imports use unionbank.-qualified paths. No sys.path manipulation needed.
 
-import pytest
+import pytest  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

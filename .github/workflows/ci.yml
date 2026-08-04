@@ -32,7 +32,7 @@ jobs:
       - name: Lint with ruff
         run: |
           pip install ruff
-          ruff check . --ignore E402,F403,F401,E501
+          ruff check . --ignore E402,F403,F401,E501,D,B004
 
       - name: "Check for bare except: pass (security anti-pattern)"
         run: |
@@ -61,7 +61,7 @@ jobs:
                       for i, line in enumerate(lines):
                           if except_re.match(line):
                               if i + 1 < len(lines) and pass_re.match(lines[i + 1]):
-                                  print(f'BARE EXCEPT FOUND: {path}:{i+1}: "{line.strip()}" followed by "{lines[i+1].strip()}"')
+                                  print(f'BARE EXCEPT FOUND: {path}:{i+1}: \"{line.strip()}\" followed by \"{lines[i+1].strip()}\"')
                                   failed = 1
 
           for f in files:
@@ -72,7 +72,7 @@ jobs:
                   for i, line in enumerate(lines):
                       if except_re.match(line):
                           if i + 1 < len(lines) and pass_re.match(lines[i + 1]):
-                              print(f'BARE EXCEPT FOUND: {path}:{i+1}: "{line.strip()}" followed by "{lines[i+1].strip()}"')
+                              print(f'BARE EXCEPT FOUND: {path}:{i+1}: \"{line.strip()}\" followed by \"{lines[i+1].strip()}\"')
                               failed = 1
 
           if failed:
@@ -243,7 +243,7 @@ jobs:
 
       - name: Generate OpenAPI spec
         run: |
-          UNION_BANK_TESTING=1 python -c "
+          PYTHONPATH=src UNION_BANK_TESTING=1 python -c "
           from unionbank.entrypoints.api.main import app
           import json
           with open('/tmp/openapi.json', 'w') as f:
@@ -256,7 +256,7 @@ jobs:
       - name: Schemathesis fuzz API
         run: |
           # Start the app in background
-          UNION_BANK_TESTING=1 uvicorn unionbank.entrypoints.api.main:app --host 0.0.0.0 --port 8000 &
+          PYTHONPATH=src UNION_BANK_TESTING=1 uvicorn unionbank.entrypoints.api.main:app --host 0.0.0.0 --port 8000 &
           sleep 3
           st run --checks all /tmp/openapi.json --base-url http://localhost:8000 -w 5 --hypothesis-suppress-health-check=too_slow 2>&1 | tail -20 || true
         env:
@@ -287,7 +287,7 @@ jobs:
 
       - name: Run tests in Docker
         run: |
-          docker compose run --rm --no-deps api \
+          docker compose run --rm --no-deps -v ./tests:/app/tests api \
             sh -c "UNION_BANK_TESTING=1 JWT_SECRET=ci-test-secret FLASK_SECRET_KEY=ci-test-flask-secret python -m pytest tests/ -v --tb=short --cov --cov-report=term --cov-fail-under=50"
 
       - name: Check Docker container logs

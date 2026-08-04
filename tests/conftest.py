@@ -37,6 +37,15 @@ def _unset_env_vars_for_safety():
     # document the pattern and can be extended for per-test env isolation.
     yield
 
+@pytest.fixture(autouse=True)
+def _clean_postgres_db():
+    """Clean Postgres database between tests."""
+    if "postgres" in os.environ.get("DATABASE_URL", ""):
+        from unionbank.infrastructure.database import get_engine, ModelBase
+        engine = get_engine()
+        ModelBase.metadata.drop_all(engine)
+        ModelBase.metadata.create_all(engine)
+
 
 @pytest.fixture
 def tmp_data_dir(tmp_path: Path) -> Path:

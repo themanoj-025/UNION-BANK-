@@ -455,7 +455,6 @@ class Account:
         from unionbank.infrastructure.container import get_container
 
         c = get_container()
-        from unionbank.domain.entities import TransactionType
 
         domain_txns = c.transaction_repo().get_by_account(self.account_number)
         records = []

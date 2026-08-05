@@ -77,7 +77,7 @@ def save_json(filepath: str, data) -> None:
     """
     Persist data to JSON file atomically with auto-backup.
     - Creates a .bak copy of the previous version before overwriting
-    - Writes to a temp file first, then atomically renames (reduces corruption)
+    - Writes to a temp file first, then atomically renames (reduces corruption).
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
 

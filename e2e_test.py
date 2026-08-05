@@ -1,7 +1,7 @@
 """
 End-to-end API test script for Union Bank.
 Runs 23 tests across V1, V2, and Admin endpoints.
-Usage: python e2e_test.py
+Usage: python e2e_test.py.
 """
 
 import os

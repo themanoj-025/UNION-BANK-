@@ -648,7 +648,7 @@ class TestConcurrentTransfers:
         """
         Fire 10 concurrent transfers from one account and verify:
         1. Money is ALWAYS conserved (sender + receiver = initial total)
-        2. At least some transfers succeeded
+        2. At least some transfers succeeded.
 
         Under SQLite's WAL mode, writes are serialized. Some concurrent
         transfers may fail due to "database is locked" — this is expected.

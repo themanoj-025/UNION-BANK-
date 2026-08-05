@@ -1181,7 +1181,7 @@ class AsyncSqlAlchemyIdempotencyRepository:
 
 
 class AsyncSqlAlchemyAuditLogRepository:
-    """Audit log repository — append-only, never deleted or updated. (async)"""
+    """Audit log repository — append-only, never deleted or updated. (async)."""
 
     def __init__(self, session: AsyncSession):
         self.session = session

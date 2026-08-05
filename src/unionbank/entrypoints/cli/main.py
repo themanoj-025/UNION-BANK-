@@ -1,5 +1,5 @@
 """
-main.py - Entry point for Union Bank Management System
+main.py - Entry point for Union Bank Management System.
 
 Boot sequence:
   1. SQLite database (init_db)

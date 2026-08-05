@@ -1,5 +1,5 @@
 """
-add_balance_check_constraint
+add_balance_check_constraint.
 
 Revision ID: bc2a4f8e9d1b
 Revises: 808505b8d0f3

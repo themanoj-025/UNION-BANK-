@@ -20,7 +20,7 @@ pybreaker==1.1.0  # circuit breaker used by application/services.py (was only in
 redis==7.2.0
 slowapi==0.1.9
 SQLAlchemy==2.0.46
-uvicorn==0.30.6
+uvicorn==0.52.1
 
 # Pyproject-matched dependencies
 pydantic==2.10.4

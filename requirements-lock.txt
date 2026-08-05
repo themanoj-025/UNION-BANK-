@@ -352,5 +352,5 @@ yarl==1.22.0
 yellowbrick==1.5
 yfinance==1.2.0
 yt-dlp==2026.3.3
-ytmusicapi==1.11.5
+ytmusicapi==1.12.1
 zipp==3.23.0

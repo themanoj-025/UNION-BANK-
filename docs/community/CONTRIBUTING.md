@@ -157,16 +157,16 @@ type(scope): description
 
 **Allowed types:**
 
-|Type|When to Use|Version Bump|
-|----------|--------------------------------------|--------------|
-|`feat`|A new feature|minor|
-|`fix`|A bug fix|patch|
-|`refactor`|Code change that neither fixes nor adds|patch|
-|`docs`|Documentation only|patch|
-|`test`|Adding or correcting tests|patch|
-|`chore`|Tooling, CI, dependency changes|patch|
-|`style`|Formatting, linting (no logic change)|patch|
-|`perf`|Performance improvement|patch|
+| Type | When to Use | Version Bump |
+| ---------- | -------------------------------------- | -------------- |
+| `feat` | A new feature | minor |
+| `fix` | A bug fix | patch |
+| `refactor` | Code change that neither fixes nor adds | patch |
+| `docs` | Documentation only | patch |
+| `test` | Adding or correcting tests | patch |
+| `chore` | Tooling, CI, dependency changes | patch |
+| `style` | Formatting, linting (no logic change) | patch |
+| `perf` | Performance improvement | patch |
 
 **Scopes** (use one): `api`, `cli`, `frontend`, `auth`, `db`, `ci`, `docs`, `tests`, `infra`, `deps`, `analyzr`
 
@@ -241,13 +241,13 @@ Then open a Pull Request against `main` with:
 
 All PRs must pass these CI jobs:
 
-|Job|Required|Description|
-|-----|----------|-------------|
-|Backend tests (3.11, 3.12)|✅|Full pytest suite|
-|Frontend tests|✅|Vitest + React Testing Library|
-|Frontend lint + build|✅|oxlint + Vite build|
-|Security tests|✅|Password leak, JWT, SQLi|
-|Docker build|✅|Multi-stage build verification|
+| Job | Required | Description |
+| ----- | ---------- | ------------- |
+| Backend tests (3.11, 3.12) | ✅ | Full pytest suite |
+| Frontend tests | ✅ | Vitest + React Testing Library |
+| Frontend lint + build | ✅ | oxlint + Vite build |
+| Security tests | ✅ | Password leak, JWT, SQLi |
+| Docker build | ✅ | Multi-stage build verification |
 
 **Non-blocking** (reported but allowed to fail): mutation testing, schemathesis fuzz, link checks.
 
@@ -314,19 +314,19 @@ npm run test:watch    # Watch mode
 
 ### Test Targets
 
-|Test File|What It Covers|
-|-----------|---------------|
-|`test_services.py`|Service layer business logic|
-|`test_features.py`|Feature-level integration|
-|`test_api_integration.py`|API endpoint end-to-end|
-|`test_integration.py`|Database integration + concurrency|
-|`test_property_based.py`|Hypothesis property-based invariants|
-|`test_edge_cases.py`|Error paths and boundary conditions|
-|`test_security.py`|Security vulnerability tests|
-|`test_password_leak.py`|Password hash leak detection|
-|`test_smoke.py`|Module import verification|
-|`test_analyzr.py`|Natural-language search engine|
-|`test_migrations.py`|Alembic upgrade/downgrade|
+| Test File | What It Covers |
+| ----------- | --------------- |
+| `test_services.py` | Service layer business logic |
+| `test_features.py` | Feature-level integration |
+| `test_api_integration.py` | API endpoint end-to-end |
+| `test_integration.py` | Database integration + concurrency |
+| `test_property_based.py` | Hypothesis property-based invariants |
+| `test_edge_cases.py` | Error paths and boundary conditions |
+| `test_security.py` | Security vulnerability tests |
+| `test_password_leak.py` | Password hash leak detection |
+| `test_smoke.py` | Module import verification |
+| `test_analyzr.py` | Natural-language search engine |
+| `test_migrations.py` | Alembic upgrade/downgrade |
 
 ### Coverage Target
 

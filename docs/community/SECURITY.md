@@ -41,17 +41,17 @@ If you discover a security vulnerability in the Union Bank Management System, pl
 ## Authentication & Authorization
 
 ### Interfaces
-|Interface|Auth Method|Session|
-|---|---|---|
-|CLI|Password (bcrypt verify)|In-memory (process lifetime)|
-|Flask Web|Flask sessions (bcrypt verify)|Cookie-based, 5-min timeout|
-|FastAPI API|JWT (HS256, 24h expiry)|Token-based|
+| Interface | Auth Method | Session |
+| --- | --- | --- |
+| CLI | Password (bcrypt verify) | In-memory (process lifetime) |
+| Flask Web | Flask sessions (bcrypt verify) | Cookie-based, 5-min timeout |
+| FastAPI API | JWT (HS256, 24h expiry) | Token-based |
 
 ### Role Model
-|Role|Access|
-|---|---|
-|Customer|Self-service (own account, transactions, savings goals)|
-|Admin|Full system access (all accounts, freeze/delete, statistics, reports)|
+| Role | Access |
+| --- | --- |
+| Customer | Self-service (own account, transactions, savings goals) |
+| Admin | Full system access (all accounts, freeze/delete, statistics, reports) |
 
 ### Rate Limiting
 - 5 failed login attempts → 15-minute lockout.
@@ -60,22 +60,22 @@ If you discover a security vulnerability in the Union Bank Management System, pl
 
 ## Environment Variables
 
-|Variable|Sensitivity|Notes|
-|---|---|---|
-|`JWT_SECRET`|**Critical**|JWT signing secret. **Change from default before production.**|
-|`FLASK_SECRET_KEY`|High|Flask session signing key. Auto-generated if not set.|
+| Variable | Sensitivity | Notes |
+| --- | --- | --- |
+| `JWT_SECRET` | **Critical** | JWT signing secret. **Change from default before production.** |
+| `FLASK_SECRET_KEY` | High | Flask session signing key. Auto-generated if not set. |
 
 ## Data Storage Security
 
 This project uses JSON file-based storage in the `data/` directory:
 
-|File|Contents|Sensitivity|
-|---|---|---|
-|`accounts.json`|Account details, bcrypt password hashes, balances|**Critical**|
-|`transactions.json`|Full transaction history|High|
-|`login_attempts.json`|Failed login tracking|Medium|
-|`savings_goals.json`|Savings goal data|Low|
-|`admin.json` (if used)|Admin credentials|**Critical**|
+| File | Contents | Sensitivity |
+| --- | --- | --- |
+| `accounts.json` | Account details, bcrypt password hashes, balances | **Critical** |
+| `transactions.json` | Full transaction history | High |
+| `login_attempts.json` | Failed login tracking | Medium |
+| `savings_goals.json` | Savings goal data | Low |
+| `admin.json` (if used) | Admin credentials | **Critical** |
 
 **Important:** These JSON files are **unencrypted** and should have restricted filesystem permissions (`chmod 600` on Linux). The `data/` directory should not be publicly accessible.
 

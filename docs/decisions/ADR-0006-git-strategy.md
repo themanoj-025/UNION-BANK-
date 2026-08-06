@@ -43,15 +43,15 @@ type(scope): description
 ```
 
 **Types:**
-|Type|Usage|
-|------|-------|
-|`feat`|New feature (minor version bump)|
-|`fix`|Bug fix (patch version bump)|
-|`refactor`|Code change that neither fixes nor adds|
-|`docs`|Documentation only|
-|`test`|Test addition or correction|
-|`chore`|Tooling, CI, dependencies|
-|`style`|Formatting, linting (no logic change)|
+| Type | Usage |
+| ------ | ------- |
+| `feat` | New feature (minor version bump) |
+| `fix` | Bug fix (patch version bump) |
+| `refactor` | Code change that neither fixes nor adds |
+| `docs` | Documentation only |
+| `test` | Test addition or correction |
+| `chore` | Tooling, CI, dependencies |
+| `style` | Formatting, linting (no logic change) |
 
 **Scopes (examples):** `api`, `cli`, `frontend`, `auth`, `db`, `ci`, `docs`, `tests`, `infra`
 

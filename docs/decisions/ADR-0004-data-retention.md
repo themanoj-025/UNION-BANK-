@@ -110,12 +110,12 @@ moved inside the write transaction with `INSERT ... ON CONFLICT DO NOTHING`.
 
 ## Alternatives Considered
 
-|Alternative|Rejected Because|
-|---|---|
-|Hard-delete + archive table|More complex; soft-delete achieves the same goal with simpler code|
-|CASCADE to archive table|SQLite doesn't support this natively; application-level logic would be fragile|
-|Transaction-level idempotency with DB constraints|Requires Postgres `pg_advisory_xact_lock` or similar; over-engineering for current scale|
-|Client-side dedup only|Server must be the authority on correctness; client-side dedup is insufficient|
+| Alternative | Rejected Because |
+| --- | --- |
+| Hard-delete + archive table | More complex; soft-delete achieves the same goal with simpler code |
+| CASCADE to archive table | SQLite doesn't support this natively; application-level logic would be fragile |
+| Transaction-level idempotency with DB constraints | Requires Postgres `pg_advisory_xact_lock` or similar; over-engineering for current scale |
+| Client-side dedup only | Server must be the authority on correctness; client-side dedup is insufficient |
 
 ---
 

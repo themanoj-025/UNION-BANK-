@@ -1,11 +1,11 @@
 # Rules — UNION-BANK-: Coding Standards & AI-Agent Operating Rules
 
-|Field|Value|
-|---|---|
-|Version|v0.1|
-|Last Updated|2026-08-06|
-|Owner|Staff Engineer|
-|Status|Approved|
+| Field | Value |
+| --- | --- |
+| Version | v0.1 |
+| Last Updated | 2026-08-06 |
+| Owner | Staff Engineer |
+| Status | Approved |
 
 ---
 
@@ -87,15 +87,15 @@ UNION-BANK-/
 
 ## 8. Prohibited Patterns
 
-|Pattern|Why|
-|---|---|
-|`except: pass`|Silent failure — violates Principle 2|
-|Tokens in localStorage|XSS exfiltration|
-|Raw SQL concat|Injection|
-|Balance updates without row lock/savepoint|Lost updates|
-|Editing applied migrations|Breaks history|
-|Non-envelope responses in v2|Breaks API contract|
-|Committing secrets/.env|Leak|
+| Pattern | Why |
+| --- | --- |
+| `except: pass` | Silent failure — violates Principle 2 |
+| Tokens in localStorage | XSS exfiltration |
+| Raw SQL concat | Injection |
+| Balance updates without row lock/savepoint | Lost updates |
+| Editing applied migrations | Breaks history |
+| Non-envelope responses in v2 | Breaks API contract |
+| Committing secrets/.env | Leak |
 
 ## 9. Escalation Rules
 
@@ -112,9 +112,9 @@ UNION-BANK-/
 
 ## 10. Related Documents
 
-|Document|Relationship|
-|---|---|
-|[Testing.md](../technical/Testing.md)|Enforcement|
-|[SecurityAndCompliance.md](../technical/SecurityAndCompliance.md)|Security baseline detail|
-|[API.md](../technical/API.md)|Contract change triggers|
-|[Schema.md](../technical/Schema.md)|Migration triggers|
+| Document | Relationship |
+| --- | --- |
+| [Testing.md](../technical/Testing.md) | Enforcement |
+| [SecurityAndCompliance.md](../technical/SecurityAndCompliance.md) | Security baseline detail |
+| [API.md](../technical/API.md) | Contract change triggers |
+| [Schema.md](../technical/Schema.md) | Migration triggers |

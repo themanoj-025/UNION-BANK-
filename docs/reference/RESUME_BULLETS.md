@@ -59,13 +59,13 @@
 
 ## 📋 Quick Reference by Role
 
-|Role|Best Bullets|
-|------|-------------|
-|**Backend Engineer**|Atomic transfers, async migration, PostgreSQL evolution, layered architecture|
-|**Security Engineer**|Defense-in-depth, JWT+TOTP+CSRF, token storage, rate limiting, security tests|
-|**DevOps Engineer**|Multi-stage Docker, Prometheus/Grafana, K8s manifests, CI/CD, health probes|
-|**Full-Stack Engineer**|All of the above + React frontend, Vitest testing, API design|
-|**SRE / Platform Engineer**|Observability stack, metrics, structured logging, circuit breaker, health checks|
+| Role | Best Bullets |
+| ------ | ------------- |
+| **Backend Engineer** | Atomic transfers, async migration, PostgreSQL evolution, layered architecture |
+| **Security Engineer** | Defense-in-depth, JWT+TOTP+CSRF, token storage, rate limiting, security tests |
+| **DevOps Engineer** | Multi-stage Docker, Prometheus/Grafana, K8s manifests, CI/CD, health probes |
+| **Full-Stack Engineer** | All of the above + React frontend, Vitest testing, API design |
+| **SRE / Platform Engineer** | Observability stack, metrics, structured logging, circuit breaker, health checks |
 
 ---
 

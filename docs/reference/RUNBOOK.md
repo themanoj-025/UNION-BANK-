@@ -22,21 +22,21 @@
 
 Union Bank API is a FastAPI application providing REST endpoints for banking operations.
 
-|Component|Details|
-|-----------|---------|
-|**Service**|union-bank-api (FastAPI)|
-|**Port**|8000|
-|**Database**|SQLite (`data/union_bank.db`) or PostgreSQL (via `DATABASE_URL`)|
-|**Cache**|Redis (optional, configured via `REDIS_URL`)|
-|**Logging**|Structured JSON → `data/bank.jsonl`, Text → `data/bank.log`|
-|**Metrics**|Prometheus → `/metrics` endpoint|
+| Component | Details |
+| ----------- | --------- |
+| **Service** | union-bank-api (FastAPI) |
+| **Port** | 8000 |
+| **Database** | SQLite (`data/union_bank.db`) or PostgreSQL (via `DATABASE_URL`) |
+| **Cache** | Redis (optional, configured via `REDIS_URL`) |
+| **Logging** | Structured JSON → `data/bank.jsonl`, Text → `data/bank.log` |
+| **Metrics** | Prometheus → `/metrics` endpoint |
 
 ### Default Credentials
 
-|Role|Username|Password|
-|------|----------|----------|
-|Customer|(account number from seed data)|`Seed@123`|
-|Admin|`admin`|`admin123`|
+| Role | Username | Password |
+| ------ | ---------- | ---------- |
+| Customer | (account number from seed data) | `Seed@123` |
+| Admin | `admin` | `admin123` |
 
 ---
 
@@ -104,25 +104,25 @@ scrape_configs:
 
 ### Available Metrics
 
-|Metric|Type|Labels|Description|
-|--------|------|--------|-------------|
-|`union_bank_requests_total`|Counter|method, endpoint, status|Total HTTP requests|
-|`union_bank_request_duration_seconds`|Histogram|method, endpoint|Request latency buckets|
-|`union_bank_inflight_requests`|Gauge|method|Current in-flight requests|
-|`union_bank_errors_total`|Counter|type, endpoint|Application errors by type|
-|`union_bank_active_sessions`|Gauge|—|Active user sessions|
-|`union_bank_db_queries_total`|Counter|operation|Database query count|
-|`union_bank_cache_hits_total`|Counter|cache|Cache hit count|
-|`union_bank_cache_misses_total`|Counter|cache|Cache miss count|
+| Metric | Type | Labels | Description |
+| -------- | ------ | -------- | ------------- |
+| `union_bank_requests_total` | Counter | method, endpoint, status | Total HTTP requests |
+| `union_bank_request_duration_seconds` | Histogram | method, endpoint | Request latency buckets |
+| `union_bank_inflight_requests` | Gauge | method | Current in-flight requests |
+| `union_bank_errors_total` | Counter | type, endpoint | Application errors by type |
+| `union_bank_active_sessions` | Gauge | — | Active user sessions |
+| `union_bank_db_queries_total` | Counter | operation | Database query count |
+| `union_bank_cache_hits_total` | Counter | cache | Cache hit count |
+| `union_bank_cache_misses_total` | Counter | cache | Cache miss count |
 
 ### Suggested Alerts
 
-|Alert|Condition|Severity|
-|-------|-----------|----------|
-|High Error Rate|`rate(union_bank_errors_total[5m]) > 0.1`|Warning|
-|High Latency|`p95(union_bank_request_duration_seconds) > 2s`|Warning|
-|Service Down|`up{job="union-bank-api"} == 0`|Critical|
-|Many In-flight|`union_bank_inflight_requests > 100`|Warning|
+| Alert | Condition | Severity |
+| ------- | ----------- | ---------- |
+| High Error Rate | `rate(union_bank_errors_total[5m]) > 0.1` | Warning |
+| High Latency | `p95(union_bank_request_duration_seconds) > 2s` | Warning |
+| Service Down | `up{job="union-bank-api"} == 0` | Critical |
+| Many In-flight | `union_bank_inflight_requests > 100` | Warning |
 
 ---
 
@@ -130,10 +130,10 @@ scrape_configs:
 
 ### Log Files
 
-|File|Format|Level|Content|
-|------|--------|-------|---------|
-|`data/bank.log`|Text (`[timestamp] LEVEL message`)|DEBUG+|Full application logs|
-|`data/bank.jsonl`|JSON (one object per line)|INFO+|Structured logs with request_id, account context|
+| File | Format | Level | Content |
+| ------ | -------- | ------- | --------- |
+| `data/bank.log` | Text (`[timestamp] LEVEL message`) | DEBUG+ | Full application logs |
+| `data/bank.jsonl` | JSON (one object per line) | INFO+ | Structured logs with request_id, account context |
 
 ### JSON Log Format
 
@@ -160,13 +160,13 @@ Every authenticated request includes:
 
 ### Log Levels
 
-|Level|Usage|
-|-------|-------|
-|DEBUG|Fine-grained internal flow (file only)|
-|INFO|Normal operations (login, deposit, transfer, etc.)|
-|WARNING|Suspicious/notable events (bad password, frozen account, CSRF warning)|
-|ERROR|Unexpected failures (DB errors, external service failures)|
-|CRITICAL|Admin actions (freeze, delete, close account)|
+| Level | Usage |
+| ------- | ------- |
+| DEBUG | Fine-grained internal flow (file only) |
+| INFO | Normal operations (login, deposit, transfer, etc.) |
+| WARNING | Suspicious/notable events (bad password, frozen account, CSRF warning) |
+| ERROR | Unexpected failures (DB errors, external service failures) |
+| CRITICAL | Admin actions (freeze, delete, close account) |
 
 ### Viewing Logs
 
@@ -330,16 +330,16 @@ docker compose run --rm api python -m pytest tests/ -v
 
 ### Environment Variables
 
-|Variable|Required|Default|Description|
-|----------|----------|---------|-------------|
-|`JWT_SECRET`|Yes|—|32+ char random string for JWT signing|
-|`FLASK_SECRET_KEY`|No|(auto)|Legacy, kept for Alembic|
-|`DATABASE_URL`|No|SQLite path|PostgreSQL connection string|
-|`REDIS_URL`|No|`redis://localhost:6379/0`|Redis connection string|
-|`CORS_ALLOWED_ORIGINS`|No|localhost:5173,5000,8000|Comma-separated allowed origins|
-|`JWT_PRIVATE_KEY`|No|—|RS256 private key|
-|`JWT_PUBLIC_KEY`|No|—|RS256 public key|
-|`UNION_BANK_TESTING`|No|0|Set to `1` to disable rate limiting|
+| Variable | Required | Default | Description |
+| ---------- | ---------- | --------- | ------------- |
+| `JWT_SECRET` | Yes | — | 32+ char random string for JWT signing |
+| `FLASK_SECRET_KEY` | No | (auto) | Legacy, kept for Alembic |
+| `DATABASE_URL` | No | SQLite path | PostgreSQL connection string |
+| `REDIS_URL` | No | `redis://localhost:6379/0` | Redis connection string |
+| `CORS_ALLOWED_ORIGINS` | No | localhost:5173,5000,8000 | Comma-separated allowed origins |
+| `JWT_PRIVATE_KEY` | No | — | RS256 private key |
+| `JWT_PUBLIC_KEY` | No | — | RS256 public key |
+| `UNION_BANK_TESTING` | No | 0 | Set to `1` to disable rate limiting |
 
 ### Kubernetes Probes
 
@@ -420,10 +420,10 @@ backups/              # Manual database backups
 
 ### B. Related Documentation
 
-|Document|Purpose|
-|----------|---------|
-|`docs/THREAT_MODEL.md`|Security threat model and mitigations|
-|`docs/ARCHITECTURE.md`|System architecture and data flow|
-|`docs/../decisions/ADR-0005-database-migration.md`|Database migration strategy|
-|`docs/PERFORMANCE.md`|Performance characteristics and benchmarks|
-|`README.md`|Project overview and quick start|
+| Document | Purpose |
+| ---------- | --------- |
+| `docs/THREAT_MODEL.md` | Security threat model and mitigations |
+| `docs/ARCHITECTURE.md` | System architecture and data flow |
+| `docs/../decisions/ADR-0005-database-migration.md` | Database migration strategy |
+| `docs/PERFORMANCE.md` | Performance characteristics and benchmarks |
+| `README.md` | Project overview and quick start |

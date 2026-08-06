@@ -9,15 +9,15 @@
 
 ## 1. Assets
 
-|Asset|Description|Sensitivity|Impact if Compromised|
-|-------|-------------|-------------|-----------------------|
-|**Customer account credentials**|Account number + bcrypt password hash|Confidential|Unauthorized account access|
-|**Account balances**|Current balance for each account|Confidential|Financial theft|
-|**Transaction history**|Full history of deposits, withdrawals, transfers|Confidential|Privacy violation, financial analysis|
-|**Admin credentials**|Admin username + bcrypt password + optional TOTP secret|Highly Confidential|Full system compromise|
-|**JWT signing keys**|HS256 secret or RS256 private key|Highly Confidential|Token forgery|
-|**Database file**|SQLite database with all customer data|Highly Confidential|Complete data breach|
-|**Audit log**|Admin action history|Integrity-sensitive|Repudiation, compliance failure|
+| Asset | Description | Sensitivity | Impact if Compromised |
+| ------- | ------------- | ------------- | ----------------------- |
+| **Customer account credentials** | Account number + bcrypt password hash | Confidential | Unauthorized account access |
+| **Account balances** | Current balance for each account | Confidential | Financial theft |
+| **Transaction history** | Full history of deposits, withdrawals, transfers | Confidential | Privacy violation, financial analysis |
+| **Admin credentials** | Admin username + bcrypt password + optional TOTP secret | Highly Confidential | Full system compromise |
+| **JWT signing keys** | HS256 secret or RS256 private key | Highly Confidential | Token forgery |
+| **Database file** | SQLite database with all customer data | Highly Confidential | Complete data breach |
+| **Audit log** | Admin action history | Integrity-sensitive | Repudiation, compliance failure |
 
 ---
 
@@ -75,12 +75,12 @@ graph TD
 
 ### T1: Unauthorized Account Access via Credential Theft
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Spoofing, Information Disclosure|
-|**Risk**|**High**|
-|**Likelihood**|Medium|
-|**Impact**|High|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Spoofing, Information Disclosure |
+| **Risk** | **High** |
+| **Likelihood** | Medium |
+| **Impact** | High |
 
 **Attack scenario:** Attacker obtains account credentials via phishing, database breach, or brute force.
 
@@ -95,12 +95,12 @@ graph TD
 
 ### T2: Token Forgery / Session Hijacking
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Spoofing, Tampering|
-|**Risk**|**High**|
-|**Likelihood**|Low|
-|**Impact**|High|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Spoofing, Tampering |
+| **Risk** | **High** |
+| **Likelihood** | Low |
+| **Impact** | High |
 
 **Attack scenario:** Attacker obtains a valid JWT (via XSS, network interception, or database breach of refresh tokens).
 
@@ -117,12 +117,12 @@ graph TD
 
 ### T3: Injection Attacks
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Tampering, Information Disclosure|
-|**Risk**|**High**|
-|**Likelihood**|Low|
-|**Impact**|High|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Tampering, Information Disclosure |
+| **Risk** | **High** |
+| **Likelihood** | Low |
+| **Impact** | High |
 
 **Attack scenario:** SQL injection, command injection, or NoSQL injection via API parameters.
 
@@ -137,12 +137,12 @@ graph TD
 
 ### T4: Cross-Site Scripting (XSS)
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Remote Code Execution|
-|**Risk**|**Medium**|
-|**Likelihood**|Medium|
-|**Impact**|Medium|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Remote Code Execution |
+| **Risk** | **Medium** |
+| **Likelihood** | Medium |
+| **Impact** | Medium |
 
 **Attack scenario:** Attacker injects malicious JavaScript via account names, transaction descriptions, or other user-editable fields.
 
@@ -156,12 +156,12 @@ graph TD
 
 ### T5: CSRF (Cross-Site Request Forgery)
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Tampering|
-|**Risk**|**Low**|
-|**Likelihood**|Low|
-|**Impact**|Medium|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Tampering |
+| **Risk** | **Low** |
+| **Likelihood** | Low |
+| **Impact** | Medium |
 
 **Attack scenario:** Attacker tricks authenticated user into performing state-changing operations via a malicious site.
 
@@ -174,12 +174,12 @@ graph TD
 
 ### T6: Rate Limiting Bypass
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Denial of Service|
-|**Risk**|**Medium**|
-|**Likelihood**|Medium|
-|**Impact**|Medium|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Denial of Service |
+| **Risk** | **Medium** |
+| **Likelihood** | Medium |
+| **Impact** | Medium |
 
 **Attack scenario:** Attacker floods the API with requests to exhaust resources or brute-force credentials.
 
@@ -198,12 +198,12 @@ graph TD
 
 ### T7: Database Compromise
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Information Disclosure, Tampering|
-|**Risk**|**Critical**|
-|**Likelihood**|Low|
-|**Impact**|Critical|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Information Disclosure, Tampering |
+| **Risk** | **Critical** |
+| **Likelihood** | Low |
+| **Impact** | Critical |
 
 **Attack scenario:** Attacker gains access to the SQLite database file via file inclusion, backup exposure, or server compromise.
 
@@ -218,12 +218,12 @@ graph TD
 
 ### T8: TOTP 2FA Bypass
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Spoofing|
-|**Risk**|**Low**|
-|**Likelihood**|Low|
-|**Impact**|High|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Spoofing |
+| **Risk** | **Low** |
+| **Likelihood** | Low |
+| **Impact** | High |
 
 **Attack scenario:** Attacker bypasses TOTP verification on admin login.
 
@@ -238,12 +238,12 @@ graph TD
 
 ### T9: Audit Log Tampering
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Repudiation, Tampering|
-|**Risk**|**Medium**|
-|**Likelihood**|Low|
-|**Impact**|Medium|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Repudiation, Tampering |
+| **Risk** | **Medium** |
+| **Likelihood** | Low |
+| **Impact** | Medium |
 
 **Attack scenario:** Attacker deletes or modifies audit log entries to hide unauthorized actions.
 
@@ -256,12 +256,12 @@ graph TD
 
 ### T10: Dependency Vulnerability
 
-|Attribute|Value|
-|-----------|-------|
-|**STRIDE**|Remote Code Execution|
-|**Risk**|**Medium**|
-|**Likelihood**|Low|
-|**Impact**|High|
+| Attribute | Value |
+| ----------- | ------- |
+| **STRIDE** | Remote Code Execution |
+| **Risk** | **Medium** |
+| **Likelihood** | Low |
+| **Impact** | High |
 
 **Attack scenario:** A known CVE in one of the project's Python dependencies is exploited.
 
@@ -276,30 +276,30 @@ graph TD
 
 ## 4. Security Controls Summary
 
-|Control|Category|Status|
-|---------|----------|--------|
-|bcrypt password hashing|Authentication|✅ Implemented|
-|JWT access tokens (15-min expiry)|Authentication|✅ Implemented|
-|JWT refresh tokens (7-day, revocable)|Authentication|✅ Implemented|
-|Token version invalidation|Authentication|✅ Implemented|
-|Refresh token rotation|Authentication|✅ Implemented|
-|Rate limiting (IP-based)|Anti-DoS|✅ Implemented|
-|Rate limiting (account-aware)|Anti-DoS|✅ Implemented (login only)|
-|TOTP 2FA for admin|Authentication|✅ Implemented|
-|Content-Security-Policy|XSS Prevention|✅ Implemented|
-|Security headers (HSTS, XFO, etc.)|Defense in Depth|✅ Implemented|
-|CSRF middleware|CSRF Prevention|✅ Implemented (logging mode)|
-|CORS restriction|Cross-Origin|✅ Implemented|
-|Input validation (Pydantic)|Injection Prevention|✅ Implemented|
-|SQLAlchemy ORM (parameterized queries)|SQL Injection|✅ Implemented|
-|Structured JSON logging|Observability|✅ Implemented|
-|Prometheus metrics|Monitoring|⚠️ Defined but not fully wired|
-|Password NOT in API responses|Data Leakage|✅ Fixed (Phase 2)|
-|All exceptions logged, not swallowed|Error Handling|✅ Fixed (Phase 2)|
-|Soft-delete for accounts|Data Integrity|❌ Not implemented|
-|Idempotency keys|Data Integrity|❌ Not implemented|
-|PostgreSQL (production DB)|Data at Rest|❌ Not implemented (SQLite)|
-|Database encryption at rest|Data at Rest|❌ Not implemented|
+| Control | Category | Status |
+| --------- | ---------- | -------- |
+| bcrypt password hashing | Authentication | ✅ Implemented |
+| JWT access tokens (15-min expiry) | Authentication | ✅ Implemented |
+| JWT refresh tokens (7-day, revocable) | Authentication | ✅ Implemented |
+| Token version invalidation | Authentication | ✅ Implemented |
+| Refresh token rotation | Authentication | ✅ Implemented |
+| Rate limiting (IP-based) | Anti-DoS | ✅ Implemented |
+| Rate limiting (account-aware) | Anti-DoS | ✅ Implemented (login only) |
+| TOTP 2FA for admin | Authentication | ✅ Implemented |
+| Content-Security-Policy | XSS Prevention | ✅ Implemented |
+| Security headers (HSTS, XFO, etc.) | Defense in Depth | ✅ Implemented |
+| CSRF middleware | CSRF Prevention | ✅ Implemented (logging mode) |
+| CORS restriction | Cross-Origin | ✅ Implemented |
+| Input validation (Pydantic) | Injection Prevention | ✅ Implemented |
+| SQLAlchemy ORM (parameterized queries) | SQL Injection | ✅ Implemented |
+| Structured JSON logging | Observability | ✅ Implemented |
+| Prometheus metrics | Monitoring | ⚠️ Defined but not fully wired |
+| Password NOT in API responses | Data Leakage | ✅ Fixed (Phase 2) |
+| All exceptions logged, not swallowed | Error Handling | ✅ Fixed (Phase 2) |
+| Soft-delete for accounts | Data Integrity | ❌ Not implemented |
+| Idempotency keys | Data Integrity | ❌ Not implemented |
+| PostgreSQL (production DB) | Data at Rest | ❌ Not implemented (SQLite) |
+| Database encryption at rest | Data at Rest | ❌ Not implemented |
 
 ---
 

@@ -63,14 +63,14 @@ project_root/
 
 ## Test Results
 
-|Suite|Status|Count|
-|-------|--------|-------|
-|Unit tests (services, utils)|✅ All pass|100|
-|Integration tests (SQLite)|✅ All pass|39|
-|Property-based tests|✅ All pass|5|
-|Smoke tests|✅ All pass|6|
-|**API integration tests**|❌ **Pre-existing error**|55 errors|
-|**Concurrency tests**|❌ **Pre-existing failure**|2 failures|
+| Suite | Status | Count |
+| ------- | -------- | ------- |
+| Unit tests (services, utils) | ✅ All pass | 100 |
+| Integration tests (SQLite) | ✅ All pass | 39 |
+| Property-based tests | ✅ All pass | 5 |
+| Smoke tests | ✅ All pass | 6 |
+| **API integration tests** | ❌ **Pre-existing error** | 55 errors |
+| **Concurrency tests** | ❌ **Pre-existing failure** | 2 failures |
 
 **Pre-existing issues (not caused by cleanup):**
 1. `test_api_integration.py`: `TypeError: Client.__init__() got an unexpected keyword argument 'app'` — Starlette/TestClient version incompatibility on Python 3.14
@@ -78,14 +78,14 @@ project_root/
 
 ## Security Status
 
-|Issue|Status|
-|-------|--------|
-|Password hash in API response|✅ **FIXED** (Phase 2, Step 1)|
-|TOTP 2FA|✅ Already implemented in LIVE code (root `api.py`)|
-|Refresh token rotation|✅ Already implemented in LIVE code|
-|Token version validation|✅ Already enforced in `get_current_customer()`|
-|Hard-delete cascading transactions|❌ Still open (Phase 3)|
-|Idempotency keys|❌ Still open (Phase 3)|
+| Issue | Status |
+| ------- | -------- |
+| Password hash in API response | ✅ **FIXED** (Phase 2, Step 1) |
+| TOTP 2FA | ✅ Already implemented in LIVE code (root `api.py`) |
+| Refresh token rotation | ✅ Already implemented in LIVE code |
+| Token version validation | ✅ Already enforced in `get_current_customer()` |
+| Hard-delete cascading transactions | ❌ Still open (Phase 3) |
+| Idempotency keys | ❌ Still open (Phase 3) |
 
 ---
 

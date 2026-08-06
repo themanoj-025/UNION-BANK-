@@ -110,12 +110,12 @@ def test_concurrent_transfers_conserve_money(self):
 
 ### Trade-offs
 
-|Pro|Con|
-|-----|-----|
-|Atomicity guarantee — money never disappears|Savepoints add ~2-5% overhead per transaction|
-|Simple to understand and audit|SQLite write lock serializes concurrent transfers|
-|Testable via fault injection|Not a distributed solution — doesn't handle multi-service transactions|
-|Works with both SQLite and PostgreSQL|Requires careful session management|
+| Pro | Con |
+| ----- | ----- |
+| Atomicity guarantee — money never disappears | Savepoints add ~2-5% overhead per transaction |
+| Simple to understand and audit | SQLite write lock serializes concurrent transfers |
+| Testable via fault injection | Not a distributed solution — doesn't handle multi-service transactions |
+| Works with both SQLite and PostgreSQL | Requires careful session management |
 
 ### What I'd Do Differently at Scale
 
@@ -193,12 +193,12 @@ This is the kind of technical debt that kills maintainability. A new engineer jo
 
 ### Trade-offs
 
-|Pro|Con|
-|-----|-----|
-|Zero ambiguity — one canonical tree for all code|Inventory document must be maintained|
-|Dead code deletion reduces surface area for bugs|Potential (but testable) risk of deleting something thought dead|
-|Phantom features either work or are removed|Takes upfront time to trace import graphs|
-|New engineers understand the architecture in minutes|Not glamorous — looks like cleanup, not feature work|
+| Pro | Con |
+| ----- | ----- |
+| Zero ambiguity — one canonical tree for all code | Inventory document must be maintained |
+| Dead code deletion reduces surface area for bugs | Potential (but testable) risk of deleting something thought dead |
+| Phantom features either work or are removed | Takes upfront time to trace import graphs |
+| New engineers understand the architecture in minutes | Not glamorous — looks like cleanup, not feature work |
 
 ### What This Unlocked
 
@@ -311,12 +311,12 @@ assert response.status_code == 403  # Forbidden
 
 ### Trade-offs
 
-|Pro|Con|
-|-----|-----|
-|Defense in depth — no single point of failure|More code to maintain|
-|Every layer is independently testable|httpOnly cookies require CSRF strategy|
-|No paid services — fully self-contained|More complex local setup (Redis required for rate limiting)|
-|Security tests in CI prevent regressions|False positives possible (e.g., rate limiting in tests)|
+| Pro | Con |
+| ----- | ----- |
+| Defense in depth — no single point of failure | More code to maintain |
+| Every layer is independently testable | httpOnly cookies require CSRF strategy |
+| No paid services — fully self-contained | More complex local setup (Redis required for rate limiting) |
+| Security tests in CI prevent regressions | False positives possible (e.g., rate limiting in tests) |
 
 ---
 
@@ -397,27 +397,27 @@ The test exercises the **same service code** that runs in production. The only d
 
 ### Results
 
-|Metric|Before|After|
-|--------|--------|-------|
-|Test count|~100|386 (376 backend + 10 frontend)|
-|Coverage|26%|73%|
-|Property-based tests|0|5 invariants + stateful machine|
-|Concurrency tests|0|10-parallel-transfer test|
-|Security tests|0|SQLi, XSS, CSRF, JWT, password leak|
-|Frontend tests|0|10 (Vitest + React Testing Library)|
-|Mutation tests|0|mutmut report in CI|
-|Fuzz tests|0|schemathesis against OpenAPI spec|
-|Migration tests|0|5 Alembic round-trip tests|
-|CI jobs|2|10 (unit, integration, frontend, security, mutation, fuzz, docker, secrets, commitlint, postgres)|
+| Metric | Before | After |
+| -------- | -------- | ------- |
+| Test count | ~100 | 386 (376 backend + 10 frontend) |
+| Coverage | 26% | 73% |
+| Property-based tests | 0 | 5 invariants + stateful machine |
+| Concurrency tests | 0 | 10-parallel-transfer test |
+| Security tests | 0 | SQLi, XSS, CSRF, JWT, password leak |
+| Frontend tests | 0 | 10 (Vitest + React Testing Library) |
+| Mutation tests | 0 | mutmut report in CI |
+| Fuzz tests | 0 | schemathesis against OpenAPI spec |
+| Migration tests | 0 | 5 Alembic round-trip tests |
+| CI jobs | 2 | 10 (unit, integration, frontend, security, mutation, fuzz, docker, secrets, commitlint, postgres) |
 
 ### Trade-offs
 
-|Pro|Con|
-|-----|-----|
-|Property-based tests find edge cases example tests miss|Harder to write and debug (shrinking output can be cryptic)|
-|Protocol-based fakes are faster than real database|Need to maintain fake implementations alongside real ones|
-|Concurrency tests prove correctness under load|Flaky in CI if timing-dependent (mitigated by careful design)|
-|No coverage padding — every test tests a real behavior|Lower coverage than padded alternatives — but more useful|
+| Pro | Con |
+| ----- | ----- |
+| Property-based tests find edge cases example tests miss | Harder to write and debug (shrinking output can be cryptic) |
+| Protocol-based fakes are faster than real database | Need to maintain fake implementations alongside real ones |
+| Concurrency tests prove correctness under load | Flaky in CI if timing-dependent (mitigated by careful design) |
+| No coverage padding — every test tests a real behavior | Lower coverage than padded alternatives — but more useful |
 
 ---
 

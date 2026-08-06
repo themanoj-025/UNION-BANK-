@@ -118,8 +118,8 @@ Each conversion follows the same pattern:
 
 ## Current status
 
-|Phase|Status|Files Done|
-|-------|--------|------------|
-|A: Types only|❌ Not started|0/3 type files|
-|B: Core infra|❌ Not started|0/2 core files|
-|C: Pages|❌ Not started|0/14 page files|
+| Phase | Status | Files Done |
+| ------- | -------- | ------------ |
+| A: Types only | ❌ Not started | 0/3 type files |
+| B: Core infra | ❌ Not started | 0/2 core files |
+| C: Pages | ❌ Not started | 0/14 page files |

@@ -106,11 +106,11 @@ The initial audit (scoring 3.8/10) identified several critical security gaps:
 
 ## Decision Summary
 
-|Decision|Status|Priority|Complexity|
-|----------|--------|----------|------------|
-|DB-backed refresh tokens|✅ Implemented|Critical|Medium|
-|Token version validation|✅ Implemented|Critical|Low|
-|TOTP 2FA for admins|✅ Implemented|High|Medium|
-|CSRF Origin/Referer logging|✅ Implemented|Medium|Low|
-|Remove hardcoded credentials|✅ Implemented|Critical|Low|
-|../reference/THREAT_MODEL.md documentation|✅ Implemented|Medium|Low|
+| Decision | Status | Priority | Complexity |
+| ---------- | -------- | ---------- | ------------ |
+| DB-backed refresh tokens | ✅ Implemented | Critical | Medium |
+| Token version validation | ✅ Implemented | Critical | Low |
+| TOTP 2FA for admins | ✅ Implemented | High | Medium |
+| CSRF Origin/Referer logging | ✅ Implemented | Medium | Low |
+| Remove hardcoded credentials | ✅ Implemented | Critical | Low |
+| ../reference/THREAT_MODEL.md documentation | ✅ Implemented | Medium | Low |

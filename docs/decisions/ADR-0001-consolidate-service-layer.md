@@ -25,11 +25,11 @@ Delete the old `services.py` and `repositories.py` files entirely. Migrate all c
 
 ### Migration summary
 
-|Caller|Old import|New usage|
-|--------|-----------|-----------|
-|`api.py` (v1)|`from services import process_deposit, ...`|`container.transaction_service().deposit(...)`|
-|`account.py` (CLI)|`from services import process_deposit, ...`|`container.transaction_service().deposit(...)`|
-|`scripts/migrate_json_to_sqlite.py`|`from repositories import AccountRepository, ...`|`from infrastructure.repositories import SqlAlchemyAccountRepository, ...`|
+| Caller | Old import | New usage |
+| -------- | ----------- | ----------- |
+| `api.py` (v1) | `from services import process_deposit, ...` | `container.transaction_service().deposit(...)` |
+| `account.py` (CLI) | `from services import process_deposit, ...` | `container.transaction_service().deposit(...)` |
+| `scripts/migrate_json_to_sqlite.py` | `from repositories import AccountRepository, ...` | `from infrastructure.repositories import SqlAlchemyAccountRepository, ...` |
 
 ### Dead code discovered
 

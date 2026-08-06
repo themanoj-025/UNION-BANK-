@@ -1,11 +1,11 @@
 # Deployment — UNION-BANK-: Deployment Guide
 
-|Field|Value|
-|---|---|
-|Version|v0.1|
-|Last Updated|2026-08-06|
-|Owner|DevOps Engineer|
-|Status|Approved|
+| Field | Value |
+| --- | --- |
+| Version | v0.1 |
+| Last Updated | 2026-08-06 |
+| Owner | DevOps Engineer |
+| Status | Approved |
 
 ---
 
@@ -23,11 +23,11 @@ graph LR
 
 ## 2. Environment Promotion
 
-|Stage|Trigger|Verification|
-|---|---|---|
-|Dev|manual|uvicorn + vite|
-|CI|PR/merge|10 jobs + coverage|
-|Prod demo|docker-compose.prod.yml|probes + demo creds|
+| Stage | Trigger | Verification |
+| --- | --- | --- |
+| Dev | manual | uvicorn + vite |
+| CI | PR/merge | 10 jobs + coverage |
+| Prod demo | docker-compose.prod.yml | probes + demo creds |
 
 ## 3. Deployment Topology
 
@@ -71,9 +71,9 @@ graph TD
 
 ## 7. Related Documents
 
-|Document|Relationship|
-|---|---|
-|[TechSpec.md](TechSpec.md)|Environments matrix|
-|[API.md](API.md)|Probe endpoints|
-|[SecurityAndCompliance.md](SecurityAndCompliance.md)|Incident response|
-|[ImplementationPlan.md](../project/ImplementationPlan.md)|TASK-3.x|
+| Document | Relationship |
+| --- | --- |
+| [TechSpec.md](TechSpec.md) | Environments matrix |
+| [API.md](API.md) | Probe endpoints |
+| [SecurityAndCompliance.md](SecurityAndCompliance.md) | Incident response |
+| [ImplementationPlan.md](../project/ImplementationPlan.md) | TASK-3.x |

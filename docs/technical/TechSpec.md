@@ -164,6 +164,24 @@ sequenceDiagram
 | API drift v1/v2 | Envelope v2 + deprecation headers + contract tests |
 | Token theft | httpOnly + rotation + bcrypt-hashed refresh |
 
+## Deployment Topology
+
+```mermaid
+graph TD
+    USER[Browser] --> SPA[React 19 SPA]
+    SPA --> API[FastAPI async]
+    API --> PG[(PostgreSQL 16)]
+    API --> REDIS[(Redis 7.2: 60s TTL cache)]
+    API --> ALEMBIC[Alembic migrations]
+    subgraph Deploy
+        SPA --> SPA_C[Frontend container]
+        API --> API_C[API container]
+        PG --> PG_C[Postgres container]
+        REDIS --> RD_C[Redis container]
+        K8S[Kubernetes / docker-compose.prod.yml] --> API_C
+    end
+```
+
 ## 11. Related Documents
 
 | Document | Relationship |

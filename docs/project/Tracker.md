@@ -69,6 +69,7 @@
 
 ## 6. Changelog
 
+- 2026-08-06: **Documentation suite complete** — 14-file suite consolidated into `docs/`, categorized structure, cross-linked navigation, deployment/git/auth diagrams, quality gate passed (238/238), merged to `main`.
 - 2026-08-06: Documentation suite generated (14 files); R-01 blocker logged.
 - 2026-07-22: React SPA + 10 frontend tests shipped.
 - 2026-07-16: Grafana + K8s manifests shipped.
